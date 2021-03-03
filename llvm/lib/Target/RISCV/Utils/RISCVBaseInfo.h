@@ -44,7 +44,9 @@ enum {
   InstFormatCB = 15,
   InstFormatCJ = 16,
   InstFormatOther = 17,
-
+#ifdef ESPERANTO
+  InstFormatE1 = 18, // et-soc-1
+#endif
   InstFormatMask = 31,
 };
 

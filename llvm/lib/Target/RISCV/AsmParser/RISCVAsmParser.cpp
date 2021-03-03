@@ -957,6 +957,11 @@ static Register convertFPR64ToFPR32(Register Reg) {
   return Reg - RISCV::F0_D + RISCV::F0_F;
 }
 
+static Register convertFPR64ToFPR256(Register Reg) {
+  assert(Reg >= RISCV::F0_D && Reg <= RISCV::F31_D && "Invalid register");
+  return Reg - RISCV::F0_D + RISCV::F0_PS;
+}
+
 unsigned RISCVAsmParser::validateTargetOperandClass(MCParsedAsmOperand &AsmOp,
                                                     unsigned Kind) {
   RISCVOperand &Op = static_cast<RISCVOperand &>(AsmOp);
@@ -976,6 +981,12 @@ unsigned RISCVAsmParser::validateTargetOperandClass(MCParsedAsmOperand &AsmOp,
     Op.Reg.RegNum = convertFPR64ToFPR32(Reg);
     return Match_Success;
   }
+
+  if (IsRegFPR64 && Kind == MCK_FPR256) {
+    Op.Reg.RegNum = convertFPR64ToFPR256(Reg);
+    return Match_Success;
+  }
+
   return Match_InvalidOperand;
 }
 
