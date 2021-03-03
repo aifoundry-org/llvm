@@ -332,3 +332,5 @@ def VM : RegisterClass<"RISCV", VMaskVT.types, 64, (add
 def VMV0 : RegisterClass<"RISCV", VMaskVT.types, 64, (add V0)> {
   let Size = 64;
 }
+
+include "RISCVRegisterInfoEsperanto.td"
