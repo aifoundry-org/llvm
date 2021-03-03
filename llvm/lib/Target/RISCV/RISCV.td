@@ -155,6 +155,14 @@ def HasStdExtV : Predicate<"Subtarget->hasStdExtV()">,
                            AssemblerPredicate<(all_of FeatureStdExtV),
                            "'V' (Vector Instructions)">;
 
+def FeatureEsperanto
+    : SubtargetFeature<"x", "HasEsperanto", "true",
+                       "'X' (Esperanto Instructions)",
+                       [FeatureStdExtF]>;
+def HasEsperanto : Predicate<"Subtarget->hasEsperanto()">,
+                           AssemblerPredicate<(all_of FeatureEsperanto),
+                           "'X' (Esperanto Instructions)">;
+
 def Feature64Bit
     : SubtargetFeature<"64bit", "HasRV64", "true", "Implements RV64">;
 def IsRV64 : Predicate<"Subtarget->is64Bit()">,
@@ -225,6 +233,12 @@ def : ProcessorModel<"sifive-u54", Rocket64Model, [Feature64Bit,
                                                    FeatureStdExtF,
                                                    FeatureStdExtD,
                                                    FeatureStdExtC]>;
+
+def : ProcessorModel<"et-soc-1", NoSchedModel, [Feature64Bit,
+                                                FeatureStdExtM,
+                                                FeatureStdExtF,
+                                                FeatureStdExtC,
+                                                FeatureEsperanto]>;
 
 //===----------------------------------------------------------------------===//
 // Define the RISC-V target.

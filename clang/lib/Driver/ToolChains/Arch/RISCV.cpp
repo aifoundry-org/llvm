@@ -457,6 +457,8 @@ void getRISCFeaturesFromMcpu(const Driver &D, const llvm::Triple &Triple,
       !llvm::RISCV::getCPUFeaturesExceptStdExt(CPUKind, Features)) {
     D.Diag(clang::diag::err_drv_clang_unsupported) << A->getAsString(Args);
   }
+  if (CPUKind == llvm::RISCV::CK_ESPERANTO)
+    Features.push_back("+x");
 }
 
 void riscv::getRISCVTargetFeatures(const Driver &D, const llvm::Triple &Triple,
