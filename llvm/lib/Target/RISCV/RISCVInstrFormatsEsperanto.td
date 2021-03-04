@@ -176,3 +176,11 @@ class RVInstRPSidx<bits<7> funct7, bits<3> funct3, RISCVOpcode opcode,
                  (ins FPR256:$rs1, uimm5:$idx), // TODO -- uimm3
                  opcodestr, "$rd, $rs1, $idx">;
                   
+// Example: FLEM.PS
+class RVInstRPSM<bits<5> funct5, bits<3> funct3, RISCVOpcode opcode,
+                string opcodestr> :
+         RVInstR<!mul(funct5,4), funct3, opcode,
+                 (outs MR:$rd),
+                 (ins FPR256:$rs1, FPR256:$rs2),
+                 opcodestr, "$rd, $rs1, $rs2">;
+

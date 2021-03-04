@@ -96,7 +96,16 @@ def FCVT_PS_PWU : RVInstRPSrm2<0b1101000, 1, OPC_OP_PS, "fcvt.ps.pw">;
 def FMVZ_X_PS : RVInstRPSidx<0b1110000, 0b000, OPC_OP_PS, "fmvz.x.ps">;
 def FMVS_X_PS : RVInstRPSidx<0b1110000, 0b010, OPC_OP_PS, "fmvs.x.ps">;
 
+def FSGNJN_PS : RVInstRPS<0b00100, 0b001, OPC_OP_PS, "fsgnjn.ps">;
+def FSGNJ_PS  : RVInstRPS<0b00100, 0b000, OPC_OP_PS, "fsgnj.ps">;
+def FSGNJX_PS : RVInstRPS<0b00100, 0b010, OPC_OP_PS, "fsgnjx.ps">;
+def FLE_PS    : RVInstRPS<0b10100, 0b000, OPC_OP_PS, "fle.ps">;
+def FLT_PS    : RVInstRPS<0b10100, 0b001, OPC_OP_PS, "flt.ps">;
+def FEQ_PS    : RVInstRPS<0b10100, 0b010, OPC_OP_PS, "feq.ps">;
 
+def FLEM_PS   : RVInstRPSM<0b10100, 0b100, OPC_OP_PS, "flem.ps">;
+def FLTM_PS   : RVInstRPSM<0b10100, 0b101, OPC_OP_PS, "fltm.ps">;
+def FEQM_PS   : RVInstRPSM<0b10100, 0b110, OPC_OP_PS, "feqm.ps">;
 }
 
 

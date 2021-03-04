@@ -43,14 +43,16 @@ def FPR256 : RegisterClass<"RISCV", [v8i32, v32i8, v8f32, v16f16],
     (sequence "F%u_PS", 18, 27)
 )>;
 
+let RegAltNameIndices = [ABIRegAltName] in {
 // Mask registers m0...m7
 foreach Index = 0-7 in {
   def M#Index : RISCVReg<Index, "m"#Index, ["m"#Index]>,
                          DwarfRegNum<[!add(Index, 97)]>;
 }
+}
 
 def MR : RegisterClass<"RISCV", [i8], 8, (add
-                       (sequence "V%u", 0, 7))> {
+                       (sequence "M%u", 0, 7))> {
     let Size = 8;
 }
 

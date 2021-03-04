@@ -131,6 +131,16 @@ static DecodeStatus DecodeFPR256RegisterClass(MCInst &Inst, uint64_t RegNo,
   Inst.addOperand(MCOperand::createReg(Reg));
   return MCDisassembler::Success;
 }
+static DecodeStatus DecodeMRRegisterClass(MCInst &Inst, uint64_t RegNo,
+                                              uint64_t Address,
+                                              const void *Decoder) {
+  if (RegNo >= 32)
+    return MCDisassembler::Fail;
+
+  Register Reg = RISCV::M0 + RegNo;
+  Inst.addOperand(MCOperand::createReg(Reg));
+  return MCDisassembler::Success;
+}
 #endif
 
 static DecodeStatus DecodeGPRNoX0RegisterClass(MCInst &Inst, uint64_t RegNo,
