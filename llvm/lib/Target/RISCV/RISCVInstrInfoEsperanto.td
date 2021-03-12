@@ -36,8 +36,8 @@ def FLW_PS : RVInstI<0b010, OPC_MEM_PS,
 let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in
 def FSW_PS : RVInstS<0b110, OPC_MEM_PS,
                    (outs),
-                   (ins FPR256:$rs2, GPR:$rs1, simm12:$imm12),
-                   "fsw.ps", "$rs2, ${imm12}(${rs1})">;
+                   (ins FPR256:$rs1, GPR:$rs2, simm12:$imm12),
+                   "fsw.ps", "$rs1, ${imm12}(${rs2})">;
 
 let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in
 def FBC_PS : RVInstI<0b000, OPC_MEM_PS,
@@ -105,7 +105,8 @@ def FLEM_PS   : RVInstRPSM<0b1010000, 0b100, OPC_OP_PS, "flem.ps">;
 def FLTM_PS   : RVInstRPSM<0b1010000, 0b101, OPC_OP_PS, "fltm.ps">;
 def FEQM_PS   : RVInstRPSM<0b1010000, 0b110, OPC_OP_PS, "feqm.ps">;
         
-def FCLASS_PS    : RVInstRCvtPS<0b00000, 0b001, "fclass.ps">;
+def FCLASS_PS : PSUnary<0b1110000, 0b00000, 0b001, OPC_OP_PS, "fclass.ps">;
+
 def FCVT_PS_F10  : RVInstRCvtPS<0b01000, 0b000, "fcvt.ps.f10">;
 def FCVT_PS_F11  : RVInstRCvtPS<0b01001, 0b000, "fcvt.ps.f11">;
 def FCVT_PS_F16  : RVInstRCvtPS<0b01010, 0b000, "fcvt.ps.f16">;
