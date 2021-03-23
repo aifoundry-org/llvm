@@ -690,7 +690,35 @@ def SBG : ETOpsR1R2S<0b0001001, 0b011, "sbg">;
 def SHG : ETOpsR1R2S<0b0001101, 0b011, "shg">;
 }
 
+// These pseudo operations are used for stack references
+// where various places assume the offset immediate follows
+// the address operand. 
+let mayStore = 1 in 
+def StackFSQ2 : Pseudo<(outs),
+                     (ins FPR256:$rs2, GPR:$rs1, simm12:$imm), [],
+                     "fsq2", "$rs2, ${imm}(${rs1})">;
+let mayLoad = 1 in 
+def StackFLQ2 : Pseudo<(outs FPR256:$rd),
+                     (ins GPR:$rs1, simm12:$imm), [],
+                     "flq2", "$rd, ${imm}(${rs1})">;
+
 } // let hasSideEffects = 0, mayLoad = 0, mayStore = 0 
 } // HasEsperanto
 } // DecoderNamespace                                 
 
+                     
+foreach ty =[v8i32, v8f32] in {
+def : Pat<(store (ty FPR256:$rs2), GPR:$rs1), (FSQ2 $rs2, 0, $rs1)>;
+def : Pat<(store (ty FPR256:$rs2), AddrFI:$rs1), (StackFSQ2 $rs2, $rs1, 0)>;
+def : Pat<(store (ty FPR256:$rs2), (add GPR:$rs1, simm12:$imm12)),
+          (FSQ2 $rs2, $imm12, $rs1)>;
+def : Pat<(store (ty FPR256:$rs2), (add AddrFI:$rs1, simm12:$imm12)),
+          (StackFSQ2 $rs2, $rs1, $imm12)>;
+
+def : Pat<(ty (load GPR:$rs1)), (FLQ2 0, $rs1)>;
+def : Pat<(ty (load (add GPR:$rs1, simm12:$imm12))), (FLQ2 $imm12, $rs1)>;
+def : Pat<(ty (load (add AddrFI:$rs1, simm12:$imm12))), (StackFLQ2 $rs1, $imm12)>;
+def : Pat<(ty (load (add AddrFI:$rs1, simm12:$imm12))), (StackFLQ2 $rs1, $imm12)>;
+}
+
+include "RISCVInstrInfoEsperantoPatterns.td"

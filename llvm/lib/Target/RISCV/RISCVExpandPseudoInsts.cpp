@@ -63,6 +63,8 @@ private:
                               MachineBasicBlock::iterator MBBI,
                               MachineBasicBlock::iterator &NextMBBI,
                               unsigned Opcode);
+  bool expandStackOps(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
+                      MachineBasicBlock::iterator &NextMBBI);
 };
 
 char RISCVExpandPseudo::ID = 0;
@@ -416,6 +418,9 @@ bool RISCVExpandPseudo::expandMI(MachineBasicBlock &MBB,
     return expandLoadTLSIEAddress(MBB, MBBI, NextMBBI);
   case RISCV::PseudoLA_TLS_GD:
     return expandLoadTLSGDAddress(MBB, MBBI, NextMBBI);
+  case RISCV::StackFLQ2:
+  case RISCV::StackFSQ2:
+    return expandStackOps(MBB, MBBI, NextMBBI);
   default:
     if (Optional<unsigned> ImplicitOpcode =
             getImplicitOpcode(MBBI->getOpcode()))
@@ -528,6 +533,20 @@ bool RISCVExpandPseudo::expandImplicitOperands(
       continue;
     B.add(Pair.value());
   }
+  MBBI->eraseFromParent();
+  return true;
+}
+
+bool RISCVExpandPseudo::expandStackOps(MachineBasicBlock &MBB,
+                                       MachineBasicBlock::iterator MBBI,
+                                       MachineBasicBlock::iterator &NextMBBI) {
+  unsigned Opcode =
+      (MBBI->getOpcode() == RISCV::StackFLQ2 ? RISCV::FLQ2 : RISCV::FSQ2);
+  BuildMI(MBB, MBBI, MBBI->getDebugLoc(), TII->get(Opcode))
+      .add(MBBI->getOperand(0))
+      .add(MBBI->getOperand(2))
+      .add(MBBI->getOperand(1))
+      .cloneMemRefs(*MBBI);
   MBBI->eraseFromParent();
   return true;
 }

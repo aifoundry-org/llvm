@@ -66,3 +66,4 @@ let TargetPrefix = "riscv" in {
   defm int_riscv_masked_cmpxchg : MaskedAtomicRMWFiveArgIntrinsics;
 
 } // TargetPrefix = "riscv"
+include "llvm/IR/IntrinsicsRISCVET.td"

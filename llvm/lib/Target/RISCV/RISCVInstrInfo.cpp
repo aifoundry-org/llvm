@@ -102,7 +102,25 @@ void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
     Opc = RISCV::FSGNJ_S;
   else if (RISCV::FPR64RegClass.contains(DstReg, SrcReg))
     Opc = RISCV::FSGNJ_D;
-  else
+  else if (RISCV::GPRRegClass.contains(DstReg) &&
+           RISCV::MRRegClass.contains(SrcReg)) {
+    BuildMI(MBB, MBBI, DL, get(RISCV::MOVA_X_M), DstReg);
+    unsigned Idx = SrcReg - RISCV::M0;
+    if (Idx)
+      BuildMI(MBB, MBBI, DL, get(RISCV::SRAI), DstReg)
+          .addReg(DstReg)
+          .addImm(8 * Idx);
+    BuildMI(MBB, MBBI, DL, get(RISCV::ANDI), DstReg)
+        .addReg(DstReg)
+        .addImm(0xff);
+    return;
+  } else if (RISCV::GPRRegClass.contains(SrcReg) &&
+             RISCV::MRRegClass.contains(DstReg)) {
+    BuildMI(MBB, MBBI, DL, get(RISCV::MOV_M_X), DstReg)
+        .addReg(SrcReg, getKillRegState(KillSrc))
+        .addImm(0);
+    return;
+  } else
     llvm_unreachable("Impossible reg-to-reg copy");
 
   BuildMI(MBB, MBBI, DL, get(Opc), DstReg)
@@ -128,7 +146,18 @@ void RISCVInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
     Opcode = RISCV::FSW;
   else if (RISCV::FPR64RegClass.hasSubClassEq(RC))
     Opcode = RISCV::FSD;
-  else
+  else if (RISCV::MRRegClass.hasSubClassEq(RC)) {
+    RegScavenger RS;
+    RS.enterBasicBlockEnd(MBB);
+    Register Scratch =
+        RS.scavengeRegisterBackwards(RISCV::GPRRegClass, I, false, 0);
+    copyPhysReg(MBB, I, DL, Scratch, SrcReg, IsKill);
+    BuildMI(MBB, I, DL, get(RISCV::SB))
+        .addReg(Scratch, getKillRegState(true))
+        .addFrameIndex(FI)
+        .addImm(0);
+    return;
+  } else
     llvm_unreachable("Can't store this register to stack slot");
 
   BuildMI(MBB, I, DL, get(Opcode))
@@ -155,7 +184,15 @@ void RISCVInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
     Opcode = RISCV::FLW;
   else if (RISCV::FPR64RegClass.hasSubClassEq(RC))
     Opcode = RISCV::FLD;
-  else
+  else if (RISCV::MRRegClass.hasSubClassEq(RC)) {
+    RegScavenger RS;
+    RS.enterBasicBlockEnd(MBB);
+    Register Scratch =
+        RS.scavengeRegisterBackwards(RISCV::GPRRegClass, I, false, 0);
+    BuildMI(MBB, I, DL, get(RISCV::LB), Scratch).addFrameIndex(FI).addImm(0);
+    copyPhysReg(MBB, I, DL, DstReg, Scratch, /*killSrc*/ true);
+    return;
+  } else
     llvm_unreachable("Can't load this register from stack slot");
 
   BuildMI(MBB, I, DL, get(Opcode), DstReg).addFrameIndex(FI).addImm(0);
@@ -539,14 +576,23 @@ bool RISCVInstrInfo::verifyInstruction(const MachineInstr &MI,
         switch (OpType) {
         default:
           llvm_unreachable("Unexpected operand type");
+        case RISCVOp::OPERAND_UIMM3:
+          Ok = isUInt<3>(Imm);
+          break;
         case RISCVOp::OPERAND_UIMM4:
           Ok = isUInt<4>(Imm);
           break;
         case RISCVOp::OPERAND_UIMM5:
           Ok = isUInt<5>(Imm);
           break;
+        case RISCVOp::OPERAND_UIMM8:
+          Ok = isUInt<8>(Imm);
+          break;
         case RISCVOp::OPERAND_UIMM12:
           Ok = isUInt<12>(Imm);
+          break;
+        case RISCVOp::OPERAND_SIMM10:
+          Ok = isInt<10>(Imm);
           break;
         case RISCVOp::OPERAND_SIMM12:
           Ok = isInt<12>(Imm);

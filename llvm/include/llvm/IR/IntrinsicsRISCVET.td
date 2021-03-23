@@ -1,0 +1,1057 @@
+let TargetPrefix = "riscv" in {
+def int_riscv_amoaddg_d : 
+  GCCBuiltin<"__builtin_riscv_amoaddg_d">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amoaddg_w : 
+  GCCBuiltin<"__builtin_riscv_amoaddg_w">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amoaddl_d : 
+  GCCBuiltin<"__builtin_riscv_amoaddl_d">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amoaddl_w : 
+  GCCBuiltin<"__builtin_riscv_amoaddl_w">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amoandg_d : 
+  GCCBuiltin<"__builtin_riscv_amoandg_d">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amoandg_w : 
+  GCCBuiltin<"__builtin_riscv_amoandg_w">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amoandl_d : 
+  GCCBuiltin<"__builtin_riscv_amoandl_d">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amoandl_w : 
+  GCCBuiltin<"__builtin_riscv_amoandl_w">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amocmpswapg_d : 
+  GCCBuiltin<"__builtin_riscv_amocmpswapg_d">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amocmpswapg_w : 
+  GCCBuiltin<"__builtin_riscv_amocmpswapg_w">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amocmpswapl_d : 
+  GCCBuiltin<"__builtin_riscv_amocmpswapl_d">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amocmpswapl_w : 
+  GCCBuiltin<"__builtin_riscv_amocmpswapl_w">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amomaxg_d : 
+  GCCBuiltin<"__builtin_riscv_amomaxg_d">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amomaxg_w : 
+  GCCBuiltin<"__builtin_riscv_amomaxg_w">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amomaxl_d : 
+  GCCBuiltin<"__builtin_riscv_amomaxl_d">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amomaxl_w : 
+  GCCBuiltin<"__builtin_riscv_amomaxl_w">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amomaxug_d : 
+  GCCBuiltin<"__builtin_riscv_amomaxug_d">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amomaxug_w : 
+  GCCBuiltin<"__builtin_riscv_amomaxug_w">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amomaxul_d : 
+  GCCBuiltin<"__builtin_riscv_amomaxul_d">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amomaxul_w : 
+  GCCBuiltin<"__builtin_riscv_amomaxul_w">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amoming_d : 
+  GCCBuiltin<"__builtin_riscv_amoming_d">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amoming_w : 
+  GCCBuiltin<"__builtin_riscv_amoming_w">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amominl_d : 
+  GCCBuiltin<"__builtin_riscv_amominl_d">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amominl_w : 
+  GCCBuiltin<"__builtin_riscv_amominl_w">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amominug_d : 
+  GCCBuiltin<"__builtin_riscv_amominug_d">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amominug_w : 
+  GCCBuiltin<"__builtin_riscv_amominug_w">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amominul_d : 
+  GCCBuiltin<"__builtin_riscv_amominul_d">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amominul_w : 
+  GCCBuiltin<"__builtin_riscv_amominul_w">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amoorg_d : 
+  GCCBuiltin<"__builtin_riscv_amoorg_d">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amoorg_w : 
+  GCCBuiltin<"__builtin_riscv_amoorg_w">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amoorl_d : 
+  GCCBuiltin<"__builtin_riscv_amoorl_d">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amoorl_w : 
+  GCCBuiltin<"__builtin_riscv_amoorl_w">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amoswapg_d : 
+  GCCBuiltin<"__builtin_riscv_amoswapg_d">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amoswapg_w : 
+  GCCBuiltin<"__builtin_riscv_amoswapg_w">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amoswapl_d : 
+  GCCBuiltin<"__builtin_riscv_amoswapl_d">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amoswapl_w : 
+  GCCBuiltin<"__builtin_riscv_amoswapl_w">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amoxorg_d : 
+  GCCBuiltin<"__builtin_riscv_amoxorg_d">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amoxorg_w : 
+  GCCBuiltin<"__builtin_riscv_amoxorg_w">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amoxorl_d : 
+  GCCBuiltin<"__builtin_riscv_amoxorl_d">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_amoxorl_w : 
+  GCCBuiltin<"__builtin_riscv_amoxorl_w">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<1>>]>;
+def int_riscv_bitmixb : 
+  GCCBuiltin<"__builtin_riscv_bitmixb">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_cubefaceidx_ps : 
+  GCCBuiltin<"__builtin_riscv_cubefaceidx_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_cubeface_ps : 
+  GCCBuiltin<"__builtin_riscv_cubeface_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_cubesgnsc_ps : 
+  GCCBuiltin<"__builtin_riscv_cubesgnsc_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_cubesgntc_ps : 
+  GCCBuiltin<"__builtin_riscv_cubesgntc_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_faddi_pi : 
+  GCCBuiltin<"__builtin_riscv_faddi_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i32_ty,llvm_i64_ty],
+            [ImmArg<ArgIndex<2>>,IntrNoMem]>;
+def int_riscv_fadd_pi : 
+  GCCBuiltin<"__builtin_riscv_fadd_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fadd_ps : 
+  GCCBuiltin<"__builtin_riscv_fadd_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_i64_ty],
+            [ImmArg<ArgIndex<3>>,IntrNoMem]>;
+def int_riscv_famoaddg_pi : 
+  GCCBuiltin<"__builtin_riscv_famoaddg_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<3>>]>;
+def int_riscv_famoaddl_pi : 
+  GCCBuiltin<"__builtin_riscv_famoaddl_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<3>>]>;
+def int_riscv_famoandg_pi : 
+  GCCBuiltin<"__builtin_riscv_famoandg_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<3>>]>;
+def int_riscv_famoandl_pi : 
+  GCCBuiltin<"__builtin_riscv_famoandl_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<3>>]>;
+def int_riscv_famomaxg_pi : 
+  GCCBuiltin<"__builtin_riscv_famomaxg_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<3>>]>;
+def int_riscv_famomaxg_ps : 
+  GCCBuiltin<"__builtin_riscv_famomaxg_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<3>>]>;
+def int_riscv_famomaxl_pi : 
+  GCCBuiltin<"__builtin_riscv_famomaxl_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<3>>]>;
+def int_riscv_famomaxl_ps : 
+  GCCBuiltin<"__builtin_riscv_famomaxl_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<3>>]>;
+def int_riscv_famomaxug_pi : 
+  GCCBuiltin<"__builtin_riscv_famomaxug_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<3>>]>;
+def int_riscv_famomaxul_pi : 
+  GCCBuiltin<"__builtin_riscv_famomaxul_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<3>>]>;
+def int_riscv_famoming_pi : 
+  GCCBuiltin<"__builtin_riscv_famoming_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<3>>]>;
+def int_riscv_famoming_ps : 
+  GCCBuiltin<"__builtin_riscv_famoming_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<3>>]>;
+def int_riscv_famominl_pi : 
+  GCCBuiltin<"__builtin_riscv_famominl_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<3>>]>;
+def int_riscv_famominl_ps : 
+  GCCBuiltin<"__builtin_riscv_famominl_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<3>>]>;
+def int_riscv_famominug_pi : 
+  GCCBuiltin<"__builtin_riscv_famominug_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<3>>]>;
+def int_riscv_famominul_pi : 
+  GCCBuiltin<"__builtin_riscv_famominul_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<3>>]>;
+def int_riscv_famoorg_pi : 
+  GCCBuiltin<"__builtin_riscv_famoorg_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<3>>]>;
+def int_riscv_famoorl_pi : 
+  GCCBuiltin<"__builtin_riscv_famoorl_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<3>>]>;
+def int_riscv_famoswapg_pi : 
+  GCCBuiltin<"__builtin_riscv_famoswapg_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<3>>]>;
+def int_riscv_famoswapl_pi : 
+  GCCBuiltin<"__builtin_riscv_famoswapl_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<3>>]>;
+def int_riscv_famoxorg_pi : 
+  GCCBuiltin<"__builtin_riscv_famoxorg_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<3>>]>;
+def int_riscv_famoxorl_pi : 
+  GCCBuiltin<"__builtin_riscv_famoxorl_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,NoCapture<ArgIndex<3>>]>;
+def int_riscv_fandi_pi : 
+  GCCBuiltin<"__builtin_riscv_fandi_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i32_ty,llvm_i64_ty],
+            [ImmArg<ArgIndex<2>>,IntrNoMem]>;
+def int_riscv_fand_pi : 
+  GCCBuiltin<"__builtin_riscv_fand_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fbci_pi : 
+  GCCBuiltin<"__builtin_riscv_fbci_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_i32_ty,llvm_i64_ty],
+            [ImmArg<ArgIndex<1>>,IntrNoMem]>;
+def int_riscv_fbci_ps : 
+  GCCBuiltin<"__builtin_riscv_fbci_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_i32_ty,llvm_i64_ty],
+            [ImmArg<ArgIndex<1>>,IntrNoMem]>;
+def int_riscv_fbcx_ps : 
+  GCCBuiltin<"__builtin_riscv_fbcx_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<2>>]>;
+def int_riscv_fbc_ps : 
+  GCCBuiltin<"__builtin_riscv_fbc_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [ImmArg<ArgIndex<1>>,IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<3>>]>;
+def int_riscv_fclass_ps : 
+  GCCBuiltin<"__builtin_riscv_fclass_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fcmovm_ps : 
+  GCCBuiltin<"__builtin_riscv_fcmovm_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fcmov_ps : 
+  GCCBuiltin<"__builtin_riscv_fcmov_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fcvt_f10_ps : 
+  GCCBuiltin<"__builtin_riscv_fcvt_f10_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fcvt_f11_ps : 
+  GCCBuiltin<"__builtin_riscv_fcvt_f11_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fcvt_f16_ps : 
+  GCCBuiltin<"__builtin_riscv_fcvt_f16_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fcvt_ps_f10 : 
+  GCCBuiltin<"__builtin_riscv_fcvt_ps_f10">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fcvt_ps_f11 : 
+  GCCBuiltin<"__builtin_riscv_fcvt_ps_f11">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fcvt_ps_f16 : 
+  GCCBuiltin<"__builtin_riscv_fcvt_ps_f16">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fcvt_ps_pwu : 
+  GCCBuiltin<"__builtin_riscv_fcvt_ps_pwu">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_i64_ty],
+            [ImmArg<ArgIndex<2>>,IntrNoMem]>;
+def int_riscv_fcvt_ps_pw : 
+  GCCBuiltin<"__builtin_riscv_fcvt_ps_pw">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_i64_ty],
+            [ImmArg<ArgIndex<2>>,IntrNoMem]>;
+def int_riscv_fcvt_ps_rast : 
+  GCCBuiltin<"__builtin_riscv_fcvt_ps_rast">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fcvt_ps_sn16 : 
+  GCCBuiltin<"__builtin_riscv_fcvt_ps_sn16">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fcvt_ps_sn8 : 
+  GCCBuiltin<"__builtin_riscv_fcvt_ps_sn8">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fcvt_ps_un10 : 
+  GCCBuiltin<"__builtin_riscv_fcvt_ps_un10">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fcvt_ps_un16 : 
+  GCCBuiltin<"__builtin_riscv_fcvt_ps_un16">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fcvt_ps_un24 : 
+  GCCBuiltin<"__builtin_riscv_fcvt_ps_un24">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fcvt_ps_un2 : 
+  GCCBuiltin<"__builtin_riscv_fcvt_ps_un2">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fcvt_ps_un8 : 
+  GCCBuiltin<"__builtin_riscv_fcvt_ps_un8">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fcvt_pwu_ps : 
+  GCCBuiltin<"__builtin_riscv_fcvt_pwu_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_i64_ty],
+            [ImmArg<ArgIndex<2>>,IntrNoMem]>;
+def int_riscv_fcvt_pw_ps : 
+  GCCBuiltin<"__builtin_riscv_fcvt_pw_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_i64_ty],
+            [ImmArg<ArgIndex<2>>,IntrNoMem]>;
+def int_riscv_fcvt_rast_ps : 
+  GCCBuiltin<"__builtin_riscv_fcvt_rast_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fcvt_sn16_ps : 
+  GCCBuiltin<"__builtin_riscv_fcvt_sn16_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fcvt_sn8_ps : 
+  GCCBuiltin<"__builtin_riscv_fcvt_sn8_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fcvt_un10_ps : 
+  GCCBuiltin<"__builtin_riscv_fcvt_un10_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fcvt_un16_ps : 
+  GCCBuiltin<"__builtin_riscv_fcvt_un16_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fcvt_un24_ps : 
+  GCCBuiltin<"__builtin_riscv_fcvt_un24_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fcvt_un2_ps : 
+  GCCBuiltin<"__builtin_riscv_fcvt_un2_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fcvt_un8_ps : 
+  GCCBuiltin<"__builtin_riscv_fcvt_un8_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fdivu_pi : 
+  GCCBuiltin<"__builtin_riscv_fdivu_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fdiv_pi : 
+  GCCBuiltin<"__builtin_riscv_fdiv_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fdiv_ps : 
+  GCCBuiltin<"__builtin_riscv_fdiv_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_i64_ty],
+            [ImmArg<ArgIndex<3>>,IntrNoMem]>;
+def int_riscv_feqm_ps : 
+  GCCBuiltin<"__builtin_riscv_feqm_ps">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_feq_pi : 
+  GCCBuiltin<"__builtin_riscv_feq_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_feq_ps : 
+  GCCBuiltin<"__builtin_riscv_feq_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fexp_ps : 
+  GCCBuiltin<"__builtin_riscv_fexp_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_ffrc_ps : 
+  GCCBuiltin<"__builtin_riscv_ffrc_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fg32b_ps : 
+  GCCBuiltin<"__builtin_riscv_fg32b_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_i64_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<3>>]>;
+def int_riscv_fg32h_ps : 
+  GCCBuiltin<"__builtin_riscv_fg32h_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_i64_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<3>>]>;
+def int_riscv_fg32w_ps : 
+  GCCBuiltin<"__builtin_riscv_fg32w_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_i64_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<3>>]>;
+def int_riscv_fgbg_ps : 
+  GCCBuiltin<"__builtin_riscv_fgbg_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<3>>]>;
+def int_riscv_fgbl_ps : 
+  GCCBuiltin<"__builtin_riscv_fgbl_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<3>>]>;
+def int_riscv_fgb_ps : 
+  GCCBuiltin<"__builtin_riscv_fgb_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<3>>]>;
+def int_riscv_fghg_ps : 
+  GCCBuiltin<"__builtin_riscv_fghg_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<3>>]>;
+def int_riscv_fghl_ps : 
+  GCCBuiltin<"__builtin_riscv_fghl_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<3>>]>;
+def int_riscv_fgh_ps : 
+  GCCBuiltin<"__builtin_riscv_fgh_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<3>>]>;
+def int_riscv_fgwg_ps : 
+  GCCBuiltin<"__builtin_riscv_fgwg_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<3>>]>;
+def int_riscv_fgwl_ps : 
+  GCCBuiltin<"__builtin_riscv_fgwl_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<3>>]>;
+def int_riscv_fgw_ps : 
+  GCCBuiltin<"__builtin_riscv_fgw_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<3>>]>;
+def int_riscv_flem_ps : 
+  GCCBuiltin<"__builtin_riscv_flem_ps">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fle_pi : 
+  GCCBuiltin<"__builtin_riscv_fle_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fle_ps : 
+  GCCBuiltin<"__builtin_riscv_fle_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_flog_ps : 
+  GCCBuiltin<"__builtin_riscv_flog_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_flq2 : 
+  GCCBuiltin<"__builtin_riscv_flq2">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_i32_ty,llvm_ptr_ty],
+            [ImmArg<ArgIndex<0>>,IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<1>>]>;
+def int_riscv_fltm_pi : 
+  GCCBuiltin<"__builtin_riscv_fltm_pi">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fltm_ps : 
+  GCCBuiltin<"__builtin_riscv_fltm_ps">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fltu_pi : 
+  GCCBuiltin<"__builtin_riscv_fltu_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_flt_pi : 
+  GCCBuiltin<"__builtin_riscv_flt_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_flt_ps : 
+  GCCBuiltin<"__builtin_riscv_flt_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_flwg_ps : 
+  GCCBuiltin<"__builtin_riscv_flwg_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<2>>]>;
+def int_riscv_flwl_ps : 
+  GCCBuiltin<"__builtin_riscv_flwl_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<2>>]>;
+def int_riscv_flw_ps : 
+  GCCBuiltin<"__builtin_riscv_flw_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [ImmArg<ArgIndex<1>>,IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<3>>]>;
+def int_riscv_fmadd_ps : 
+  GCCBuiltin<"__builtin_riscv_fmadd_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_i64_ty],
+            [ImmArg<ArgIndex<4>>,IntrNoMem]>;
+def int_riscv_fmaxu_pi : 
+  GCCBuiltin<"__builtin_riscv_fmaxu_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fmax_pi : 
+  GCCBuiltin<"__builtin_riscv_fmax_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fmax_ps : 
+  GCCBuiltin<"__builtin_riscv_fmax_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fminu_pi : 
+  GCCBuiltin<"__builtin_riscv_fminu_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fmin_pi : 
+  GCCBuiltin<"__builtin_riscv_fmin_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fmin_ps : 
+  GCCBuiltin<"__builtin_riscv_fmin_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fmsub_ps : 
+  GCCBuiltin<"__builtin_riscv_fmsub_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_i64_ty],
+            [ImmArg<ArgIndex<4>>,IntrNoMem]>;
+def int_riscv_fmulhu_pi : 
+  GCCBuiltin<"__builtin_riscv_fmulhu_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fmulh_pi : 
+  GCCBuiltin<"__builtin_riscv_fmulh_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fmul_pi : 
+  GCCBuiltin<"__builtin_riscv_fmul_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fmul_ps : 
+  GCCBuiltin<"__builtin_riscv_fmul_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_i64_ty],
+            [ImmArg<ArgIndex<3>>,IntrNoMem]>;
+def int_riscv_fmvs_x_ps : 
+  GCCBuiltin<"__builtin_riscv_fmvs_x_ps">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_v8f32_ty,llvm_i64_ty],
+            [ImmArg<ArgIndex<1>>,IntrNoMem]>;
+def int_riscv_fmvz_x_ps : 
+  GCCBuiltin<"__builtin_riscv_fmvz_x_ps">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_v8f32_ty,llvm_i64_ty],
+            [ImmArg<ArgIndex<1>>,IntrNoMem]>;
+def int_riscv_fnmadd_ps : 
+  GCCBuiltin<"__builtin_riscv_fnmadd_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_i64_ty],
+            [ImmArg<ArgIndex<4>>,IntrNoMem]>;
+def int_riscv_fnmsub_ps : 
+  GCCBuiltin<"__builtin_riscv_fnmsub_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_i64_ty],
+            [ImmArg<ArgIndex<4>>,IntrNoMem]>;
+def int_riscv_fnot_pi : 
+  GCCBuiltin<"__builtin_riscv_fnot_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_for_pi : 
+  GCCBuiltin<"__builtin_riscv_for_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fpackrepb_pi : 
+  GCCBuiltin<"__builtin_riscv_fpackrepb_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fpackreph_pi : 
+  GCCBuiltin<"__builtin_riscv_fpackreph_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_frcp_fix_rast : 
+  GCCBuiltin<"__builtin_riscv_frcp_fix_rast">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_frcp_ps : 
+  GCCBuiltin<"__builtin_riscv_frcp_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fremu_pi : 
+  GCCBuiltin<"__builtin_riscv_fremu_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_frem_pi : 
+  GCCBuiltin<"__builtin_riscv_frem_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fround_ps : 
+  GCCBuiltin<"__builtin_riscv_fround_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_i64_ty],
+            [ImmArg<ArgIndex<2>>,IntrNoMem]>;
+def int_riscv_frsq_ps : 
+  GCCBuiltin<"__builtin_riscv_frsq_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fsat8_pi : 
+  GCCBuiltin<"__builtin_riscv_fsat8_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fsatu8_pi : 
+  GCCBuiltin<"__builtin_riscv_fsatu8_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fsc32b_ps : 
+  GCCBuiltin<"__builtin_riscv_fsc32b_ps">,
+  Intrinsic<[],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<3>>]>;
+def int_riscv_fsc32h_ps : 
+  GCCBuiltin<"__builtin_riscv_fsc32h_ps">,
+  Intrinsic<[],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<3>>]>;
+def int_riscv_fsc32w_ps : 
+  GCCBuiltin<"__builtin_riscv_fsc32w_ps">,
+  Intrinsic<[],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<3>>]>;
+def int_riscv_fscbg_ps : 
+  GCCBuiltin<"__builtin_riscv_fscbg_ps">,
+  Intrinsic<[],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<3>>]>;
+def int_riscv_fscbl_ps : 
+  GCCBuiltin<"__builtin_riscv_fscbl_ps">,
+  Intrinsic<[],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<3>>]>;
+def int_riscv_fscb_ps : 
+  GCCBuiltin<"__builtin_riscv_fscb_ps">,
+  Intrinsic<[],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<3>>]>;
+def int_riscv_fschg_ps : 
+  GCCBuiltin<"__builtin_riscv_fschg_ps">,
+  Intrinsic<[],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<3>>]>;
+def int_riscv_fschl_ps : 
+  GCCBuiltin<"__builtin_riscv_fschl_ps">,
+  Intrinsic<[],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<3>>]>;
+def int_riscv_fsch_ps : 
+  GCCBuiltin<"__builtin_riscv_fsch_ps">,
+  Intrinsic<[],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<3>>]>;
+def int_riscv_fscwg_ps : 
+  GCCBuiltin<"__builtin_riscv_fscwg_ps">,
+  Intrinsic<[],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<3>>]>;
+def int_riscv_fscwl_ps : 
+  GCCBuiltin<"__builtin_riscv_fscwl_ps">,
+  Intrinsic<[],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<3>>]>;
+def int_riscv_fscw_ps : 
+  GCCBuiltin<"__builtin_riscv_fscw_ps">,
+  Intrinsic<[],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<3>>]>;
+def int_riscv_fsetm_pi : 
+  GCCBuiltin<"__builtin_riscv_fsetm_pi">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fsgnjn_ps : 
+  GCCBuiltin<"__builtin_riscv_fsgnjn_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fsgnjx_ps : 
+  GCCBuiltin<"__builtin_riscv_fsgnjx_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fsgnj_ps : 
+  GCCBuiltin<"__builtin_riscv_fsgnj_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fsin_ps : 
+  GCCBuiltin<"__builtin_riscv_fsin_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fslli_pi : 
+  GCCBuiltin<"__builtin_riscv_fslli_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i32_ty,llvm_i64_ty],
+            [ImmArg<ArgIndex<2>>,IntrNoMem]>;
+def int_riscv_fsll_pi : 
+  GCCBuiltin<"__builtin_riscv_fsll_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fsq2 : 
+  GCCBuiltin<"__builtin_riscv_fsq2">,
+  Intrinsic<[],
+            [llvm_v8i32_ty,llvm_i32_ty,llvm_ptr_ty],
+            [ImmArg<ArgIndex<1>>,IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<2>>]>;
+def int_riscv_fsqrt_ps : 
+  GCCBuiltin<"__builtin_riscv_fsqrt_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fsrai_pi : 
+  GCCBuiltin<"__builtin_riscv_fsrai_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i32_ty,llvm_i64_ty],
+            [ImmArg<ArgIndex<2>>,IntrNoMem]>;
+def int_riscv_fsra_pi : 
+  GCCBuiltin<"__builtin_riscv_fsra_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fsrli_pi : 
+  GCCBuiltin<"__builtin_riscv_fsrli_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i32_ty,llvm_i64_ty],
+            [ImmArg<ArgIndex<2>>,IntrNoMem]>;
+def int_riscv_fsrl_pi : 
+  GCCBuiltin<"__builtin_riscv_fsrl_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fsub_pi : 
+  GCCBuiltin<"__builtin_riscv_fsub_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_fsub_ps : 
+  GCCBuiltin<"__builtin_riscv_fsub_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_i64_ty],
+            [ImmArg<ArgIndex<3>>,IntrNoMem]>;
+def int_riscv_fswg_ps : 
+  GCCBuiltin<"__builtin_riscv_fswg_ps">,
+  Intrinsic<[],
+            [llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<2>>]>;
+def int_riscv_fswizz_ps : 
+  GCCBuiltin<"__builtin_riscv_fswizz_ps">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i32_ty,llvm_i64_ty],
+            [ImmArg<ArgIndex<2>>,IntrNoMem]>;
+def int_riscv_fswl_ps : 
+  GCCBuiltin<"__builtin_riscv_fswl_ps">,
+  Intrinsic<[],
+            [llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<2>>]>;
+def int_riscv_fsw_ps : 
+  GCCBuiltin<"__builtin_riscv_fsw_ps">,
+  Intrinsic<[],
+            [llvm_v8i32_ty,llvm_i32_ty,llvm_i64_ty,llvm_ptr_ty],
+            [ImmArg<ArgIndex<1>>,IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<3>>]>;
+def int_riscv_fxor_pi : 
+  GCCBuiltin<"__builtin_riscv_fxor_pi">,
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_maskand : 
+  GCCBuiltin<"__builtin_riscv_maskand">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_masknot : 
+  GCCBuiltin<"__builtin_riscv_masknot">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_maskor : 
+  GCCBuiltin<"__builtin_riscv_maskor">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_maskpopc : 
+  GCCBuiltin<"__builtin_riscv_maskpopc">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_maskpopcz : 
+  GCCBuiltin<"__builtin_riscv_maskpopcz">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_maskpopc_rast : 
+  GCCBuiltin<"__builtin_riscv_maskpopc_rast">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_i64_ty,llvm_i32_ty],
+            [ImmArg<ArgIndex<2>>,IntrNoMem]>;
+def int_riscv_maskxor : 
+  GCCBuiltin<"__builtin_riscv_maskxor">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_mov_m_x : 
+  GCCBuiltin<"__builtin_riscv_mov_m_x">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_i32_ty],
+            [ImmArg<ArgIndex<1>>,IntrNoMem]>;
+def int_riscv_packb : 
+  GCCBuiltin<"__builtin_riscv_packb">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_i64_ty,llvm_i64_ty],
+            [IntrNoMem]>;
+def int_riscv_sbg : 
+  GCCBuiltin<"__builtin_riscv_sbg">,
+  Intrinsic<[],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<1>>]>;
+def int_riscv_sbl : 
+  GCCBuiltin<"__builtin_riscv_sbl">,
+  Intrinsic<[],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<1>>]>;
+def int_riscv_shg : 
+  GCCBuiltin<"__builtin_riscv_shg">,
+  Intrinsic<[],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<1>>]>;
+def int_riscv_shl : 
+  GCCBuiltin<"__builtin_riscv_shl">,
+  Intrinsic<[],
+            [llvm_i64_ty,llvm_ptr_ty],
+            [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<1>>]>;
+} // TargetPrefix = "riscv"

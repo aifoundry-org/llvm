@@ -59,6 +59,14 @@ public:
 
 private:
   void doPeepholeLoadStoreADDI();
+  template <unsigned WIDTH> SDValue transform_LO(ConstantSDNode *N) {
+    return CurDAG->getTargetConstant(N->getZExtValue() & ((1ull << WIDTH) - 1),
+                                     SDLoc(N), MVT::i32);
+  }
+  template <unsigned WIDTH> SDValue transform_LOs(ConstantSDNode *N) {
+    return CurDAG->getTargetConstant(SignExtend64(N->getZExtValue(), WIDTH),
+                                     SDLoc(N), MVT::i32);
+  }
 };
 }
 
