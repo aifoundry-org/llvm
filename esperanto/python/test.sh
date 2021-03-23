@@ -1,0 +1,15 @@
+#!/bin/bash
+#
+# A simple script to exercise the assembler and compiler builtins
+#
+set -ex
+TMP=$(mktemp -d)
+trap 'rm -rf "${TMP}"' EXIT
+./gen_asm.py > $TMP/test.s
+clang -c -mcpu=et-soc1-min $TMP/test.s -o $TMP/test.o
+./verify.py $TMP/test.o
+./gen_ctest.py > $TMP/test.c
+clang -c -mcpu=et-soc1-min $TMP/test.c -o $TMP/test.o
+clang -c -mcpu=et-soc1-min -O2  $TMP/test.c -o $TMP/test.o
+
+
