@@ -24,6 +24,8 @@ namespace targets {
 // RISC-V Target
 class RISCVTargetInfo : public TargetInfo {
 protected:
+  static const Builtin::Info BuiltinInfoET[];
+
   std::string ABI, CPU;
   bool HasM;
   bool HasA;
@@ -55,7 +57,7 @@ public:
   void getTargetDefines(const LangOptions &Opts,
                         MacroBuilder &Builder) const override;
 
-  ArrayRef<Builtin::Info> getTargetBuiltins() const override { return None; }
+  ArrayRef<Builtin::Info> getTargetBuiltins() const override;
 
   BuiltinVaListKind getBuiltinVaListKind() const override {
     return TargetInfo::VoidPtrBuiltinVaList;

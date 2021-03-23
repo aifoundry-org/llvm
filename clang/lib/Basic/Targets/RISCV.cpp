@@ -11,7 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "RISCV.h"
+#include "clang/Basic/Builtins.h"
 #include "clang/Basic/MacroBuilder.h"
+#include "clang/Basic/TargetBuiltins.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/TargetParser.h"
 
@@ -54,6 +56,13 @@ ArrayRef<TargetInfo::GCCRegAlias> RISCVTargetInfo::getGCCRegAliases() const {
       {{"ft8"}, "f28"}, {{"ft9"}, "f29"}, {{"ft10"}, "f30"}, {{"ft11"}, "f31"}};
   return llvm::makeArrayRef(GCCRegAliases);
 }
+
+const Builtin::Info RISCVTargetInfo::BuiltinInfoET[] = {
+#undef BUILTIN
+#define BUILTIN(ID, TYPE, ATTRS)                                               \
+  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, nullptr},
+#include "clang/Basic/BuiltinsRISCVET.def"
+};
 
 bool RISCVTargetInfo::validateAsmConstraint(
     const char *&Name, TargetInfo::ConstraintInfo &Info) const {
@@ -129,6 +138,13 @@ void RISCVTargetInfo::getTargetDefines(const LangOptions &Opts,
 
   if (HasB)
     Builder.defineMacro("__riscv_bitmanip");
+}
+
+ArrayRef<Builtin::Info> RISCVTargetInfo::getTargetBuiltins() const {
+  if (CPU != "et-soc1-min")
+    return {};
+  return llvm::makeArrayRef(BuiltinInfoET, clang::RISCV::LastTSBuiltin -
+                                               Builtin::FirstTSBuiltin);
 }
 
 /// Return true if has this feature, need to sync with handleTargetFeatures.

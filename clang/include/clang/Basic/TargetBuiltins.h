@@ -320,13 +320,23 @@ namespace clang {
     };
   }
 
+  /// RISCV (Esperanto) builtins
+  namespace RISCV {
+  enum {
+    LastTIBuiltin = clang::Builtin::FirstTSBuiltin - 1,
+#define BUILTIN(ID, TYPE, ATTRS) BI##ID,
+#include "clang/Basic/BuiltinsRISCVET.def"
+    LastTSBuiltin
+  };
+  } // namespace RISCV
+
   static constexpr uint64_t LargestBuiltinID = std::max<uint64_t>(
       {NEON::FirstTSBuiltin, ARM::LastTSBuiltin, SVE::FirstTSBuiltin,
        AArch64::LastTSBuiltin, BPF::LastTSBuiltin, PPC::LastTSBuiltin,
        NVPTX::LastTSBuiltin, AMDGPU::LastTSBuiltin, X86::LastTSBuiltin,
        Hexagon::LastTSBuiltin, Mips::LastTSBuiltin, XCore::LastTSBuiltin,
-       Le64::LastTSBuiltin, SystemZ::LastTSBuiltin,
-       WebAssembly::LastTSBuiltin});
+       Le64::LastTSBuiltin, SystemZ::LastTSBuiltin, WebAssembly::LastTSBuiltin,
+       RISCV::LastTSBuiltin});
 
 } // end namespace clang.
 
