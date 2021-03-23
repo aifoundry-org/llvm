@@ -6,193 +6,446 @@
 
 //===----------------------------------------------------------------------===//
 //  Declarations that describe the instruction extensions for
-//  Esperanto ET-SOC-1
+//  Esperanto ET-SOC1-MIN/MAX
+//
+// In this specification we follow the following conventions
+// 
+// 1. New Instruction formats are named
+// 
+//        ETInst<pat>
+// 
+//    where <pat> is a sequence of Rd,R1,R2,R3,I,Rm which roughly
+//    correspond to the variable parts of particular instruction
+//    encodings. Instruction formats are in
+//    RISCVInstrFormatEsperanto.d
+// 
+// 2. To handle masked vector operations, we introduce pseudo
+//    instructions with "_EX" suffix (for "explicit").  These pseudo
+//    operands include the output register if any as a tied input
+//    register and also make the reference to m0 explicit using the MR0
+//    register class. Late in compilation these are lowered to the
+//    non-explicit base instructions.
+// 
+//    We add the tied input of the output as the first input operand and
+//    the implicit mask as the last. This fact is assumed in the lowring
+//    code.  RISCVExpandPseudoInsts.cpp
+// 
+// 3. We create multiclasses that define the base instruction and its _EX
+//    variant and name those classes to capture "ins", "outs" and operand
+//    strings:
+// 
+//       ETOps<pat>
+// 
+//    where <pat> is like above possibly with a suffix such as G or FG to
+//    distinguish cases with similar encoding but different asm-strings.
+// 
+//
 //===----------------------------------------------------------------------===//
 
 include "RISCVInstrFormatsEsperanto.td"
 
+let DecoderNamespace = "Esperanto" in {
 let Predicates = [HasEsperanto] in {
 
 // Guess: load two consecutive 16-bit floats...
 let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in
 def FLQ2 : RVInstI<0b101, OPC_LOAD_FP,
-                   (outs FPR32:$rd),
-                   (ins GPR:$rs1, simm12:$imm12),
+                   (outs FPR256:$rd),
+                   (ins simm12:$imm12, GPR:$rs1),
                    "flq2", "$rd, ${imm12}(${rs1})">;
 
 // Guess: store two consecutive 16-bit floats...
 let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in
 def FSQ2 : RVInstS<0b101, OPC_STORE_FP,
                    (outs),
-                   (ins FPR32:$rs2, GPR:$rs1, simm12:$imm12),
+                   (ins FPR256:$rs2, simm12:$imm12, GPR:$rs1),
                    "fsq2", "$rs2, ${imm12}(${rs1})">;
 
-let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in
+let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in {
 def FLW_PS : RVInstI<0b010, OPC_MEM_PS,
                    (outs FPR256:$rd),
-                   (ins GPR:$rs1, simm12:$imm12),
+                   (ins simm12:$imm12, GPR:$rs1),
                    "flw.ps", "$rd, ${imm12}(${rs1})">;
+def FLW_PS_EX : Pseudo<(outs FPR256:$rd),
+                       (ins FPR256:$in, simm12:$imm12, GPR:$rs1, MR0:$m0), [],
+                       "flw.ps", "$rd, ${imm12}(${rs1}), $m0"> {
+  let Constraints = "$rd = $in";
+}
+}
                                         
-let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in
+let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in {
 def FSW_PS : RVInstS<0b110, OPC_MEM_PS,
                    (outs),
-                   (ins FPR256:$rs1, GPR:$rs2, simm12:$imm12),
-                   "fsw.ps", "$rs1, ${imm12}(${rs2})">;
+                   (ins FPR256:$rs2, simm12:$imm12, GPR:$rs1),
+                   "fsw.ps", "$rs2, ${imm12}(${rs1})">;
+def FSW_PS_EX : Pseudo<(outs),
+                   (ins FPR256:$rs2, simm12:$imm12, GPR:$rs1, MR0:$m0),
+                   [], "fsw.ps", "$rs2, ${imm12}(${rs1}), $m0">;
+}
 
-let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in
+let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in {
 def FBC_PS : RVInstI<0b000, OPC_MEM_PS,
                    (outs FPR256:$rd),
-                   (ins GPR:$rs1, simm12:$imm12),
+                   (ins simm12:$imm12, GPR:$rs1),
                    "fbc.ps", "$rd, ${imm12}(${rs1})">;
+def FBC_PS_EX : Pseudo<(outs FPR256:$rd),
+                   (ins FPR256:$in, simm12:$imm12, GPR:$rs1, MR0:$m0), [],
+                   "fbc.ps", "$rd, ${imm12}(${rs1}), $m0"> {
+  let Constraints = "$rd = $in";
+}
+}
 
-let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in
+let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in {
 def FBCX_PS : RVInstI<0b011, OPC_MEM_PS,
                    (outs FPR256:$rd),
-                   (ins GPR:$rs1, simm12:$imm12),
-                   "fbcx.ps", "$rd, (${rs1})"> {
+                   (ins GPR:$rs1),
+                   "fbcx.ps", "$rd, ${rs1}"> {
     let imm12 = 0;
 }        
+def FBCX_PS_EX : Pseudo<(outs FPR256:$rd),
+                   (ins FPR256:$in, GPR:$rs1, MR0:$m0),[],
+                   "fbcx.ps", "$rd, ${rs1}, $m0"> {
+  let Constraints = "$rd = $in";
+}
+}
 
 let hasSideEffects = 0, mayStore = 0, mayLoad = 0 in {
 def FBCI_PS : RVInstU<OPC_IMM_PS,
                       (outs FPR256:$rd),
                       (ins uimm20_lui:$imm20),
                       "fbci.ps", "$rd, $imm20"> ;
-def FGW_PS : RVInstRPS<0b0110000, 0b001, OPC_MEM_PS, "fgw.ps">;  // Are these loads?
-def FGH_PS : RVInstRPS<0b0101000, 0b001, OPC_MEM_PS, "fgh.ps">;
-def FGB_PS : RVInstRPS<0b0100100, 0b001, OPC_MEM_PS, "fgb.ps">;
-def FSCW_PS : RVInstR3PS<0b11100, 0b001, OPC_MEM_PS, "fscw.ps">; // Are these stores?
-def FSCH_PS : RVInstR3PS<0b11010, 0b001, OPC_MEM_PS, "fsch.ps">;
-def FSCB_PS : RVInstR3PS<0b11001, 0b001, OPC_MEM_PS, "fscb.ps">;
 
-def FADD_PS : RVInstRPSrm<0b0000000, OPC_OP_PS, "fadd.ps">;
-def FSUB_PS : RVInstRPSrm<0b0000100, OPC_OP_PS, "fsub.ps">;
-def FMUL_PS : RVInstRPSrm<0b0001000, OPC_OP_PS, "fmul.ps">;
-def FDIV_PS : RVInstRPSrm<0b0001100, OPC_OP_PS, "fdiv.ps">;
-def FMIN_PS : RVInstRPS<0b0010100, 0b000, OPC_OP_PS, "fmin.ps">;
-def FMAX_PS : RVInstRPS<0b0010100, 0b001, OPC_OP_PS, "fmax.ps">;
-def FMADD_PS : RVInstR4PSrm<0b00, OPC_OP3_PS, "fmadd.ps">;
-def FMSUB_PS : RVInstR4PSrm<0b01, OPC_OP3_PS, "fmsub.ps">;
-def FNMSUB_PS : RVInstR4PSrm<0b10, OPC_OP3_PS, "fnmsub.ps">;
-def FNMADD_PS : RVInstR4PSrm<0b11, OPC_OP3_PS, "fnmadd.ps">;
+def FBCI_PS_EX : Pseudo<(outs FPR256:$rd),
+                        (ins FPR256:$in, uimm20_lui:$imm20, MR0:$m0), [],
+                      "fbci.ps", "$rd, $imm20, $m0"> {
+  let Constraints = "$rd = $in";
+}
+         
+multiclass ETOpsRdF1R2G<bits<7> funct7, string opcodestr> {
+   def "" : RVInstR<funct7, 0b001, OPC_MEM_PS,
+                 (outs FPR256:$rd),
+                 (ins FPR256:$rs1, GPR:$rs2),
+                 opcodestr, "$rd, ${rs1}(${rs2})">;
+   def _EX : Pseudo<
+                 (outs FPR256:$rd),
+                 (ins FPR256:$in, FPR256:$rs1, GPR:$rs2, MR0:$m0), [],
+                 opcodestr, "$rd, ${rs1}(${rs2}), $m0"> {
+         let Constraints = "$rd = $in"; 
+   }
+}
+let mayLoad = 1 in {
+defm FGW_PS : ETOpsRdF1R2G<0b0110000, "fgw.ps">;
+defm FGH_PS : ETOpsRdF1R2G<0b0101000, "fgh.ps">;
+defm FGB_PS : ETOpsRdF1R2G<0b0100100, "fgb.ps">;
+}
+
+multiclass ETOpsR3R1R2<bits<7> funct7, string opcodestr> {
+   def "" : RVInstE12<funct7, 0b001, OPC_MEM_PS,
+                  (outs),
+                  (ins FPR256:$rs3, FPR256:$rs1, GPR:$rs2),
+                  opcodestr, "$rs3, ${rs1}(${rs2})">;
+   def _EX : Pseudo<
+                 (outs),
+                 (ins FPR256:$rs3, FPR256:$rs1, GPR:$rs2, MR0:$m0), [],
+                  opcodestr, "$rs3, ${rs1}(${rs2}), $m0">;
+}
+let mayStore = 1 in {                 
+defm FSCW_PS : ETOpsR3R1R2<0b1110000, "fscw.ps">;
+defm FSCH_PS : ETOpsR3R1R2<0b1101000, "fsch.ps">;
+defm FSCB_PS : ETOpsR3R1R2<0b1100100, "fscb.ps">;
+}
+
+multiclass ETOpsRdR1R2Rm<bits<7> funct7, RISCVOpcode opcode,
+                  string opcodestr> {
+    def "" : RVInstE3<funct7, opcode,
+                 (outs FPR256:$rd),
+                 (ins FPR256:$rs1, FPR256:$rs2, ofrmarg:$rm),
+                 opcodestr, "$rd, $rs1, $rs2, $rm">;
+    def _EX : Pseudo<(outs FPR256:$rd),
+             (ins FPR256:$in, FPR256:$rs1, FPR256:$rs2, ofrmarg:$rm, MR0:$m0),
+             [], opcodestr, "$rd, $rs1, $rs2, $rm, $m0">  {
+         let Constraints = "$rd = $in"; 
+   }
+}
+defm FADD_PS : ETOpsRdR1R2Rm<0b0000000, OPC_OP_PS, "fadd.ps">;
+defm FSUB_PS : ETOpsRdR1R2Rm<0b0000100, OPC_OP_PS, "fsub.ps">;
+defm FMUL_PS : ETOpsRdR1R2Rm<0b0001000, OPC_OP_PS, "fmul.ps">;
+defm FDIV_PS : ETOpsRdR1R2Rm<0b0001100, OPC_OP_PS, "fdiv.ps">;
+
+multiclass ETOpsRdR1R2<bits<7> funct7, bits<3> funct3, RISCVOpcode opcode,
+                string opcodestr> {
+    def "" : RVInstR<funct7, funct3, opcode,
+                 (outs FPR256:$rd),
+                 (ins FPR256:$rs1, FPR256:$rs2),
+                 opcodestr, "$rd, $rs1, $rs2">;
+    def _EX :    Pseudo<(outs FPR256:$rd),
+             (ins FPR256:$in, FPR256:$rs1, FPR256:$rs2, MR0:$m0),
+             [], opcodestr, "$rd, $rs1, $rs2, $m0">  {
+         let Constraints = "$rd = $in"; 
+   }
+}
+defm FMIN_PS : ETOpsRdR1R2<0b0010100, 0b000, OPC_OP_PS, "fmin.ps">;
+defm FMAX_PS : ETOpsRdR1R2<0b0010100, 0b001, OPC_OP_PS, "fmax.ps">;
+
+
+multiclass ETOpsRdR1R2R3Rm<bits<2> funct2, RISCVOpcode opcode,
+                string opcodestr> {
+    def "" :  RVInstE4<funct2, opcode,
+                 (outs FPR256:$rd),
+                 (ins FPR256:$rs1, FPR256:$rs2, FPR256:$rs3, ofrmarg:$rm),
+                 opcodestr, "$rd, $rs1, $rs2, $rs3, $rm">;
+    def _EX : Pseudo<(outs FPR256:$rd),
+                 (ins FPR256:$in, FPR256:$rs1,
+                          FPR256:$rs2, FPR256:$rs3, ofrmarg:$rm, MR0:$m0),
+                 [], opcodestr, "$rd, $rs1, $rs2, $rs3, $rm, $m0">  {
+         let Constraints = "$rd = $in"; 
+   }
+}
+defm FMADD_PS : ETOpsRdR1R2R3Rm<0b00, OPC_OP3_PS, "fmadd.ps">;
+defm FMSUB_PS : ETOpsRdR1R2R3Rm<0b01, OPC_OP3_PS, "fmsub.ps">;
+defm FNMSUB_PS : ETOpsRdR1R2R3Rm<0b10, OPC_OP3_PS, "fnmsub.ps">;
+defm FNMADD_PS : ETOpsRdR1R2R3Rm<0b11, OPC_OP3_PS, "fnmadd.ps">;
+
 def FCMOV_PS : RVInstE4<0b10, RISCVOpcode<0b0111111>,
                  (outs FPR256:$rd),
                  (ins FPR256:$rs1, FPR256:$rs2, FPR256:$rs3),
                     "fcmov.ps", "$rd, $rs1, $rs2, $rs3"> {
     let rm = 0b010;                    
 }
-//  TODO -- is this store? in case the model is wrong and
-//  the documentation misnames the registers
+def FCMOV_PS_EX : Pseudo<
+                 (outs FPR256:$rd),
+                 (ins FPR256:$in, FPR256:$rs1, FPR256:$rs2,
+                      FPR256:$rs3, MR0:$m0), [],
+                 "fcmov.ps", "$rd, $rs1, $rs2, $rs3, $m0"> {
+         let Constraints = "$rd = $in"; 
+}
+
 def FSWIZZ_PS : RVInstE1<0b1110011, OPC_OP_PS,
                          (outs FPR256:$rd),
-                         (ins FPR256:$rs1, simm12:$imm), // TODO: simm8
+                         (ins FPR256:$rs1, uimm8:$imm),
                          "fswizz.ps", "$rd, $rs1, $imm">;
-def FCVT_PW_PS  : RVInstRPSrm2<0b1100000, 0,  OPC_OP_PS, "fcvt.pw.ps">;
-def FCVT_PWU_PS : RVInstRPSrm2<0b1100000, 1, OPC_OP_PS, "fcvt.pwu.ps">;
-def FCVT_PS_PW  : RVInstRPSrm2<0b1101000, 0, OPC_OP_PS, "fcvt.ps.pw">;
-def FCVT_PS_PWU : RVInstRPSrm2<0b1101000, 1, OPC_OP_PS, "fcvt.ps.pwu">;
-def FMVZ_X_PS : RVInstRPSidx<0b1110000, 0b000, OPC_OP_PS, "fmvz.x.ps">;
-def FMVS_X_PS : RVInstRPSidx<0b1110000, 0b010, OPC_OP_PS, "fmvs.x.ps">;
+def FSWIZZ_PS_EX : Pseudo<(outs FPR256:$rd),
+                         (ins FPR256:$in, FPR256:$rs1, uimm8:$imm, MR0:$m0),
+                         [], "fswizz.ps", "$rd, $rs1, $imm, $m0"> {
+    let Constraints = "$rd = $in"; 
+}
 
-def FSGNJN_PS : RVInstRPS<0b0010000, 0b001, OPC_OP_PS, "fsgnjn.ps">;
-def FSGNJ_PS  : RVInstRPS<0b0010000, 0b000, OPC_OP_PS, "fsgnj.ps">;
-def FSGNJX_PS : RVInstRPS<0b0010000, 0b010, OPC_OP_PS, "fsgnjx.ps">;
-def FLE_PS    : RVInstRPS<0b1010000, 0b000, OPC_OP_PS, "fle.ps">;
-def FLT_PS    : RVInstRPS<0b1010000, 0b001, OPC_OP_PS, "flt.ps">;
-def FEQ_PS    : RVInstRPS<0b1010000, 0b010, OPC_OP_PS, "feq.ps">;
+multiclass ETOpsRdR1Rm<bits<7> funct7, bits<5> funct1, RISCVOpcode opcode,
+                  string opcodestr> {
+   def "" : RVInstE3<funct7, opcode,
+                 (outs FPR256:$rd),
+                 (ins FPR256:$rs1, ofrmarg:$rm),
+                 opcodestr, "$rd, $rs1, $rm"> {
+       let rs2 = funct1;
+   }
+   def _EX : Pseudo<(outs FPR256:$rd),
+          (ins FPR256:$in, FPR256:$rs1, ofrmarg:$rm, MR0:$m0),
+          [], opcodestr, "$rd, $rs1, $rm, $m0">  {
+         let Constraints = "$rd = $in"; 
+   }
+}
 
-def FLEM_PS   : RVInstRPSM<0b1010000, 0b100, OPC_OP_PS, "flem.ps">;
-def FLTM_PS   : RVInstRPSM<0b1010000, 0b101, OPC_OP_PS, "fltm.ps">;
-def FEQM_PS   : RVInstRPSM<0b1010000, 0b110, OPC_OP_PS, "feqm.ps">;
+defm FCVT_PW_PS  : ETOpsRdR1Rm<0b1100000, 0,  OPC_OP_PS, "fcvt.pw.ps">;
+defm FCVT_PWU_PS : ETOpsRdR1Rm<0b1100000, 1, OPC_OP_PS, "fcvt.pwu.ps">;
+defm FCVT_PS_PW  : ETOpsRdR1Rm<0b1101000, 0, OPC_OP_PS, "fcvt.ps.pw">;
+defm FCVT_PS_PWU : ETOpsRdR1Rm<0b1101000, 1, OPC_OP_PS, "fcvt.ps.pwu">;
+
+class ETOpsRdR1Idx<bits<7> funct7, bits<3> funct3, RISCVOpcode opcode,
+                  string opcodestr> :
+         RVInstE5<funct7, funct3, opcode,
+                 (outs GPR:$rd),
+                 (ins FPR256:$rs1, uimm3:$idx),
+                 opcodestr, "$rd, $rs1, $idx">;
+
+def FMVZ_X_PS : ETOpsRdR1Idx<0b1110000, 0b000, OPC_OP_PS, "fmvz.x.ps">;
+// no _EX variant
+def FMVS_X_PS : ETOpsRdR1Idx<0b1110000, 0b010, OPC_OP_PS, "fmvs.x.ps">;
+// no _EX variant
+
+defm FSGNJN_PS : ETOpsRdR1R2<0b0010000, 0b001, OPC_OP_PS, "fsgnjn.ps">;
+defm FSGNJ_PS  : ETOpsRdR1R2<0b0010000, 0b000, OPC_OP_PS, "fsgnj.ps">;
+defm FSGNJX_PS : ETOpsRdR1R2<0b0010000, 0b010, OPC_OP_PS, "fsgnjx.ps">;
+defm FLE_PS    : ETOpsRdR1R2<0b1010000, 0b000, OPC_OP_PS, "fle.ps">;
+defm FLT_PS    : ETOpsRdR1R2<0b1010000, 0b001, OPC_OP_PS, "flt.ps">;
+defm FEQ_PS    : ETOpsRdR1R2<0b1010000, 0b010, OPC_OP_PS, "feq.ps">;
+
+multiclass ETOpsMdR1R2<bits<7> funct7, bits<3> funct3, RISCVOpcode opcode,
+                string opcodestr> {
+    def "" : RVInstR<funct7, funct3, opcode,
+                 (outs MR:$rd),
+                 (ins FPR256:$rs1, FPR256:$rs2),
+                 opcodestr, "$rd, $rs1, $rs2">;
+    def _EX : Pseudo<(outs MR:$rd),
+             (ins MR:$in, FPR256:$rs1, FPR256:$rs2, MR0:$m0), [],
+             opcodestr, "$rd, $rs1, $rs2, $m0"> {
+        let Constraints = "$rd = $in"; 
+    }
+}
+   
+defm FLEM_PS   : ETOpsMdR1R2<0b1010000, 0b100, OPC_OP_PS, "flem.ps">;
+defm FLTM_PS   : ETOpsMdR1R2<0b1010000, 0b101, OPC_OP_PS, "fltm.ps">;
+defm FEQM_PS   : ETOpsMdR1R2<0b1010000, 0b110, OPC_OP_PS, "feqm.ps">;
         
-def FCLASS_PS : PSUnary<0b1110000, 0b00000, 0b001, OPC_OP_PS, "fclass.ps">;
+multiclass ETOpsRdR1<bits<7> funct7, bits<5> funct5, bits<3> funct3,
+                        RISCVOpcode opcode, string opcodestr> {
+    def "" : RVInstR<funct7, funct3, opcode,
+                 (outs FPR256:$rd),
+                 (ins FPR256:$rs1),
+                 opcodestr, "$rd, $rs1"> {
+        let rs2 = funct5;
+    }
+    def _EX :      Pseudo<(outs FPR256:$rd),
+            (ins FPR256:$in, FPR256:$rs1, MR0:$m0), [],
+            opcodestr, "$rd, $rs1, $m0"> {
+        let Constraints = "$rd = $in"; 
+    }
+}
 
-def FCVT_PS_F10  : RVInstRCvtPS<0b01000, 0b000, "fcvt.ps.f10">;
-def FCVT_PS_F11  : RVInstRCvtPS<0b01001, 0b000, "fcvt.ps.f11">;
-def FCVT_PS_F16  : RVInstRCvtPS<0b01010, 0b000, "fcvt.ps.f16">;
-def FCVT_PS_UN24 : RVInstRCvtPS<0b10000, 0b000, "fcvt.ps.un24">;
-def FCVT_PS_UN16 : RVInstRCvtPS<0b10001, 0b000, "fcvt.ps.un16">;
-def FCVT_PS_UN10 : RVInstRCvtPS<0b10010, 0b000, "fcvt.ps.un10">;
-def FCVT_PS_UN8  : RVInstRCvtPS<0b10011, 0b000, "fcvt.ps.un8">;
-def FCVT_PS_UN2  : RVInstRCvtPS<0b10111, 0b000, "fcvt.ps.un2">;
-def FCVT_PS_SN16 : RVInstRCvtPS<0b11001, 0b000, "fcvt.ps.sn16">;
-def FCVT_PS_SN8  : RVInstRCvtPS<0b11011, 0b000, "fcvt.ps.sn8">;
-def FCVT_F11_PS  : RVInstRCvtPS<0b01000, 0b000, "fcvt.f11.ps">;
-def FCVT_F16_PS  : RVInstRCvtPS<0b01001, 0b000, "fcvt.f16.ps">;
-def FCVT_F10_PS  : RVInstRCvtPS<0b01011, 0b000, "fcvt.f10.ps">;
-def FCVT_UN24_PS : RVInstRCvtPS<0b10000, 0b000, "fcvt.un24.ps">;
-def FCVT_UN16_PS : RVInstRCvtPS<0b10001, 0b000, "fcvt.un16.ps">;
-def FCVT_UN10_PS : RVInstRCvtPS<0b10010, 0b000, "fcvt.un10.ps">;
-def FCVT_UN8_PS  : RVInstRCvtPS<0b10011, 0b000, "fcvt.un8.ps">;
-def FCVT_UN2_PS  : RVInstRCvtPS<0b10111, 0b000, "fcvt.un2.ps">;
-def FCVT_SN16_PS : RVInstRCvtPS<0b11001, 0b000, "fcvt.sn16.ps">;
-def FCVT_SN8_PS  : RVInstRCvtPS<0b11011, 0b000, "fcvt.sn8.ps">;
+defm FCLASS_PS : ETOpsRdR1<0b1110000, 0b00000, 0b001, OPC_OP_PS, "fclass.ps">;
 
-def FBCI_PI : RVInstU<OPC_IMM_PI, (outs FPR256:$rd), (ins),
-                      "fbci.pi", "$rd">;
+multiclass ETOpsCvt<bits<7> funct7, bits<5> funct5, string opcodestr> {
+    defm "" : ETOpsRdR1<funct7, funct5, 0b000,
+                        RISCVOpcode<0b1111011>, opcodestr>;
+}
 
-def FADD_PI   : RVInstRPS<0b0000011, 0b000, OPC_OP_PS, "fadd.pi">;
-def FSUB_PI   : RVInstRPS<0b0000111, 0b000, OPC_OP_PS, "fsub.pi">;
-def FMUL_PI   : RVInstRPS<0b0001011, 0b000, OPC_OP_PS, "fmul.pi">;
-def FMULH_PI  : RVInstRPS<0b0001011, 0b001, OPC_OP_PS, "fmulh.pi">;
-def FMULHU_PI : RVInstRPS<0b0001011, 0b010, OPC_OP_PS, "fmulhu.pi">;
-def FDIV_PI   : RVInstRPS<0b0001111, 0b000, OPC_OP_PS, "fdiv.pi">;
-def FDIVU_PI  : RVInstRPS<0b0001111, 0b001, OPC_OP_PS, "fdivu.pi">;
-def FREM_PI   : RVInstRPS<0b0001111, 0b010, OPC_OP_PS, "frem.pi">;
-def FREMU_PI  : RVInstRPS<0b0001111, 0b011, OPC_OP_PS, "fremu.pi">;
-def FMIN_PI   : RVInstRPS<0b0010111, 0b000, OPC_OP_PS, "fmin.pi">;
-def FMAX_PI   : RVInstRPS<0b0010111, 0b001, OPC_OP_PS, "fmax.pi">;
-def FMINU_PI  : RVInstRPS<0b0010111, 0b010, OPC_OP_PS, "fminu.pi">;
-def FMAXU_PI  : RVInstRPS<0b0010111, 0b011, OPC_OP_PS, "fmaxu.pi">;
+defm FCVT_PS_F10  : ETOpsCvt<0b1101000, 0b01000, "fcvt.ps.f10">;
+defm FCVT_PS_F11  : ETOpsCvt<0b1101000, 0b01001, "fcvt.ps.f11">;
+defm FCVT_PS_F16  : ETOpsCvt<0b1101000, 0b01010, "fcvt.ps.f16">;
+defm FCVT_PS_UN24 : ETOpsCvt<0b1101000, 0b10000, "fcvt.ps.un24">;
+defm FCVT_PS_UN16 : ETOpsCvt<0b1101000, 0b10001, "fcvt.ps.un16">;
+defm FCVT_PS_UN10 : ETOpsCvt<0b1101000, 0b10010, "fcvt.ps.un10">;
+defm FCVT_PS_UN8  : ETOpsCvt<0b1101000, 0b10011, "fcvt.ps.un8">;
+defm FCVT_PS_UN2  : ETOpsCvt<0b1101000, 0b10111, "fcvt.ps.un2">;
+defm FCVT_PS_SN16 : ETOpsCvt<0b1101000, 0b11001, "fcvt.ps.sn16">;
+defm FCVT_PS_SN8  : ETOpsCvt<0b1101000, 0b11011, "fcvt.ps.sn8">;
+defm FCVT_F11_PS  : ETOpsCvt<0b1101100, 0b01000, "fcvt.f11.ps">;
+defm FCVT_F16_PS  : ETOpsCvt<0b1101100, 0b01001, "fcvt.f16.ps">;
+defm FCVT_F10_PS  : ETOpsCvt<0b1101100, 0b01011, "fcvt.f10.ps">;
+defm FCVT_UN24_PS : ETOpsCvt<0b1101100, 0b10000, "fcvt.un24.ps">;
+defm FCVT_UN16_PS : ETOpsCvt<0b1101100, 0b10001, "fcvt.un16.ps">;
+defm FCVT_UN10_PS : ETOpsCvt<0b1101100, 0b10010, "fcvt.un10.ps">;
+defm FCVT_UN8_PS  : ETOpsCvt<0b1101100, 0b10011, "fcvt.un8.ps">;
+defm FCVT_UN2_PS  : ETOpsCvt<0b1101100, 0b10111, "fcvt.un2.ps">;
+defm FCVT_SN16_PS : ETOpsCvt<0b1101100, 0b11001, "fcvt.sn16.ps">;
+defm FCVT_SN8_PS  : ETOpsCvt<0b1101100, 0b11011, "fcvt.sn8.ps">;
 
-def FLTM_PI : RVInstRPSM<0b0011111, 0b000, OPC_OP_PS, "fltm.pi">;
+def FBCI_PI : RVInstU<OPC_IMM_PI,
+                      (outs FPR256:$rd),
+                      (ins uimm20_lui:$imm20),
+                      "fbci.pi", "$rd, ${imm20}">;
+def FBCI_PI_EX : Pseudo<(outs FPR256:$rd),
+                        (ins FPR256:$in, uimm20_lui:$imm20, MR0:$m0), [],
+                      "fbci.pi", "$rd, ${imm20}, $m0"> {
+     let Constraints = "$rd = $in"; 
+}
+defm FADD_PI   : ETOpsRdR1R2<0b0000011, 0b000, OPC_OP_PS, "fadd.pi">;
+defm FSUB_PI   : ETOpsRdR1R2<0b0000111, 0b000, OPC_OP_PS, "fsub.pi">;
+defm FMUL_PI   : ETOpsRdR1R2<0b0001011, 0b000, OPC_OP_PS, "fmul.pi">;
+defm FMULH_PI  : ETOpsRdR1R2<0b0001011, 0b001, OPC_OP_PS, "fmulh.pi">;
+defm FMULHU_PI : ETOpsRdR1R2<0b0001011, 0b010, OPC_OP_PS, "fmulhu.pi">;
+defm FDIV_PI   : ETOpsRdR1R2<0b0001111, 0b000, OPC_OP_PS, "fdiv.pi">;
+defm FDIVU_PI  : ETOpsRdR1R2<0b0001111, 0b001, OPC_OP_PS, "fdivu.pi">;
+defm FREM_PI   : ETOpsRdR1R2<0b0001111, 0b010, OPC_OP_PS, "frem.pi">;
+defm FREMU_PI  : ETOpsRdR1R2<0b0001111, 0b011, OPC_OP_PS, "fremu.pi">;
+defm FMIN_PI   : ETOpsRdR1R2<0b0010111, 0b000, OPC_OP_PS, "fmin.pi">;
+defm FMAX_PI   : ETOpsRdR1R2<0b0010111, 0b001, OPC_OP_PS, "fmax.pi">;
+defm FMINU_PI  : ETOpsRdR1R2<0b0010111, 0b010, OPC_OP_PS, "fminu.pi">;
+defm FMAXU_PI  : ETOpsRdR1R2<0b0010111, 0b011, OPC_OP_PS, "fmaxu.pi">;
 
-def FAND_PI : RVInstRPS<0b0000011, 0b111, OPC_OP_PS, "fand.pi">;
-def FOR_PI  : RVInstRPS<0b0000011, 0b111, OPC_OP_PS, "for.pi">;
-def FNOT_PI : PSUnary<0b0000011, 0b00000, 0b010, OPC_OP_PS, "fnot.pi">;
-def FXOR_PI : RVInstRPS<0b0000011, 0b100, OPC_OP_PS, "fxor.pi">;
-def FSLL_PI : RVInstRPS<0b0000011, 0b001, OPC_OP_PS, "fsll.pi">;
-def FSRL_PI : RVInstRPS<0b0000011, 0b101, OPC_OP_PS, "fsrl.pi">;
-def FSRA_PI : RVInstRPS<0b0000111, 0b101, OPC_OP_PS, "fsra.pi">;
-def FLE_PI  : RVInstRPS<0b1010011, 0b000, OPC_OP_PS, "fle.pi">;
-def FLT_PI  : RVInstRPS<0b1010011, 0b001, OPC_OP_PS, "flt.pi">;
-def FEQ_PI  : RVInstRPS<0b1010011, 0b010, OPC_OP_PS, "feq.pi">;
-def FLTU_PI : RVInstRPS<0b1010011, 0b011, OPC_OP_PS, "fltu.pi">;
+defm FLTM_PI : ETOpsMdR1R2<0b0011111, 0b000, OPC_OP_PS, "fltm.pi">;
 
-def FSETM_PI : MUnary<0b1010011, 0b00000, 0b100, OPC_OP_PS, "fsetm.pi">;
+defm FAND_PI : ETOpsRdR1R2<0b0000011, 0b111, OPC_OP_PS, "fand.pi">;
+defm FOR_PI  : ETOpsRdR1R2<0b0000011, 0b110, OPC_OP_PS, "for.pi">;
+defm FNOT_PI : ETOpsRdR1<0b0000011, 0b00000, 0b010, OPC_OP_PS, "fnot.pi">;
+defm FXOR_PI : ETOpsRdR1R2<0b0000011, 0b100, OPC_OP_PS, "fxor.pi">;
+defm FSLL_PI : ETOpsRdR1R2<0b0000011, 0b001, OPC_OP_PS, "fsll.pi">;
+defm FSRL_PI : ETOpsRdR1R2<0b0000011, 0b101, OPC_OP_PS, "fsrl.pi">;
+defm FSRA_PI : ETOpsRdR1R2<0b0000111, 0b101, OPC_OP_PS, "fsra.pi">;
+defm FLE_PI  : ETOpsRdR1R2<0b1010011, 0b000, OPC_OP_PS, "fle.pi">;
+defm FLT_PI  : ETOpsRdR1R2<0b1010011, 0b001, OPC_OP_PS, "flt.pi">;
+defm FEQ_PI  : ETOpsRdR1R2<0b1010011, 0b010, OPC_OP_PS, "feq.pi">;
+defm FLTU_PI : ETOpsRdR1R2<0b1010011, 0b011, OPC_OP_PS, "fltu.pi">;
 
-def FADDI_PI : PSUnaryI<0b000, OPC_IMM10_PI, "faddi.pi">;
-def FANDI_PI : PSUnaryI<0b001, OPC_IMM10_PI, "fandi.pi">;
+multiclass ETOpsMdR1<bits<7> funct7, bits<5> funct5, bits<3> funct3,
+                     RISCVOpcode opcode, string opcodestr> {
+    def "" :  RVInstR<funct7, funct3, opcode,
+                 (outs MR:$rd),
+                 (ins FPR256:$rs1),
+                 opcodestr, "$rd, $rs1"> {
+        let rs2 = funct5;
+    }
+    def _EX : Pseudo<(outs MR:$rd),
+           (ins MR:$in, FPR256:$rs1, MR0:$m0),
+           [], opcodestr, "$rd, $rs1, $m0"> {
+        let Constraints = "$rd = $in";            
+    }
+}
 
-def FSLLI_PI : PSUnaryI5<0b001, OPC_OP_PS, "fslli.pi">;
-def FSRLI_PI : PSUnaryI5<0b101, OPC_OP_PS, "fsrli.pi">;
-def FSRAI_PI : PSUnaryI5<0b101, OPC_OP_PS, "fsrai.pi">;
+defm FSETM_PI : ETOpsMdR1<0b1010011, 0b00000, 0b100, OPC_OP_PS, "fsetm.pi">;
 
-def FSIN_PS : PSUnary<0b0101100, 0b00110, 0b000, OPC_OP_PS, "fsin.ps">;
-def FEXP_PS : PSUnary<0b0101100, 0b00100, 0b000, OPC_OP_PS, "fexp.ps">;
-def FLOG_PS : PSUnary<0b0101100, 0b00011, 0b000, OPC_OP_PS, "flog.ps">;
-def FFRC_PS : PSUnary<0b0101100, 0b00010, 0b000, OPC_OP_PS, "ffrc.ps">;
+multiclass ETOpsRdR1I10<bits<3> funct3, RISCVOpcode opcode, string opcodestr> {
+    def "" : RVInstE2<funct3, opcode,
+                 (outs FPR256:$rd),
+                 (ins FPR256:$rs1, simm10:$imm),
+                 opcodestr, "$rd, $rs1, ${imm}">;
+    def _EX : Pseudo<(outs FPR256:$rd),
+            (ins FPR256:$in, FPR256:$rs1, simm10:$imm, MR0:$m0), [],
+            opcodestr, "$rd, $rs1, ${imm}, $m0"> {
+        let Constraints = "$rd = $in"; 
+    }
+}
+
+defm FADDI_PI : ETOpsRdR1I10<0b000, OPC_IMM10_PI, "faddi.pi">;
+defm FANDI_PI : ETOpsRdR1I10<0b001, OPC_IMM10_PI, "fandi.pi">;
+
+multiclass ETOpsRdR1I5<bits<3> funct3, RISCVOpcode opcode, string opcodestr> {
+    def "" : RVInstE6<funct3, opcode,
+                 (outs FPR256:$rd),
+                 (ins FPR256:$rs1, uimm5:$imm),
+                 opcodestr, "$rd, $rs1, ${imm}">;
+    def _EX : Pseudo<(outs FPR256:$rd),
+            (ins FPR256:$in, FPR256:$rs1, uimm5:$imm, MR0:$m0), [],
+            opcodestr, "$rd, $rs1, ${imm}, $m0"> {
+        let Constraints = "$rd = $in"; 
+    }
+}
+
+defm FSLLI_PI : ETOpsRdR1I5<0b001, OPC_OP_PS, "fslli.pi">;
+defm FSRLI_PI : ETOpsRdR1I5<0b101, OPC_OP_PS, "fsrli.pi">;
+defm FSRAI_PI : ETOpsRdR1I5<0b111, OPC_OP_PS, "fsrai.pi">;
+
+defm FSIN_PS : ETOpsRdR1<0b0101100, 0b00110, 0b000, OPC_OP_PS, "fsin.ps">;
+defm FEXP_PS : ETOpsRdR1<0b0101100, 0b00100, 0b000, OPC_OP_PS, "fexp.ps">;
+defm FLOG_PS : ETOpsRdR1<0b0101100, 0b00011, 0b000, OPC_OP_PS, "flog.ps">;
+defm FFRC_PS : ETOpsRdR1<0b0101100, 0b00010, 0b000, OPC_OP_PS, "ffrc.ps">;
+
 def FROUND_PS : RVInstE7<OPC_OP_PS,
                          (outs FPR256:$rd),
-                         (ins FPR256:$rs1, frmarg:$rm),
-                          "fround.ps", "$rs1, $rm">;
-def FSQRT_PS : PSUnary<0b0101100, 0b00000, 0b000, OPC_OP_PS, "fsqrt.ps">;
-def FRCP_PS  : PSUnary<0b0101100, 0b00111, 0b000, OPC_OP_PS, "frcp.ps">;
-def FRSQ_PS  : PSUnary<0b0101100, 0b01000, 0b000, OPC_OP_PS, "frsq.ps">;
+                         (ins FPR256:$rs1, ofrmarg:$rm),
+                          "fround.ps", "$rd, $rs1, $rm">;
+def FROUND_PS_EX : Pseudo<(outs FPR256:$rd),
+                           (ins FPR256:$in, FPR256:$rs1, ofrmarg:$rm, MR0:$m0),
+                          [], "fround.ps", "$rd, $rs1, $rm, $m0"> {
+        let Constraints = "$rd = $in"; 
+}
 
-def CUBEFACE_PS    : RVInstRPS<0b1000100, 0b000, OPC_OP_PS, "cubeface.ps">;
-def CUBEFACEIDX_PS : RVInstRPS<0b1000100, 0b001, OPC_OP_PS, "cubefaceidx.ps">;
-def CUBESGNSC_PS   : RVInstRPS<0b1000100, 0b010, OPC_OP_PS, "cubesgnsc.ps">;
-def CUBESGNTC_PS   : RVInstRPS<0b1000100, 0b011, OPC_OP_PS, "cubesgntc.ps">;
+defm FSQRT_PS : ETOpsRdR1<0b0101100, 0b00000, 0b000, OPC_OP_PS, "fsqrt.ps">;
+defm FRCP_PS  : ETOpsRdR1<0b0101100, 0b00111, 0b000, OPC_OP_PS, "frcp.ps">;
+defm FRSQ_PS  : ETOpsRdR1<0b0101100, 0b01000, 0b000, OPC_OP_PS, "frsq.ps">;
+
+defm CUBEFACE_PS    : ETOpsRdR1R2<0b1000100, 0b000, OPC_OP_PS, "cubeface.ps">;
+defm CUBEFACEIDX_PS : ETOpsRdR1R2<0b1000100, 0b001, OPC_OP_PS, "cubefaceidx.ps">;
+defm CUBESGNSC_PS   : ETOpsRdR1R2<0b1000100, 0b010, OPC_OP_PS, "cubesgnsc.ps">;
+defm CUBESGNTC_PS   : ETOpsRdR1R2<0b1000100, 0b011, OPC_OP_PS, "cubesgntc.ps">;
 
 def PACKB    : ALUW_rr<0b1000000, 0b110, "packb">;
 def BITMIXB  : ALUW_rr<0b1000000, 0b111, "bitmixb">;
 
 def MOV_M_X : RVInstE8<OPC_OP_PS,
                      (outs MR:$rd),
-                     (ins GPR:$rs1, simm12:$imm), // TODO simm8
-                     "mov.m.x", "$rs1, $imm">;
-def MOVA_X_M : RVInstR<0b1101011, 0b001, OPC_OP_PS,
+                     (ins GPR:$rs1, uimm8:$imm),
+                     "mov.m.x", "$rd, $rs1, $imm">;
+def MOVA_X_M : RVInstR<0b1101011, 0b000, OPC_OP_PS,
                      (outs GPR:$rd),
                      (ins),
                      "mova.x.m", "$rd"> {
@@ -200,147 +453,244 @@ def MOVA_X_M : RVInstR<0b1101011, 0b001, OPC_OP_PS,
     let rs2 = 0;
 }
 
+def MOVA_M_X : RVInstR<0b1101011, 0b001, OPC_OP_PS,
+                     (outs),
+                     (ins GPR:$rs1),
+                     "mova.m.x", "$rs1"> {
+    let rd = 0;
+    let rs2 = 0;
+}
 
-def MASKAND : MBinary<0b111, "maskand">;
-def MASKOR  : MBinary<0b110, "maskor">;
+class ETOpsMdM1M2<bits<3> funct3, string codestr> :
+    RVInstE9<funct3, OPC_OP_PS, (outs MR:$rd),
+             (ins MR:$rs1, MR:$rs2), codestr, "$rd, $rs1, $rs2">;
+
+def MASKAND : ETOpsMdM1M2<0b111, "maskand">;
+def MASKOR  : ETOpsMdM1M2<0b110, "maskor">;
 def MASKNOT : RVInstE9<0b010, OPC_OP_PS, (outs MR:$rd),
              (ins MR:$rs1), "masknot", "$rd, $rs1"> { let rs2 = 0; }
-def MASKXOR  : MBinary<0b100, "maskxor">;
+def MASKXOR  : ETOpsMdM1M2<0b100, "maskxor">;
 
-def MASKPOPC : PopInst<0b01,"maskpopc">;
-def MASKPOPZ : PopInst<0b10,"maskpopz">;
+class ETOpsRdM1<bits<2> funct2, string opcodestr> :
+      RVInstE10<funct2, OPC_OP_PS, (outs GPR:$rd), (ins MR:$rs1),
+                opcodestr, "$rd, $rs1">;
+
+def MASKPOPC  : ETOpsRdM1<0b01,"maskpopc">;
+def MASKPOPCZ : ETOpsRdM1<0b10,"maskpopcz">;
+
 def MASKPOPC_RAST : RVInstE11<OPC_OP_PS, (outs MR:$rd),
-             (ins GPR:$rs1, MR:$rs2, uimm5:$imm), // TODO uimm4?
+             (ins MR:$rs1, MR:$rs2, uimm4:$imm),
              "maskpopc.rast", "$rd, $rs1, $rs2, $imm">;
 
-def FPACKREPB_PI :
-       PSUnary<0b0010011, 0b00000, 0b000, OPC_OP_PS, "fpackrepb.pi">;
-def FPACKREPH_PI :
-       PSUnary<0b0010011, 0b00000, 0b001, OPC_OP_PS, "fpackreph.pi">;
-
-// Load?
-def FG32W_PS : RVInstRPS<0b0010000, 0b001, OPC_MEM_PS, "fg32w.ps">; 
-def FG32H_PS : RVInstRPS<0b0001000, 0b001, OPC_MEM_PS, "fg32h.ps">; 
-def FG32B_PS : RVInstRPS<0b0000100, 0b001, OPC_MEM_PS, "fg32b.ps">; 
-
-// Are these stores?
-def FSC32W_PS : RVInstR3PS<0b10100, 0b001, OPC_MEM_PS, "fsc32w.ps">;
-def FSC32H_PS : RVInstR3PS<0b10010, 0b001, OPC_MEM_PS, "fsc32h.ps">;
-def FSC32B_PS : RVInstR3PS<0b10001, 0b001, OPC_MEM_PS, "fsc32b.ps">;
+defm FPACKREPB_PI :
+       ETOpsRdR1<0b0010011, 0b00000, 0b000, OPC_OP_PS, "fpackrepb.pi">;
+defm FPACKREPH_PI :
+       ETOpsRdR1<0b0010011, 0b00000, 0b001, OPC_OP_PS, "fpackreph.pi">;
 
 
-def FCMOVM_PS : RVInstRPS<0b0000000, 0b000, OPC_CVT_PS, "fcmovm.ps">;
-def FRCP_FIX_RAST : RVInstRPS<0b0011000, 0b000, OPC_CVT_PS, "frcp_fix.rast">;
-def FCVT_RAST_PS : PSUnary<0b1100000,0b00010,0b000, OPC_CVT_PS, "fcvt.rast.ps">;
-def FCVT_PS_RAST : PSUnary<0b1101000, 0b00010, 0b000, OPC_CVT_PS, "fcvt.ps.rast">;
-def FSAT8_PI : PSUnary<0b0000011, 0b00000, 0b011, OPC_CVT_PS, "fsat8.pi">;
-def FSATU8_PI : PSUnary<0b0000011, 0b00001, 0b011, OPC_CVT_PS, "fsatu8.pi">;
-def FLWL_PS : RVInstR<0b0001000,0b111,OPC_MEM_PS,
-                      (outs FPR256:$rd), (ins GPR:$rs1),
-                      "flwl.ps", "$rd, (${rs1})"> { let rs2 = 0; let mayLoad = 1; }
-def FSWL_PS : RVInstR<0b0101000,0b111,OPC_MEM_PS,
-                      (outs), (ins FPR256:$rs1, GPR:$rs2),
-                      "fswl.ps", "$rs1, (${rs2})"> { let mayStore = 1; }
-def FGBL_PS : PSGlobalL<0b1000000, 0b111, "fgbl.ps">;
-def FGHL_PS : PSGlobalL<0b1000100, 0b111, "fghl.ps">;
-def FGWL_PS : PSGlobalL<0b1001000, 0b111, "fgwl.ps">;
+multiclass ETOpsRdR1R2G<bits<7> funct7, string opcodestr> {
+    def "" : RVInstR<funct7, 0b001, OPC_MEM_PS,
+                 (outs FPR256:$rd),
+                 (ins GPR:$rs1, GPR:$rs2),
+                 opcodestr, "$rd, ${rs1}(${rs2})">;
+    def _EX : Pseudo<
+                 (outs FPR256:$rd),
+                 (ins FPR256:$in, GPR:$rs1, GPR:$rs2, MR0:$m0), [],
+                 opcodestr, "$rd, ${rs1}(${rs2}), m0">  {
+        let Constraints = "$rd = $in"; 
+    }
+}
 
-def FSCBL_PS : PSGlobalS<0b1100000, 0b111, "fscbl.ps">;
-def FSCHL_PS : PSGlobalS<0b1100100, 0b111, "fschl.ps">;
-def FSCWL_PS : PSGlobalS<0b1101000, 0b111, "fscwl.ps">;
-
-def FLWG_PS : RVInstR<0b0001001, 0b111, OPC_MEM_PS, (outs FPR256:$rd),
-           (ins GPR:$rs1), "flwg.ps", "(${rs1})"> { let rs2 = 0; let mayLoad = 1; }
-           
-def FSWG_PS : RVInstR<0b0101001, 0b111, OPC_MEM_PS, (outs),
-           (ins FPR256:$rs1, GPR:$rs2), "fswg.ps", "${rs1}, (${rs2})"> { let mayStore = 1; }
-
-def FGBG_PS : PSGlobalL<0b1000001, 0b111, "fgbg.ps">; // verify these are loads
-def FGHG_PS : PSGlobalL<0b1001001, 0b111, "fghg.ps">;
-def FGWG_PS : PSGlobalL<0b1010001, 0b111, "fgwg.ps">;
+let mayLoad = 1 in {
+defm FG32W_PS : ETOpsRdR1R2G<0b0010000, "fg32w.ps">; 
+defm FG32H_PS : ETOpsRdR1R2G<0b0001000, "fg32h.ps">; 
+defm FG32B_PS : ETOpsRdR1R2G<0b0000100, "fg32b.ps">; 
+}
 
 let mayStore = 1 in {
-def FSCBG_PS : PSGlobalS<0b1100001, 0b111, "fscbg.ps">;
-def FSCHG_PS : PSGlobalS<0b1100101, 0b111, "fschg.ps">;
-def FSCWG_PS : PSGlobalS<0b1101001, 0b111, "fscwg.ps">;
+defm FSC32W_PS : ETOpsR3R1R2<0b1010000, "fsc32w.ps">;
+defm FSC32H_PS : ETOpsR3R1R2<0b1001000, "fsc32h.ps">;
+defm FSC32B_PS : ETOpsR3R1R2<0b1000100, "fsc32b.ps">;
+}
+
+defm FCMOVM_PS : ETOpsRdR1R2<0b0000000, 0b000, OPC_CVT_PS, "fcmovm.ps">;
+defm FRCP_FIX_RAST : ETOpsRdR1R2<0b0011000, 0b000, OPC_OP_PS, "frcp_fix.rast">;
+defm FCVT_RAST_PS : ETOpsRdR1<0b1100000,0b00010,0b000, OPC_OP_PS, "fcvt.rast.ps">;
+defm FCVT_PS_RAST : ETOpsRdR1<0b1101000, 0b00010, 0b000, OPC_OP_PS, "fcvt.ps.rast">;
+defm FSAT8_PI : ETOpsRdR1<0b0000011, 0b00000, 0b011, OPC_OP_PS, "fsat8.pi">;
+defm FSATU8_PI : ETOpsRdR1<0b0000011, 0b00001, 0b011, OPC_OP_PS, "fsatu8.pi">;
+
+multiclass ETOpsFdR1<bits<7> funct7, string opcodestr> {
+   def "" : RVInstR<funct7,0b111,OPC_MEM_PS,
+                      (outs FPR256:$rd), (ins GPR:$rs1),
+                      opcodestr, "$rd, (${rs1})"> {
+       let rs2 = 0;
+  }
+  def _EX : Pseudo<(outs FPR256:$rd),
+                   (ins FPR256:$in, GPR:$rs1, MR0:$m0), [],
+                   opcodestr, "$rd, (${rs1}), $m0"> {
+    let Constraints = "$rd = $in"; 
+  }     
+}
+
+let mayLoad = 1 in {
+defm FLWL_PS : ETOpsFdR1<0b0001000, "flwl.ps">;
+defm FLWG_PS : ETOpsFdR1<0b0001001, "flwg.ps">;
+}
+
+multiclass ETOpsF1R2<bits<7> funct7, string opcodestr> {
+    def "" : RVInstE14<funct7,0b111,OPC_MEM_PS,
+                      (outs), (ins FPR256:$rs1, GPR:$rs2),
+                      opcodestr, "$rs1, (${rs2})">;
+    def _EX : Pseudo<(outs), (ins FPR256:$rs1, GPR:$rs2, MR0:$m0), [],
+                     opcodestr, "$rs1, (${rs2}), $m0">;
+}
+
+let mayStore = 1 in {
+defm FSWL_PS : ETOpsF1R2<0b0101000, "fswl.ps">;
+defm FSWG_PS : ETOpsF1R2<0b0101001, "fswg.ps">;
+}
+
+
+multiclass ETOpsRdR1R2FG<bits<7> funct7, bits<3> funct3, string opcodestr> {
+   def "" : RVInstR<funct7, funct3, OPC_MEM_PS, (outs FPR256:$rd),
+            (ins FPR256:$rs1, GPR:$rs2), opcodestr,
+            "$rd, ${rs1}(${rs2})">;
+   def _EX : Pseudo<(outs FPR256:$rd),
+            (ins FPR256:$in, FPR256:$rs1, GPR:$rs2, MR0:$m0), [], opcodestr,
+            "$rd, ${rs1}(${rs2}), $m0"> {
+      let Constraints = "$rd = $in";   
+   }
+}
+
+let mayLoad = 1 in {
+defm FGBL_PS : ETOpsRdR1R2FG<0b1000000, 0b111, "fgbl.ps">;
+defm FGHL_PS : ETOpsRdR1R2FG<0b1000100, 0b111, "fghl.ps">;
+defm FGWL_PS : ETOpsRdR1R2FG<0b1001000, 0b111, "fgwl.ps">;
+}
+
+multiclass ETOpsR1R2R3FS<bits<7> funct7, bits<3> funct3, string opcodestr> {
+  def "" : RVInstE12<funct7, funct3, OPC_MEM_PS, (outs),
+            (ins FPR256:$rs1, FPR256:$rs2, GPR:$rs3), opcodestr,
+            "${rs1}, ${rs2}(${rs3})">;
+  def _EX : Pseudo<(outs),
+            (ins FPR256:$rs1, FPR256:$rs2, GPR:$rs3, MR0:$m0),
+            [], opcodestr,
+            "${rs1}, ${rs2}(${rs3}), $m0">;
+}
+
+let mayStore = 1 in {
+defm FSCBL_PS : ETOpsR1R2R3FS<0b1100000, 0b111, "fscbl.ps">;
+defm FSCHL_PS : ETOpsR1R2R3FS<0b1100100, 0b111, "fschl.ps">;
+defm FSCWL_PS : ETOpsR1R2R3FS<0b1101000, 0b111, "fscwl.ps">;
+}
+          
+
+let mayLoad = 1 in {
+defm FGBG_PS : ETOpsRdR1R2FG<0b1000001, 0b111, "fgbg.ps">;
+defm FGHG_PS : ETOpsRdR1R2FG<0b1000101, 0b111, "fghg.ps">;
+defm FGWG_PS : ETOpsRdR1R2FG<0b1001001, 0b111, "fgwg.ps">;
+}
+let mayStore = 1 in {
+defm FSCBG_PS : ETOpsR1R2R3FS<0b1100001, 0b111, "fscbg.ps">;
+defm FSCHG_PS : ETOpsR1R2R3FS<0b1100101, 0b111, "fschg.ps">;
+defm FSCWG_PS : ETOpsR1R2R3FS<0b1101001, 0b111, "fscwg.ps">;
 }
 
 let mayLoad = 1, mayStore =1 in {
-def FAMOADDL_PI  : PSGlobalL<0b0000011, 0b100, "famoaddl.pi">;
-def FAMOSWAPL_PI : PSGlobalL<0b0000111, 0b100, "famoswapl.pi">;
-def FAMOANDL_PI  : PSGlobalL<0b0001011, 0b100, "famoandl.pi">;
-def FAMOORL_PI   : PSGlobalL<0b0001111, 0b100, "famoorl.pi">;
-def FAMOXORL_PI  : PSGlobalL<0b0010011, 0b100, "famoxorl.pi">;
-def FAMOMINL_PI  : PSGlobalL<0b0010111, 0b100, "famominl.pi">;
-def FAMOMAXL_PI  : PSGlobalL<0b0011011, 0b100, "famomaxl.pi">;
-def FAMOMINUL_PI : PSGlobalL<0b0011111, 0b100, "famominul.pi">;
-def FAMOMAXUL_PI : PSGlobalL<0b0100011, 0b100, "famomaxul.pi">;
-def FAMOMINL_PS  : PSGlobalL<0b0010100, 0b100, "famominl.ps">;
-def FAMOMAXL_PS  : PSGlobalL<0b0011000, 0b100, "famomaxl.ps">;
+defm FAMOADDL_PI  : ETOpsRdR1R2FG<0b0000011, 0b100, "famoaddl.pi">;
+defm FAMOSWAPL_PI : ETOpsRdR1R2FG<0b0000111, 0b100, "famoswapl.pi">;
+defm FAMOANDL_PI  : ETOpsRdR1R2FG<0b0001011, 0b100, "famoandl.pi">;
+defm FAMOORL_PI   : ETOpsRdR1R2FG<0b0001111, 0b100, "famoorl.pi">;
+defm FAMOXORL_PI  : ETOpsRdR1R2FG<0b0010011, 0b100, "famoxorl.pi">;
+defm FAMOMINL_PI  : ETOpsRdR1R2FG<0b0010111, 0b100, "famominl.pi">;
+defm FAMOMAXL_PI  : ETOpsRdR1R2FG<0b0011011, 0b100, "famomaxl.pi">;
+defm FAMOMINUL_PI : ETOpsRdR1R2FG<0b0011111, 0b100, "famominul.pi">;
+defm FAMOMAXUL_PI : ETOpsRdR1R2FG<0b0100011, 0b100, "famomaxul.pi">;
+defm FAMOMINL_PS  : ETOpsRdR1R2FG<0b0011000, 0b100, "famominl.ps">;
+defm FAMOMAXL_PS  : ETOpsRdR1R2FG<0b0010100, 0b100, "famomaxl.ps">;
 
-def FAMOADDG_PI  : PSGlobalL<0b1000011, 0b100, "famoaddg.pi">;
-def FAMOSWAPG_PI : PSGlobalL<0b1000111, 0b100, "famoswapg.pi">;
-def FAMOANDG_PI  : PSGlobalL<0b1001011, 0b100, "famoandg.pi">;
-def FAMOORG_PI   : PSGlobalL<0b1001111, 0b100, "famoorg.pi">;
-def FAMOXORG_PI  : PSGlobalL<0b1010011, 0b100, "famoxorg.pi">;
-def FAMOMING_PI  : PSGlobalL<0b1010111, 0b100, "famoming.pi">;
-def FAMOMAXG_PI  : PSGlobalL<0b1011011, 0b100, "famomaxg.pi">;
-def FAMOMINUG_PI : PSGlobalL<0b1011111, 0b100, "famominug.pi">;
-def FAMOMAXUG_PI : PSGlobalL<0b1100011, 0b100, "famomaxug.pi">;
-def FAMOMING_PS  : PSGlobalL<0b1010100, 0b100, "famoming.ps">;
-def FAMOMAXG_PS  : PSGlobalL<0b1011000, 0b100, "famomaxg.ps">;
+defm FAMOADDG_PI  : ETOpsRdR1R2FG<0b1000011, 0b100, "famoaddg.pi">;
+defm FAMOSWAPG_PI : ETOpsRdR1R2FG<0b1000111, 0b100, "famoswapg.pi">;
+defm FAMOANDG_PI  : ETOpsRdR1R2FG<0b1001011, 0b100, "famoandg.pi">;
+defm FAMOORG_PI   : ETOpsRdR1R2FG<0b1001111, 0b100, "famoorg.pi">;
+defm FAMOXORG_PI  : ETOpsRdR1R2FG<0b1010011, 0b100, "famoxorg.pi">;
+defm FAMOMING_PI  : ETOpsRdR1R2FG<0b1010111, 0b100, "famoming.pi">;
+defm FAMOMAXG_PI  : ETOpsRdR1R2FG<0b1011011, 0b100, "famomaxg.pi">;
+defm FAMOMINUG_PI : ETOpsRdR1R2FG<0b1011111, 0b100, "famominug.pi">;
+defm FAMOMAXUG_PI : ETOpsRdR1R2FG<0b1100011, 0b100, "famomaxug.pi">;
+defm FAMOMING_PS  : ETOpsRdR1R2FG<0b1011000, 0b100, "famoming.ps">;
+defm FAMOMAXG_PS  : ETOpsRdR1R2FG<0b1010100, 0b100, "famomaxg.ps">;
+}
 
-def AMOSWAPL_W : EGlobalL<0b0000100, 0b010, "amoswapl.w">;
-def AMOADDL_W  : EGlobalL<0b0000000, 0b010, "amoaddl.w">;
-def AMOXORL_W  : EGlobalL<0b0010000, 0b010, "amoxorl.w">;
-def AMOANDL_W  : EGlobalL<0b0110000, 0b010, "amoandl.w">;
-def AMOORL_W   : EGlobalL<0b0100000, 0b010, "amoorl.w">;
-def AMOMINL_W  : EGlobalL<0b1000000, 0b010, "amominl.w">;
-def AMOMAXL_W  : EGlobalL<0b1010000, 0b010, "amomaxl.w">;
-def AMOMINUL_W : EGlobalL<0b1100000, 0b010, "amominul.w">;
-def AMOMAXUL_W : EGlobalL<0b1110000, 0b010, "amomaxul.w">;
+class ETOpsR1R2<bits<7> funct7, bits<3> funct3, string opcodestr> :
+     RVInstR<funct7, funct3, OPC_OP_32, (outs GPR:$rd),
+            (ins GPR:$rs1, GPR:$rs2), opcodestr,
+            "${rd}, ${rs1}, (${rs2})">;
 
-def AMOSWAPG_W : EGlobalL<0b0000101, 0b010, "amoswapg.w">;
-def AMOADDG_W  : EGlobalL<0b0000001, 0b010, "amoaddg.w">;
-def AMOXORG_W  : EGlobalL<0b0010001, 0b010, "amoxorg.w">;
-def AMOANDG_W  : EGlobalL<0b0110001, 0b010, "amoandg.w">;
-def AMOORG_W   : EGlobalL<0b0100001, 0b010, "amoorg.w">;
-def AMOMING_W  : EGlobalL<0b1000001, 0b010, "amoming.w">;
-def AMOMAXG_W  : EGlobalL<0b1010001, 0b010, "amomaxg.w">;
-def AMOMINUG_W : EGlobalL<0b1100001, 0b010, "amominug.w">;
-def AMOMAXUG_W : EGlobalL<0b1110001, 0b010, "amomaxug.w">;
+let mayLoad=1, mayStore=1 in {
+def AMOSWAPL_W : ETOpsR1R2<0b0000100, 0b010, "amoswapl.w">;
+def AMOADDL_W  : ETOpsR1R2<0b0000000, 0b010, "amoaddl.w">;
+def AMOXORL_W  : ETOpsR1R2<0b0010000, 0b010, "amoxorl.w">;
+def AMOANDL_W  : ETOpsR1R2<0b0110000, 0b010, "amoandl.w">;
+def AMOORL_W   : ETOpsR1R2<0b0100000, 0b010, "amoorl.w">;
+def AMOMINL_W  : ETOpsR1R2<0b1000000, 0b010, "amominl.w">;
+def AMOMAXL_W  : ETOpsR1R2<0b1010000, 0b010, "amomaxl.w">;
+def AMOMINUL_W : ETOpsR1R2<0b1100000, 0b010, "amominul.w">;
+def AMOMAXUL_W    : ETOpsR1R2<0b1110000, 0b010, "amomaxul.w">;
+def AMOCMPSWAPL_W : ETOpsR1R2<0b1111000, 0b010, "amocmpswapl.w">;
 
-def AMOSWAPL_D : EGlobalL<0b0000100, 0b011, "amoswapl.d">;
-def AMOADDL_D  : EGlobalL<0b0000000, 0b011, "amoaddl.d">;
-def AMOXORL_D  : EGlobalL<0b0010000, 0b011, "amoxorl.d">;
-def AMOANDL_D  : EGlobalL<0b0110000, 0b011, "amoandl.d">;
-def AMOORL_D   : EGlobalL<0b0100000, 0b011, "amoorl.d">;
-def AMOMINL_D  : EGlobalL<0b1000000, 0b011, "amominl.d">;
-def AMOMAXL_D  : EGlobalL<0b1010000, 0b011, "amomaxl.d">;
-def AMOMINUL_D : EGlobalL<0b1100000, 0b011, "amominul.d">;
-def AMOMAXUL_D : EGlobalL<0b1110000, 0b011, "amomaxul.d">;
+def AMOSWAPG_W : ETOpsR1R2<0b0000101, 0b010, "amoswapg.w">;
+def AMOADDG_W  : ETOpsR1R2<0b0000001, 0b010, "amoaddg.w">;
+def AMOXORG_W  : ETOpsR1R2<0b0010001, 0b010, "amoxorg.w">;
+def AMOANDG_W  : ETOpsR1R2<0b0110001, 0b010, "amoandg.w">;
+def AMOORG_W   : ETOpsR1R2<0b0100001, 0b010, "amoorg.w">;
+def AMOMING_W  : ETOpsR1R2<0b1000001, 0b010, "amoming.w">;
+def AMOMAXG_W  : ETOpsR1R2<0b1010001, 0b010, "amomaxg.w">;
+def AMOMINUG_W : ETOpsR1R2<0b1100001, 0b010, "amominug.w">;
+def AMOMAXUG_W : ETOpsR1R2<0b1110001, 0b010, "amomaxug.w">;
+def AMOCMPSWAPG_W : ETOpsR1R2<0b1111001, 0b010, "amocmpswapg.w">;
 
-def AMOSWAPG_D : EGlobalL<0b0000101, 0b011, "amoswapg.d">;
-def AMOADDG_D  : EGlobalL<0b0000001, 0b011, "amoaddg.d">;
-def AMOXORG_D  : EGlobalL<0b0010001, 0b011, "amoxorg.d">;
-def AMOANDG_D  : EGlobalL<0b0110001, 0b011, "amoandg.d">;
-def AMOORG_D   : EGlobalL<0b0100001, 0b011, "amoorg.d">;
-def AMOMING_D  : EGlobalL<0b1000001, 0b011, "amoming.d">;
-def AMOMAXG_D  : EGlobalL<0b1010001, 0b011, "amomaxg.d">;
-def AMOMINUG_D : EGlobalL<0b1100001, 0b011, "amominug.d">;
-def AMOMAXUG_D : EGlobalL<0b1110001, 0b011, "amomaxug.d">;
+def AMOSWAPL_D : ETOpsR1R2<0b0000100, 0b011, "amoswapl.d">;
+def AMOADDL_D  : ETOpsR1R2<0b0000000, 0b011, "amoaddl.d">;
+def AMOXORL_D  : ETOpsR1R2<0b0010000, 0b011, "amoxorl.d">;
+def AMOANDL_D  : ETOpsR1R2<0b0110000, 0b011, "amoandl.d">;
+def AMOORL_D   : ETOpsR1R2<0b0100000, 0b011, "amoorl.d">;
+def AMOMINL_D  : ETOpsR1R2<0b1000000, 0b011, "amominl.d">;
+def AMOMAXL_D  : ETOpsR1R2<0b1010000, 0b011, "amomaxl.d">;
+def AMOMINUL_D : ETOpsR1R2<0b1100000, 0b011, "amominul.d">;
+def AMOMAXUL_D : ETOpsR1R2<0b1110000, 0b011, "amomaxul.d">;
+def AMOCMPSWAPL_D : ETOpsR1R2<0b1111000, 0b011, "amocmpswapl.d">;
+
+def AMOSWAPG_D : ETOpsR1R2<0b0000101, 0b011, "amoswapg.d">;
+def AMOADDG_D  : ETOpsR1R2<0b0000001, 0b011, "amoaddg.d">;
+def AMOXORG_D  : ETOpsR1R2<0b0010001, 0b011, "amoxorg.d">;
+def AMOANDG_D  : ETOpsR1R2<0b0110001, 0b011, "amoandg.d">;
+def AMOORG_D   : ETOpsR1R2<0b0100001, 0b011, "amoorg.d">;
+def AMOMING_D  : ETOpsR1R2<0b1000001, 0b011, "amoming.d">;
+def AMOMAXG_D  : ETOpsR1R2<0b1010001, 0b011, "amomaxg.d">;
+def AMOMINUG_D : ETOpsR1R2<0b1100001, 0b011, "amominug.d">;
+def AMOMAXUG_D : ETOpsR1R2<0b1110001, 0b011, "amomaxug.d">;
+def AMOCMPSWAPG_D : ETOpsR1R2<0b1111001, 0b011, "amocmpswapg.d">;
 
 } // let mayLoad = 1, mayStore =1 in
-let mayLoad = 1, rd = 0 in {
-def SBL : EGlobalL<0b0001000, 0b011, "sbl">;
-def SHL : EGlobalL<0b0001100, 0b011, "shl">;
-def SBG : EGlobalL<0b0001001, 0b011, "sbg">;
-def SHG : EGlobalL<0b0001101, 0b011, "shg">;
+
+
+class ETOpsR1R2S<bits<7> funct7, bits<3> funct3, string opcodestr> :
+     RVInstR<funct7, funct3, OPC_OP_32, (outs),
+            (ins GPR:$rs2, GPR:$rs1), opcodestr,
+            "${rs2}, (${rs1})"> {
+    let rd = 0;
+}
+
+let mayLoad = 1 in {
+def SBL : ETOpsR1R2S<0b0001000, 0b011, "sbl">;
+def SHL : ETOpsR1R2S<0b0001100, 0b011, "shl">;
+def SBG : ETOpsR1R2S<0b0001001, 0b011, "sbg">;
+def SHG : ETOpsR1R2S<0b0001101, 0b011, "shg">;
 }
 
 } // let hasSideEffects = 0, mayLoad = 0, mayStore = 0 
-
-  
 } // HasEsperanto
-                                    
-  
+} // DecoderNamespace                                 
+

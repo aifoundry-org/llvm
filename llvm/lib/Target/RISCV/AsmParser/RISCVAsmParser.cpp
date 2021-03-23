@@ -207,6 +207,7 @@ class RISCVAsmParser : public MCTargetAsmParser {
   }
 
   std::unique_ptr<RISCVOperand> defaultMaskRegOp() const;
+  std::unique_ptr<RISCVOperand> defaultOFRMArgOperands();
 
 public:
   enum RISCVMatchResultTy {
@@ -464,6 +465,7 @@ public:
 
     return RISCVFPRndMode::stringToRoundingMode(Str) != RISCVFPRndMode::Invalid;
   }
+  bool isOFRMArg() const { return isFRMArg(); }
 
   bool isImmXLenLI() const {
     int64_t Imm;
@@ -514,6 +516,15 @@ public:
     return (isRV64() && isUInt<5>(Imm)) || isUInt<4>(Imm);
   }
 
+  bool isUImm3() const {
+    int64_t Imm;
+    RISCVMCExpr::VariantKind VK = RISCVMCExpr::VK_RISCV_None;
+    if (!isImm())
+      return false;
+    bool IsConstantImm = evaluateConstantImm(getImm(), Imm, VK);
+    return IsConstantImm && isUInt<3>(Imm) && VK == RISCVMCExpr::VK_RISCV_None;
+  }
+
   bool isUImm5() const {
     int64_t Imm;
     RISCVMCExpr::VariantKind VK = RISCVMCExpr::VK_RISCV_None;
@@ -521,6 +532,15 @@ public:
       return false;
     bool IsConstantImm = evaluateConstantImm(getImm(), Imm, VK);
     return IsConstantImm && isUInt<5>(Imm) && VK == RISCVMCExpr::VK_RISCV_None;
+  }
+
+  bool isUImm4() const {
+    int64_t Imm;
+    RISCVMCExpr::VariantKind VK = RISCVMCExpr::VK_RISCV_None;
+    if (!isImm())
+      return false;
+    bool IsConstantImm = evaluateConstantImm(getImm(), Imm, VK);
+    return IsConstantImm && isUInt<4>(Imm) && VK == RISCVMCExpr::VK_RISCV_None;
   }
 
   bool isUImm5NonZero() const {
@@ -583,6 +603,15 @@ public:
            VK == RISCVMCExpr::VK_RISCV_None;
   }
 
+  bool isUImm8() const {
+    int64_t Imm;
+    RISCVMCExpr::VariantKind VK = RISCVMCExpr::VK_RISCV_None;
+    if (!isImm())
+      return false;
+    bool IsConstantImm = evaluateConstantImm(getImm(), Imm, VK);
+    return IsConstantImm && isUInt<8>(Imm) && VK == RISCVMCExpr::VK_RISCV_None;
+  }
+
   bool isUImm8Lsb00() const {
     if (!isImm())
       return false;
@@ -623,6 +652,23 @@ public:
     bool IsConstantImm = evaluateConstantImm(getImm(), Imm, VK);
     return IsConstantImm && isShiftedUInt<8, 2>(Imm) && (Imm != 0) &&
            VK == RISCVMCExpr::VK_RISCV_None;
+  }
+
+  bool isSImm10() const {
+    RISCVMCExpr::VariantKind VK = RISCVMCExpr::VK_RISCV_None;
+    int64_t Imm;
+    bool IsValid;
+    if (!isImm())
+      return false;
+    bool IsConstantImm = evaluateConstantImm(getImm(), Imm, VK);
+    if (!IsConstantImm)
+      IsValid = RISCVAsmParser::classifySymbolRef(getImm(), VK, Imm);
+    else
+      IsValid = isInt<10>(Imm);
+    return IsValid && ((IsConstantImm && VK == RISCVMCExpr::VK_RISCV_None) ||
+                       VK == RISCVMCExpr::VK_RISCV_LO ||
+                       VK == RISCVMCExpr::VK_RISCV_PCREL_LO ||
+                       VK == RISCVMCExpr::VK_RISCV_TPREL_LO);
   }
 
   bool isSImm12() const {
@@ -950,7 +996,11 @@ public:
   // Returns the rounding mode represented by this RISCVOperand. Should only
   // be called after checking isFRMArg.
   RISCVFPRndMode::RoundingMode getRoundingMode() const {
-    // isFRMArg has validated the operand, meaning this cast is safe.
+    // A constant value in the missing optional case.
+    if (auto *C = dyn_cast<MCConstantExpr>(getImm()))
+      return static_cast<RISCVFPRndMode::RoundingMode>(C->getValue());
+
+    // isFRMArg has validated the operand, meaning this cast is safe
     auto SE = cast<MCSymbolRefExpr>(getImm());
     RISCVFPRndMode::RoundingMode FRM =
         RISCVFPRndMode::stringToRoundingMode(SE->getSymbol().getName());
@@ -1107,8 +1157,14 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
     if (isRV64())
       return generateImmOutOfRangeError(Operands, ErrorInfo, 0, (1 << 5) - 1);
     return generateImmOutOfRangeError(Operands, ErrorInfo, 0, (1 << 4) - 1);
+  case Match_InvalidUImm3:
+    return generateImmOutOfRangeError(Operands, ErrorInfo, 0, (1 << 3) - 1);
+  case Match_InvalidUImm4:
+    return generateImmOutOfRangeError(Operands, ErrorInfo, 0, (1 << 4) - 1);
   case Match_InvalidUImm5:
     return generateImmOutOfRangeError(Operands, ErrorInfo, 0, (1 << 5) - 1);
+  case Match_InvalidUImm8:
+    return generateImmOutOfRangeError(Operands, ErrorInfo, 0, (1 << 8) - 1);
   case Match_InvalidSImm6:
     return generateImmOutOfRangeError(Operands, ErrorInfo, -(1 << 5),
                                       (1 << 5) - 1);
@@ -1148,6 +1204,11 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
     return generateImmOutOfRangeError(
         Operands, ErrorInfo, -(1 << 9), (1 << 9) - 16,
         "immediate must be a multiple of 16 bytes and non-zero in the range");
+  case Match_InvalidSImm10:
+    return generateImmOutOfRangeError(
+        Operands, ErrorInfo, -(1 << 9), (1 << 9) - 1,
+        "operand must be a symbol with %lo/%pcrel_lo/%tprel_lo modifier or an "
+        "integer in the range");
   case Match_InvalidSImm12:
     return generateImmOutOfRangeError(
         Operands, ErrorInfo, -(1 << 11), (1 << 11) - 1,
@@ -1807,6 +1868,17 @@ bool RISCVAsmParser::ParseInstruction(ParseInstructionInfo &Info,
     ++OperandIdx;
   }
 
+  // parse ( op ) for gathers
+  if (getLexer().is(AsmToken::LParen) &&
+      getFeatureBits(RISCV::FeatureEsperanto)) {
+
+    // Parse next operand
+    if (parseOperand(Operands, Name))
+      return true;
+
+    ++OperandIdx;
+  }
+
   if (getLexer().isNot(AsmToken::EndOfStatement)) {
     SMLoc Loc = getLexer().getLoc();
     getParser().eatToEndOfStatement();
@@ -2300,6 +2372,12 @@ bool RISCVAsmParser::checkPseudoAddTPRel(MCInst &Inst,
 std::unique_ptr<RISCVOperand> RISCVAsmParser::defaultMaskRegOp() const {
   return RISCVOperand::createReg(RISCV::NoRegister, llvm::SMLoc(),
                                  llvm::SMLoc(), isRV64());
+}
+
+std::unique_ptr<RISCVOperand> RISCVAsmParser::defaultOFRMArgOperands() {
+  return RISCVOperand::createImm(
+      MCConstantExpr::create(RISCVFPRndMode::DYN, getContext()), SMLoc(),
+      SMLoc(), isRV64());
 }
 
 bool RISCVAsmParser::validateInstruction(MCInst &Inst,

@@ -88,6 +88,13 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
   if (Subtarget.hasStdExtD())
     addRegisterClass(MVT::f64, &RISCV::FPR64RegClass);
 
+  if (Subtarget.is64Bit() && Subtarget.hasEsperanto()) {
+    addRegisterClass(MVT::v8i1, &RISCV::MRRegClass);
+    addRegisterClass(MVT::i8, &RISCV::MRRegClass);
+    addRegisterClass(MVT::v8i32, &RISCV::FPR256RegClass);
+    addRegisterClass(MVT::v8f32, &RISCV::FPR256RegClass);
+  }
+
   // Compute derived properties from the register classes.
   computeRegisterProperties(STI.getRegisterInfo());
 
@@ -241,6 +248,15 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
     setMinCmpXchgSizeInBits(32);
   } else {
     setMaxAtomicSizeInBitsSupported(0);
+  }
+
+  if (Subtarget.is64Bit() && Subtarget.hasEsperanto()) {
+    for (MVT MT : {MVT::v8i1, MVT::v8i32, MVT::v8f32}) {
+      setOperationAction(ISD::INTRINSIC_WO_CHAIN, MT, Legal);
+      setOperationAction(ISD::INTRINSIC_W_CHAIN, MT, Legal);
+      setOperationAction(ISD::STORE, MT, Legal);
+      setOperationAction(ISD::LOAD, MT, Legal);
+    }
   }
 
   setBooleanContents(ZeroOrOneBooleanContent);

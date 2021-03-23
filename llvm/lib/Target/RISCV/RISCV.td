@@ -234,7 +234,7 @@ def : ProcessorModel<"sifive-u54", Rocket64Model, [Feature64Bit,
                                                    FeatureStdExtD,
                                                    FeatureStdExtC]>;
 
-def : ProcessorModel<"et-soc-1", NoSchedModel, [Feature64Bit,
+def : ProcessorModel<"et-soc1-min", NoSchedModel, [Feature64Bit,
                                                 FeatureStdExtM,
                                                 FeatureStdExtF,
                                                 FeatureStdExtC,
