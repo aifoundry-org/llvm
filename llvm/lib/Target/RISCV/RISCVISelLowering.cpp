@@ -90,7 +90,6 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
 
   if (Subtarget.is64Bit() && Subtarget.hasEsperanto()) {
     addRegisterClass(MVT::v8i1, &RISCV::MRRegClass);
-    addRegisterClass(MVT::i8, &RISCV::MRRegClass);
     addRegisterClass(MVT::v8i32, &RISCV::FPR256RegClass);
     addRegisterClass(MVT::v8f32, &RISCV::FPR256RegClass);
   }
