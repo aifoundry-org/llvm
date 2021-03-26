@@ -45,7 +45,7 @@ def main():
         builtinName = name[:-3] if r.name.endswith("_EX") else name
         mayLoad = r["mayLoad"]
         mayStore = r["mayStore"]
-        isFloat = name.endswith("_ps")
+        isFloat = builtinName.endswith("_ps")
         result = getTypes(r.getValue("OutOperandList"), isFloat)
         in_ops = r.getValue("InOperandList")
         args = getTypes(in_ops, isFloat)
