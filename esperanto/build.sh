@@ -8,9 +8,13 @@ set -e
 pwd
 mkdir -p ${BUILD}
 cd ${BUILD}
+export CMAKE_C_COMPILER=`which gcc`
+export CMAKE_CXX_COMPILER=`which g++`
 cmake -G Ninja  \
       -DLLVM_ENABLE_PROJECTS="clang;compiler-rt" \
       -DCMAKE_INSTALL_PREFIX="$(pwd)/install" \
+      -DCMAKE_C_COMPILER="${CMAKE_C_COMPILER}" \
+      -DCMAKE_CXX_OMPILER="${CMAKE_CXX_COMPILER}" \
       -DCMAKE_BUILD_TYPE=Debug \
       -DCMAKE_CXX_FLAGS=-DESPERANTO \
       -DLLVM_TARGET_ARCH=host \
