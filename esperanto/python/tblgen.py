@@ -9,6 +9,8 @@ rvinst_re = re.compile("^def .*{\t//.* RVInst ");
 class Instruction:
     "An instruction as specified in tblgen records output"
     def __init__(self,name,classes):
+        # classes is the list of base class contributing
+        # to the definition of an instruction
         self.name = name
         self.classes = classes
         self.attrs = {}

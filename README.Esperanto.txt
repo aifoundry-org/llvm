@@ -36,7 +36,7 @@ Notes on the Esperanto llvm target
    is explicit for builtin functions and rounding modes are
    required. Also, for instructions which use m0 to selectively
    update the destination register, the first operand to the
-   builtin is the vector value used for unslected values. Thus
+   builtin is the vector value used for unselected values. Thus
    an example for fadd_ps might be:
 
 float __attribute((vector_size(32)))
@@ -46,6 +46,8 @@ test_fadd_ps(float __attribute((vector_size(32))) in,
 #define RTZ 1 
   return __builtin_riscv_fadd_ps(in, rs1, rs2, RTZ, m0);
 }
+
+  The result value is the same as "in" for lanes not selected by m0.
 
   Immediate values must be manifest constant operands (after preprocessing).
 
@@ -63,12 +65,12 @@ def int_riscv_fadd_ps :
 
   There is no intrinsic support for "mova.x.m" and "mova.m.x"
 
-5. Each instruction with implicit registers has a companion psedo instruction
-   with those register explict. Code generation (currently limited to intrinsics)
-   use those pseudo and which are translated to the target instrctions. These
-   instructions have an "_EX" suffix so "FADD_PS" is the opcode
-   for the fadd.ps instruction and "FADD_PS_EX" is the explicit
-   pseudo instruction opcode. 
+5. Each instruction with implicit registers has a companion pseudo
+   instruction with those register explict. Code generation (currently
+   limited to intrinsics) use those pseudo and which are translated to
+   the target instrctions. These instructions have an "_EX" suffix so
+   "FADD_PS" is the opcode for the fadd.ps instruction and
+   "FADD_PS_EX" is the explicit pseudo instruction opcode.
 
 6. Supporting scripts are in esperanto/python
 

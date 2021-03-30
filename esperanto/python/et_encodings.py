@@ -14,8 +14,8 @@ literals, parts of immediates, or registernames"""
 
 # Instructions are devided in to three sections
 #   RV32I,  RV64I, ET1
-# Each instruciton has an opcode, a flag indicating
-# if it is implemented on the mminion, a mode which
+# Each instruction has an opcode, a flag indicating
+# if it is implemented on the minion, a mode which
 # names the section and then the list of fields
 
 class Inst:

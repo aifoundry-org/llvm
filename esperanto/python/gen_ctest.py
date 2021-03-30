@@ -8,9 +8,9 @@ import re
 from cmds import do_parse_args, output, command, shell
 from et_names import GPR, FPR, ROUNDING_MODES_LIST
 
-DESCRIPTION="""Generate trivial functions each of which test
+DESCRIPTION="""Generate trivial C functions each of which tests
 one of the builtin functions corresponding to the explicit
-form of an ET instrction"""
+form of an ET instruction"""
 
 def main():
     args = parse_args()
@@ -34,7 +34,7 @@ def main():
 
         
 def generate(inst):
-    "Generate a C function to extersize 'inst'"
+    "Generate a C function to exersize 'inst'"
     asm = inst.getValue("AsmString")
     opcode,args = asm.split("\t",1)
     name = inst.name.lower()

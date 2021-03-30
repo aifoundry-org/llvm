@@ -7,7 +7,7 @@ from tblgen import getRecords
 import re
 
 DESCRIPTION="""Print summary of information in tablegen files.
-This includes opcode names, with they may load or store and 
+This includes opcode names, with whether they may load or store and 
 the encoding pattern"""
 
 
