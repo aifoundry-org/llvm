@@ -14,6 +14,7 @@
 #include "MCTargetDesc/RISCVMCTargetDesc.h"
 #include "Utils/RISCVMatInt.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
+#include "llvm/IR/IntrinsicsRISCV.h"
 #include "llvm/Support/Alignment.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
@@ -26,6 +27,10 @@ using namespace llvm;
 void RISCVDAGToDAGISel::PostprocessISelDAG() {
   doPeepholeLoadStoreADDI();
 }
+
+#ifdef ESPERANTO
+void RISCVDAGToDAGISel::PreprocessISelDAG() { doBuildVector(); }
+#endif
 
 static SDNode *selectImm(SelectionDAG *CurDAG, const SDLoc &DL, int64_t Imm,
                          MVT XLenVT) {
@@ -616,6 +621,166 @@ void RISCVDAGToDAGISel::doPeepholeLoadStoreADDI() {
     // The add-immediate may now be dead, in which case remove it.
     if (Base.getNode()->use_empty())
       CurDAG->RemoveDeadNode(Base.getNode());
+  }
+}
+
+void RISCVDAGToDAGISel::doBuildVector() {
+
+  SmallVector<SDNode *, 8> BVs;
+  SmallVector<SDNode *, 8> Iotas;
+  for (SDNode &N : CurDAG->allnodes())
+    switch (N.getOpcode()) {
+    case ISD::BUILD_VECTOR:
+      BVs.push_back(&N);
+      break;
+    case ISD::INTRINSIC_WO_CHAIN:
+      if (N.getConstantOperandVal(0) == Intrinsic::riscv_iota)
+        Iotas.push_back(&N);
+      break;
+    }
+
+  // Try to implemented using MOV_M_X where
+  // the result is a constant-valued bit-vector.
+  auto checkBuildMake = [this](SDNode *N) {
+    if (any_of(N->ops(), [](SDValue Op) { return !isa<ConstantSDNode>(Op); }))
+      return;
+
+    // Use MOV_M_X to set a mask to a constant
+    assert(N->getNumOperands() <= MAX_VECTOR_LANES);
+    uint64_t Value = 0;
+    for (auto Pair : enumerate(N->ops()))
+      if (cast<ConstantSDNode>(Pair.value())->getZExtValue())
+        Value |= (static_cast<uint64_t>(1) << Pair.index());
+
+    SDValue MaskValue = CurDAG->getTargetConstant(Value, SDLoc(N), MVT::i64);
+    SDValue Zero = CurDAG->getRegister(RISCV::X0, MVT::i64);
+    SDNode *NewN = CurDAG->getMachineNode(RISCV::MOV_M_X, SDLoc(N),
+                                          N->getValueType(0), Zero, MaskValue);
+    ReplaceNode(N, NewN);
+  };
+
+  // Try to implement using interger immediate broadcast
+  auto checkIntegerBroadcast = [this](SDNode *N, SDValue Model, SDValue Input,
+                                      SDValue M0Mask) {
+    if (auto *C = dyn_cast<ConstantSDNode>(Model)) {
+      if (isInt<20>(C->getSExtValue())) {
+        // TODO -- make sure FBCI_PS is correctly simm20
+        // Use FBCI_PS
+        SDValue NewC = CurDAG->getTargetConstant(*C->getConstantIntValue(),
+                                                 SDLoc(N), MVT::i64);
+        SDNode *NewN = CurDAG->getMachineNode(
+            RISCV::FBCI_PS_EX, SDLoc(N), N->getVTList(), {Input, NewC, M0Mask});
+        ReplaceNode(N, NewN);
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // Try to implement using the restricted float immiedate broadcast
+  auto checkFloatBroadcast = [this](SDNode *N, SDValue Model, SDValue Input,
+                                    SDValue M0Mask) {
+    auto *C = dyn_cast<ConstantFPSDNode>(Model);
+    if (!C)
+      return false;
+    // Immediate is a 20-bit unsigned which is expanded to 32 bits
+    // using the algorithm below.
+    uint64_t V = C->getValueAPF().bitcastToAPInt().getZExtValue();
+    // Can we fold this into the 20 bit format?
+    uint64_t V20 = V >> 20;
+    uint64_t Low = V20 & 0xf;
+    uint64_t Low12 = Low < 8 ? ((Low << 8) | (Low << 4) | Low)
+                             : ((Low << 8) | (Low << 4) | (Low + 1));
+    uint64_t Expanded = (V20 << 12) | Low12;
+    if (Expanded != V)
+      return false;
+    SDValue NewC = CurDAG->getTargetConstant(V20, SDLoc(N), MVT::i64);
+    SDNode *NewN = CurDAG->getMachineNode(
+        RISCV::FBCI_PS_EX, SDLoc(N), N->getVTList(), {Input, NewC, M0Mask});
+    ReplaceNode(N, NewN);
+    return true;
+  };
+
+  for (SDNode *N : BVs) {
+    if (N->getValueType(0) == MVT::v8i1) {
+      checkBuildMake(N);
+      continue;
+    }
+    SDValue Model = N->getOperand(0);
+    if (any_of(N->ops(), [Model](SDValue Op) { return Op != Model; }))
+      continue;
+    EVT VT = Model->getValueType(0);
+    assert(VT.getSizeInBits() == 32 && "Invalid broadcast not 32 bits");
+    SDValue M0Mask =
+        SDValue(CurDAG->getMachineNode(
+                    RISCV::MOV_M_X, SDLoc(N), MVT::v8i1,
+                    CurDAG->getRegister(RISCV::X0, MVT::i64),
+                    CurDAG->getTargetConstant(0xff, SDLoc(N), MVT::i64)),
+                0);
+    SDValue Input =
+        SDValue(CurDAG->getMachineNode(TargetOpcode::IMPLICIT_DEF, SDLoc(N),
+                                       N->getVTList(), {}),
+                0);
+    if (checkIntegerBroadcast(N, Model, Input, M0Mask))
+      continue;
+
+    if (VT.isFloatingPoint()) {
+      if (checkFloatBroadcast(N, Model, Input, M0Mask))
+        continue;
+      // We have to move the floating point value to the GPR registers.
+      // (and type it as an i64)
+      // TODO: handle the case for constants better
+      Model = SDValue(
+          CurDAG->getMachineNode(RISCV::FMV_X_W, SDLoc(N), MVT::i64, Model), 0);
+    }
+
+    SDNode *NewN = CurDAG->getMachineNode(
+        RISCV::FBCX_PS_EX, SDLoc(N), N->getVTList(), {Input, Model, M0Mask});
+    ReplaceNode(N, NewN);
+  }
+
+  for (SDNode *N : Iotas) {
+    SDNode *Vec = CurDAG->getMachineNode(TargetOpcode::IMPLICIT_DEF, SDLoc(N),
+                                         MVT::v8i32);
+    for (unsigned Idx = 0; Idx < 8; Idx++) {
+      // Mask with only bit Idx set
+      SDValue M =
+          SDValue(CurDAG->getMachineNode(
+                      RISCV::MOV_M_X, SDLoc(N), MVT::v8i1,
+                      CurDAG->getRegister(RISCV::X0, MVT::i64),
+                      CurDAG->getTargetConstant(static_cast<uint64_t>(1) << Idx,
+                                                SDLoc(N), MVT::i64)),
+                  0);
+      // Broadcast to update Vec with Idx in Idx position
+      Vec = CurDAG->getMachineNode(
+          RISCV::FBCI_PI_EX, SDLoc(N), MVT::v8i32,
+          {SDValue(Vec, 0), CurDAG->getTargetConstant(Idx, SDLoc(N), MVT::i64),
+           M});
+    }
+    ReplaceNode(N, Vec);
+  }
+}
+
+void RISCVDAGToDAGISel::introducesM0Copies(MachineFunction &MF) {
+  MachineRegisterInfo &MRI = MF.getRegInfo();
+  for (MachineBasicBlock &MBB : MF) {
+    Register CurrentM0 = 0;
+    MachineBasicBlock::iterator Cur = MBB.begin();
+    MachineBasicBlock::iterator End = MBB.end();
+    while (Cur !=End) {
+      MachineInstr& MI = *Cur++;
+      if (!MI.isCopy())
+        continue;
+      Register DstReg = MI.getOperand(0).getReg();
+      if (DstReg.isPhysical() || MRI.getRegClass(DstReg) != &RISCV::MR0RegClass)
+        continue;
+      MRI.replaceRegWith(DstReg, RISCV::M0);
+      Register SrcReg = MI.getOperand(1).getReg();
+      if (SrcReg == CurrentM0)
+        MI.eraseFromParent();
+      else
+        CurrentM0 = SrcReg;
+    }
   }
 }
 

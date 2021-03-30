@@ -120,6 +120,15 @@ void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
         .addReg(SrcReg, getKillRegState(KillSrc))
         .addImm(0);
     return;
+  } else if (RISCV::MRRegClass.contains(SrcReg) &&
+             RISCV::MRRegClass.contains(DstReg)) {
+    BuildMI(MBB, MBBI, DL, get(RISCV::MOV_M_X), DstReg)
+        .addReg(RISCV::X0)
+        .addImm(0xff);
+    BuildMI(MBB, MBBI, DL, get(RISCV::MASKAND), DstReg)
+        .addReg(DstReg, getKillRegState(true))
+        .addReg(SrcReg, getKillRegState(KillSrc));
+    return;
   } else
     llvm_unreachable("Impossible reg-to-reg copy");
 
@@ -140,25 +149,23 @@ void RISCVInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
   unsigned Opcode;
 
   if (RISCV::GPRRegClass.hasSubClassEq(RC))
-    Opcode = TRI->getRegSizeInBits(RISCV::GPRRegClass) == 32 ?
-             RISCV::SW : RISCV::SD;
+    Opcode =
+        TRI->getRegSizeInBits(RISCV::GPRRegClass) == 32 ? RISCV::SW : RISCV::SD;
   else if (RISCV::FPR32RegClass.hasSubClassEq(RC))
     Opcode = RISCV::FSW;
   else if (RISCV::FPR64RegClass.hasSubClassEq(RC))
     Opcode = RISCV::FSD;
+  else if (RISCV::FPR256RegClass.hasSubClassEq(RC))
+    Opcode = RISCV::StackFSQ2;
   else if (RISCV::MRRegClass.hasSubClassEq(RC)) {
-    RegScavenger RS;
-    RS.enterBasicBlockEnd(MBB);
-    Register Scratch =
-        RS.scavengeRegisterBackwards(RISCV::GPRRegClass, I, false, 0);
-    copyPhysReg(MBB, I, DL, Scratch, SrcReg, IsKill);
-    BuildMI(MBB, I, DL, get(RISCV::SB))
-        .addReg(Scratch, getKillRegState(true))
-        .addFrameIndex(FI)
-        .addImm(0);
-    return;
-  } else
+    Opcode = RISCV::StackMS;
+  } else {
+#ifndef NDEBUG
+    dbgs() << "SrcReg = " << printReg(SrcReg, TRI)
+           << "\n";
+#endif
     llvm_unreachable("Can't store this register to stack slot");
+  }
 
   BuildMI(MBB, I, DL, get(Opcode))
       .addReg(SrcReg, getKillRegState(IsKill))
@@ -184,14 +191,10 @@ void RISCVInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
     Opcode = RISCV::FLW;
   else if (RISCV::FPR64RegClass.hasSubClassEq(RC))
     Opcode = RISCV::FLD;
+  else if (RISCV::FPR256RegClass.hasSubClassEq(RC))
+    Opcode = RISCV::StackFLQ2;
   else if (RISCV::MRRegClass.hasSubClassEq(RC)) {
-    RegScavenger RS;
-    RS.enterBasicBlockEnd(MBB);
-    Register Scratch =
-        RS.scavengeRegisterBackwards(RISCV::GPRRegClass, I, false, 0);
-    BuildMI(MBB, I, DL, get(RISCV::LB), Scratch).addFrameIndex(FI).addImm(0);
-    copyPhysReg(MBB, I, DL, DstReg, Scratch, /*killSrc*/ true);
-    return;
+    Opcode = RISCV::StackML;
   } else
     llvm_unreachable("Can't load this register from stack slot");
 
@@ -599,6 +602,9 @@ bool RISCVInstrInfo::verifyInstruction(const MachineInstr &MI,
           break;
         case RISCVOp::OPERAND_SIMM13_LSB0:
           Ok = isShiftedInt<12, 1>(Imm);
+          break;
+        case RISCVOp::OPERAND_SIMM20:
+          Ok = isInt<20>(Imm);
           break;
         case RISCVOp::OPERAND_UIMM20:
           Ok = isUInt<20>(Imm);

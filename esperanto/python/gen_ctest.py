@@ -40,7 +40,7 @@ def generate(inst):
     name = inst.name.lower()
     if name.endswith("_ex"):
         name = name[:-3]
-    isFloat = name.endswith("_ps")
+    isFloat = inst.is_float()
     results = convert(inst.getValue("OutOperandList"), isFloat)
     if not results:
         ret_ty = "void"
@@ -52,7 +52,8 @@ def generate(inst):
     if inst.getValue("mayLoad") or inst.getValue("mayStore"):
         # the address operand is always the last parameter
         # and is always an int*
-        asm_args[-1] = ("int *", asm_args[-1][1])
+        idx = -2 if inst.name.endswith("_EX") else -1
+        asm_args[idx] = ("int *", asm_args[idx][1])
 
     # when the type of a argument is a int, then it is an immediate
     # (the value is the field width) which we replace with the
@@ -80,6 +81,7 @@ intTypeMap = { "GPR" : "long" ,
                "uimm8" : 8,
                "simm10" : 10,
                "simm12" : 12,
+               "simm20" : 20,
                "uimm20_lui" : 20,
                "FPR256" : "int __attribute((vector_size (32)))" }
 # used for floating point instructions

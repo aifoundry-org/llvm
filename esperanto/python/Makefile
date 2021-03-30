@@ -1,7 +1,7 @@
 # Rebuild some generated files when the tblgen specification changes
 ROOT=../../
 TARGET=${ROOT}/llvm/lib/Target/RISCV
-IntrinsicsRISCVET.td BuiltinsRISCVET.def: intrinsics.py \
+IntrinsicsRISCVET.td BuiltinsRISCVET.def: intrinsics.py tblgen.py \
 	${TARGET}/RISCVInstrFormatsEsperanto.td \
 	${TARGET}/RISCVInstrInfoEsperanto.td
 	./intrinsics.py

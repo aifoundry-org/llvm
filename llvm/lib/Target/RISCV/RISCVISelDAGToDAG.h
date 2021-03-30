@@ -33,10 +33,17 @@ public:
 
   bool runOnMachineFunction(MachineFunction &MF) override {
     Subtarget = &MF.getSubtarget<RISCVSubtarget>();
-    return SelectionDAGISel::runOnMachineFunction(MF);
+    bool Changed = SelectionDAGISel::runOnMachineFunction(MF);
+#ifdef ESPERANTO
+    introducesM0Copies(MF);
+#endif
+    return Changed;
   }
 
   void PostprocessISelDAG() override;
+#ifdef ESPERANTO
+  void PreprocessISelDAG() override;
+#endif
 
   void Select(SDNode *Node) override;
 
@@ -67,6 +74,12 @@ private:
     return CurDAG->getTargetConstant(SignExtend64(N->getZExtValue(), WIDTH),
                                      SDLoc(N), MVT::i32);
   }
+private:
+#ifdef ESPERANTO
+  static const unsigned MAX_VECTOR_LANES = 8;
+  void doBuildVector();
+  void introducesM0Copies(MachineFunction &MF);
+#endif
 };
 }
 

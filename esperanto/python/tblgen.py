@@ -46,6 +46,17 @@ class Instruction:
             Names.append(name)
         return Names
 
+    def is_float(self):
+        "True iff this a floating point extension"
+        if "_PS" not in self.name:
+            return False
+        # this instruction seems like it should be _PI because
+        # it does integer sign extensions of loaded values
+        if re.match("FG[BHW]_PS", self.name):
+            return False
+        return True
+        
+    
 
 class Attr:
     def __init__(self,name,is_field,ty, value):

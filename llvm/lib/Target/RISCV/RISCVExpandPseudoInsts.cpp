@@ -19,6 +19,7 @@
 #include "llvm/CodeGen/LivePhysRegs.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/CodeGen/RegisterScavenging.h"
 
 using namespace llvm;
 
@@ -65,6 +66,9 @@ private:
                               unsigned Opcode);
   bool expandStackOps(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
                       MachineBasicBlock::iterator &NextMBBI);
+  bool expandMaskLS(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
+                    MachineBasicBlock::iterator &NextMBBI);
+  RegScavenger RS;
 };
 
 char RISCVExpandPseudo::ID = 0;
@@ -80,9 +84,11 @@ bool RISCVExpandPseudo::runOnMachineFunction(MachineFunction &MF) {
 bool RISCVExpandPseudo::expandMBB(MachineBasicBlock &MBB) {
   bool Modified = false;
 
+  RS.enterBasicBlock(MBB);
   MachineBasicBlock::iterator MBBI = MBB.begin(), E = MBB.end();
   while (MBBI != E) {
     MachineBasicBlock::iterator NMBBI = std::next(MBBI);
+    if (NMBBI != E) RS.forward(NMBBI);
     Modified |= expandMI(MBB, MBBI, NMBBI);
     MBBI = NMBBI;
   }
@@ -421,6 +427,9 @@ bool RISCVExpandPseudo::expandMI(MachineBasicBlock &MBB,
   case RISCV::StackFLQ2:
   case RISCV::StackFSQ2:
     return expandStackOps(MBB, MBBI, NextMBBI);
+  case RISCV::StackML:
+  case RISCV::StackMS:
+    return expandMaskLS(MBB, MBBI, NextMBBI);
   default:
     if (Optional<unsigned> ImplicitOpcode =
             getImplicitOpcode(MBBI->getOpcode()))
@@ -523,17 +532,18 @@ bool RISCVExpandPseudo::expandImplicitOperands(
   // that have explicit inputs to the machine target instruction
   // where they are implicit. This is done by removing any tied input
   // and the last operand which is the implicit m0 reference.
+  MachineInstr& MI = *MBBI;
   MachineInstrBuilder B =
-      BuildMI(MBB, MBBI, MBBI->getDebugLoc(), TII->get(Opcode));
-  unsigned NumOps = MBBI->getNumExplicitOperands();
-  for (auto Pair : enumerate(MBBI->operands())) {
+      BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(Opcode));
+  unsigned NumOps = MI.getNumExplicitOperands();
+  for (auto Pair : enumerate(MI.operands())) {
     if (Pair.index() == NumOps - 1)
       continue;
     if (Pair.value().isReg() && !Pair.value().isDef() && Pair.value().isTied())
       continue;
     B.add(Pair.value());
   }
-  MBBI->eraseFromParent();
+  MI.eraseFromParent();
   return true;
 }
 
@@ -551,6 +561,31 @@ bool RISCVExpandPseudo::expandStackOps(MachineBasicBlock &MBB,
   return true;
 }
 
+bool RISCVExpandPseudo::expandMaskLS(MachineBasicBlock& MBB,
+  MachineBasicBlock::iterator MBBI,
+  MachineBasicBlock::iterator& NextMBBI) {
+  Register Scratch = RS.scavengeRegister(&RISCV::GPRRegClass, 0, false);
+  assert(Scratch && "Failed to find scratch register");
+  Register M = MBBI->getOperand(0).getReg();
+    DebugLoc DL = MBBI->getDebugLoc();
+  if (MBBI->getOpcode() == RISCV::StackML) {
+    BuildMI(MBB, MBBI, DL, TII->get(RISCV::LB), Scratch)
+      .add(MBBI->getOperand(1)) 
+      .add(MBBI->getOperand(2)) 
+      .cloneMemRefs(*MBBI);
+    TII->copyPhysReg(MBB, MBBI, DL, M, Scratch, /*kill*/true);
+  }
+  else {
+    TII->copyPhysReg(MBB, MBBI, DL, Scratch, M, MBBI->getOperand(0).isKill());
+    BuildMI(MBB, MBBI, DL, TII->get(RISCV::SB))
+      .addReg(Scratch, getKillRegState(true))
+      .add(MBBI->getOperand(1)) 
+      .add(MBBI->getOperand(2)) 
+      .cloneMemRefs(*MBBI);
+  }
+  MBBI->eraseFromParent();
+  return true;
+}
 } // end of anonymous namespace
 
 INITIALIZE_PASS(RISCVExpandPseudo, "riscv-expand-pseudo",

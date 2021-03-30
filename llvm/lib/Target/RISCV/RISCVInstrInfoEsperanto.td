@@ -95,7 +95,7 @@ def FBC_PS_EX : Pseudo<(outs FPR256:$rd),
 }
 }
 
-let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in {
+let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in {
 def FBCX_PS : RVInstI<0b011, OPC_MEM_PS,
                    (outs FPR256:$rd),
                    (ins GPR:$rs1),
@@ -331,10 +331,10 @@ defm FCVT_SN8_PS  : ETOpsCvt<0b1101100, 0b11011, "fcvt.sn8.ps">;
 
 def FBCI_PI : RVInstU<OPC_IMM_PI,
                       (outs FPR256:$rd),
-                      (ins uimm20_lui:$imm20),
+                      (ins simm20:$imm20),
                       "fbci.pi", "$rd, ${imm20}">;
 def FBCI_PI_EX : Pseudo<(outs FPR256:$rd),
-                        (ins FPR256:$in, uimm20_lui:$imm20, MR0:$m0), [],
+                        (ins FPR256:$in, simm20:$imm20, MR0:$m0), [],
                       "fbci.pi", "$rd, ${imm20}, $m0"> {
      let Constraints = "$rd = $in"; 
 }
@@ -513,7 +513,16 @@ defm FSC32H_PS : ETOpsR3R1R2<0b1001000, "fsc32h.ps">;
 defm FSC32B_PS : ETOpsR3R1R2<0b1000100, "fsc32b.ps">;
 }
 
-defm FCMOVM_PS : ETOpsRdR1R2<0b0000000, 0b000, OPC_CVT_PS, "fcmovm.ps">;
+// Specialse FCMOVM has no implicit input since all of output
+// is defined.
+def FCMOVM_PS : RVInstR<0b0000000, 0b000, OPC_CVT_PS,
+                 (outs FPR256:$rd),
+                 (ins FPR256:$rs1, FPR256:$rs2),
+                 "fcmovm.ps", "$rd, $rs1, $rs2">;
+def FCMOVM_PS_EX : Pseudo<(outs FPR256:$rd),
+                 (ins FPR256:$rs1, FPR256:$rs2, MR0:$m0), [],
+                 "fcmovm.ps", "$rd, $rs1, $rs2, $m0">;
+
 defm FRCP_FIX_RAST : ETOpsRdR1R2<0b0011000, 0b000, OPC_OP_PS, "frcp_fix.rast">;
 defm FCVT_RAST_PS : ETOpsRdR1<0b1100000,0b00010,0b000, OPC_OP_PS, "fcvt.rast.ps">;
 defm FCVT_PS_RAST : ETOpsRdR1<0b1101000, 0b00010, 0b000, OPC_OP_PS, "fcvt.ps.rast">;
@@ -702,6 +711,17 @@ def StackFLQ2 : Pseudo<(outs FPR256:$rd),
                      (ins GPR:$rs1, simm12:$imm), [],
                      "flq2", "$rd, ${imm}(${rs1})">;
 
+// These pseudo operations are used for spill and reload
+// of mask operations
+let mayStore = 1 in 
+def StackMS : Pseudo<(outs),
+                     (ins MR:$rs2, GPR:$rs1, simm12:$imm), [],
+                     "ms", "$rs2, ${imm}(${rs1})">;
+let mayLoad = 1 in 
+def StackML : Pseudo<(outs MR:$rd),
+                     (ins GPR:$rs1, simm12:$imm), [],
+                     "ml", "$rd, ${imm}(${rs1})">;
+
 } // let hasSideEffects = 0, mayLoad = 0, mayStore = 0 
 } // HasEsperanto
 } // DecoderNamespace                                 
@@ -720,5 +740,83 @@ def : Pat<(ty (load (add GPR:$rs1, simm12:$imm12))), (FLQ2 $imm12, $rs1)>;
 def : Pat<(ty (load (add AddrFI:$rs1, simm12:$imm12))), (StackFLQ2 $rs1, $imm12)>;
 def : Pat<(ty (load (add AddrFI:$rs1, simm12:$imm12))), (StackFLQ2 $rs1, $imm12)>;
 }
+
+def : Pat<(v8i1 (build_vector (i1 1), (i1 1), (i1 1), (i1 1),
+                              (i1 1), (i1 1), (i1 1), (i1 1))),
+           (v8i1 (MOV_M_X X0, 0xff))>;
+def : Pat<(v8i1 (build_vector (i64 1), (i64 1), (i64 1), (i64 1),
+                              (i64 1), (i64 1), (i64 1), (i64 1))),
+           (v8i1 (MOV_M_X X0, 0xff))>;
+foreach ty = [v8f32, v8i32] in {
+   def : Pat<(ty (vselect MR:$cond, FPR256:$true, FPR256:$false)),
+          (FCMOVM_PS_EX $true, $false, $cond)>; 
+}
+
+def : Pat<(v8i32 (build_vector GPR:$e0, GPR:$e1, GPR:$e2, GPR:$e3,
+                               GPR:$e4, GPR:$e5, GPR:$e6, GPR:$e7)),
+          (v8i32 (FBCX_PS_EX
+          (v8i32 (FBCX_PS_EX
+          (v8i32 (FBCX_PS_EX
+          (v8i32 (FBCX_PS_EX
+          (v8i32 (FBCX_PS_EX
+          (v8i32 (FBCX_PS_EX
+          (v8i32 (FBCX_PS_EX
+          (v8i32 (FBCX_PS_EX (v8i32 (IMPLICIT_DEF)),
+              $e0, (v8i1 (MOV_M_X X0, 0b00000001)))),
+              $e1, (v8i1 (MOV_M_X X0, 0b00000010)))),
+              $e2, (v8i1 (MOV_M_X X0, 0b00000100)))),
+              $e3, (v8i1 (MOV_M_X X0, 0b00001000)))),
+              $e4, (v8i1 (MOV_M_X X0, 0b00010000)))),
+              $e5, (v8i1 (MOV_M_X X0, 0b00100000)))),
+              $e6, (v8i1 (MOV_M_X X0, 0b01000000)))),
+              $e7, (v8i1 (MOV_M_X X0, 0b10000000))))>;
+
+def : Pat<(v8f32 (build_vector FPR32:$e0, FPR32:$e1, FPR32:$e2, FPR32:$e3,
+                               FPR32:$e4, FPR32:$e5, FPR32:$e6, FPR32:$e7)),
+          (v8f32 (FBCX_PS_EX
+          (v8f32 (FBCX_PS_EX
+          (v8f32 (FBCX_PS_EX
+          (v8f32 (FBCX_PS_EX
+          (v8f32 (FBCX_PS_EX
+          (v8f32 (FBCX_PS_EX
+          (v8f32 (FBCX_PS_EX
+          (v8f32 (FBCX_PS_EX (v8f32 (IMPLICIT_DEF)),
+              (FMV_X_W $e0), (v8i1 (MOV_M_X X0, 0b00000001)))),
+              (FMV_X_W $e1), (v8i1 (MOV_M_X X0, 0b00000010)))),
+              (FMV_X_W $e2), (v8i1 (MOV_M_X X0, 0b00000100)))),
+              (FMV_X_W $e3), (v8i1 (MOV_M_X X0, 0b00001000)))),
+              (FMV_X_W $e4), (v8i1 (MOV_M_X X0, 0b00010000)))),
+              (FMV_X_W $e5), (v8i1 (MOV_M_X X0, 0b00100000)))),
+              (FMV_X_W $e6), (v8i1 (MOV_M_X X0, 0b01000000)))),
+              (FMV_X_W $e7), (v8i1 (MOV_M_X X0, 0b10000000))))>;
+
+def : Pat<(v8i32 (build_vector simm20:$e0, simm20:$e1,
+                               simm20:$e2, simm20:$e3,
+                               simm20:$e4, simm20:$e5,
+                               simm20:$e6, simm20:$e7)),
+          (FBCI_PI_EX
+          (FBCI_PI_EX
+          (FBCI_PI_EX
+          (FBCI_PI_EX
+          (FBCI_PI_EX
+          (FBCI_PI_EX
+          (FBCI_PI_EX
+          (FBCI_PI_EX (v8i32 (IMPLICIT_DEF)),
+              (LO20s $e0), (v8i1 (MOV_M_X X0, 0b00000001))),
+              (LO20s $e1), (v8i1 (MOV_M_X X0, 0b00000010))),
+              (LO20s $e2), (v8i1 (MOV_M_X X0, 0b00000100))),
+              (LO20s $e3), (v8i1 (MOV_M_X X0, 0b00001000))),
+              (LO20s $e4), (v8i1 (MOV_M_X X0, 0b00010000))),
+              (LO20s $e5), (v8i1 (MOV_M_X X0, 0b00100000))),
+              (LO20s $e6), (v8i1 (MOV_M_X X0, 0b01000000))),
+              (LO20s $e7), (v8i1 (MOV_M_X X0, 0b10000000)))>;
+
+def : Pat<(v8i1 (and (v8i1 MR:$x), (v8i1 MR:$y))), (MASKAND $x, $y)>;
+def : Pat<(v8i1 (or (v8i1 MR:$x), (v8i1 MR:$y))), (MASKOR $x, $y)>;
+def : Pat<(v8i1 (xor (v8i1 MR:$x), (v8i1 MR:$y))), (MASKXOR $x, $y)>;
+
+def : Pat<(v8i32 (bitconvert (v8f32 FPR256:$in))), (v8i32 (COPY $in))>;
+def : Pat<(v8f32 (bitconvert (v8i32 FPR256:$in))), (v8f32 (COPY $in))>;
+
 
 include "RISCVInstrInfoEsperantoPatterns.td"

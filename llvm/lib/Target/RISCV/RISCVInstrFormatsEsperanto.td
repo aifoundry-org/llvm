@@ -83,6 +83,20 @@ def simm10 : Operand<XLenVT>, ImmLeaf<XLenVT, [{return isInt<10>(Imm);}]> {
   let OperandNamespace = "RISCVOp";
 }
 
+def simm20 : Operand<XLenVT>, ImmLeaf<XLenVT, [{return isInt<20>(Imm);}]> {
+  let ParserMatchClass = SImmAsmOperand<20>;
+  let EncoderMethod = "getImmOpValue";
+  let DecoderMethod = "decodeSImmOperand<20>";
+  let MCOperandPredicate = [{
+    int64_t Imm;
+    if (MCOp.evaluateAsConstantImm(Imm))
+      return isInt<20>(Imm);
+    return MCOp.isBareSymbolRef();
+  }];
+  let OperandType = "OPERAND_SIMM20";
+  let OperandNamespace = "RISCVOp";
+}
+
 def uimm20 : UImm20Operand, ImmLeaf<XLenVT, [{return isUInt<20>(Imm);}]>{
   let ParserMatchClass = UImmAsmOperand<20, "LUI">;
 }
@@ -96,6 +110,7 @@ def LO8   : SDNodeXForm<imm, [{ return transform_LO<8>(N); }]>;
 def LO10s : SDNodeXForm<imm, [{ return transform_LOs<10>(N); }]>;
 def LO12s : SDNodeXForm<imm, [{ return transform_LOs<12>(N); }]>;
 def LO20  : SDNodeXForm<imm, [{ return transform_LO<20>(N); }]>;
+def LO20s  : SDNodeXForm<imm, [{ return transform_LOs<20>(N); }]>;
 
 
 // Example: FSWIZZ.PS
