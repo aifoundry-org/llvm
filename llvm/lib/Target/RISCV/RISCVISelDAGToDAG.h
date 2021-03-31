@@ -35,7 +35,7 @@ public:
     Subtarget = &MF.getSubtarget<RISCVSubtarget>();
     bool Changed = SelectionDAGISel::runOnMachineFunction(MF);
 #ifdef ESPERANTO
-    introducesM0Copies(MF);
+    optimizeMaskCopies(MF);
 #endif
     return Changed;
   }
@@ -77,8 +77,10 @@ private:
 private:
 #ifdef ESPERANTO
   static const unsigned MAX_VECTOR_LANES = 8;
+  // pre-pass handle special cases of BUILD_VECTOR which can be done cheaply
   void doBuildVector();
-  void introducesM0Copies(MachineFunction &MF);
+  // post-pass over MachineIstrs, rewrite to improve handling of M0 implicit mask operands
+  void optimizeMaskCopies(MachineFunction &MF);
 #endif
 };
 }

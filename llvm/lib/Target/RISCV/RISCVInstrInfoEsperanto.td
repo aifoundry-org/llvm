@@ -818,5 +818,8 @@ def : Pat<(v8i1 (xor (v8i1 MR:$x), (v8i1 MR:$y))), (MASKXOR $x, $y)>;
 def : Pat<(v8i32 (bitconvert (v8f32 FPR256:$in))), (v8i32 (COPY $in))>;
 def : Pat<(v8f32 (bitconvert (v8i32 FPR256:$in))), (v8f32 (COPY $in))>;
 
+let Defs = [M0] in 
+def IOTA : Pseudo<(outs FPR256:$rd), (ins), [], "iota", "$rd">;
+def : Pat<(int_riscv_iota), (IOTA)>;
 
 include "RISCVInstrInfoEsperantoPatterns.td"

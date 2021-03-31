@@ -627,15 +627,10 @@ void RISCVDAGToDAGISel::doPeepholeLoadStoreADDI() {
 void RISCVDAGToDAGISel::doBuildVector() {
 
   SmallVector<SDNode *, 8> BVs;
-  SmallVector<SDNode *, 8> Iotas;
   for (SDNode &N : CurDAG->allnodes())
     switch (N.getOpcode()) {
     case ISD::BUILD_VECTOR:
       BVs.push_back(&N);
-      break;
-    case ISD::INTRINSIC_WO_CHAIN:
-      if (N.getConstantOperandVal(0) == Intrinsic::riscv_iota)
-        Iotas.push_back(&N);
       break;
     }
 
@@ -659,7 +654,7 @@ void RISCVDAGToDAGISel::doBuildVector() {
     ReplaceNode(N, NewN);
   };
 
-  // Try to implement using interger immediate broadcast
+  // Try to implement using integer immediate broadcast
   auto checkIntegerBroadcast = [this](SDNode *N, SDValue Model, SDValue Input,
                                       SDValue M0Mask) {
     if (auto *C = dyn_cast<ConstantSDNode>(Model)) {
@@ -738,48 +733,101 @@ void RISCVDAGToDAGISel::doBuildVector() {
         RISCV::FBCX_PS_EX, SDLoc(N), N->getVTList(), {Input, Model, M0Mask});
     ReplaceNode(N, NewN);
   }
-
-  for (SDNode *N : Iotas) {
-    SDNode *Vec = CurDAG->getMachineNode(TargetOpcode::IMPLICIT_DEF, SDLoc(N),
-                                         MVT::v8i32);
-    for (unsigned Idx = 0; Idx < 8; Idx++) {
-      // Mask with only bit Idx set
-      SDValue M =
-          SDValue(CurDAG->getMachineNode(
-                      RISCV::MOV_M_X, SDLoc(N), MVT::v8i1,
-                      CurDAG->getRegister(RISCV::X0, MVT::i64),
-                      CurDAG->getTargetConstant(static_cast<uint64_t>(1) << Idx,
-                                                SDLoc(N), MVT::i64)),
-                  0);
-      // Broadcast to update Vec with Idx in Idx position
-      Vec = CurDAG->getMachineNode(
-          RISCV::FBCI_PI_EX, SDLoc(N), MVT::v8i32,
-          {SDValue(Vec, 0), CurDAG->getTargetConstant(Idx, SDLoc(N), MVT::i64),
-           M});
-    }
-    ReplaceNode(N, Vec);
-  }
 }
 
-void RISCVDAGToDAGISel::introducesM0Copies(MachineFunction &MF) {
+void RISCVDAGToDAGISel::optimizeMaskCopies(MachineFunction &MF) {
   MachineRegisterInfo &MRI = MF.getRegInfo();
+
+  auto definesMask = [&MRI](MachineInstr &MI) {
+    unsigned N = MI.getNumDefs();
+    if (!N)
+      return false;
+    Register R = MI.getOperand(0).getReg();
+    return (R.isVirtual() && MRI.getRegClass(R) == &RISCV::MRRegClass);
+  };
+  auto usesReg = [](MachineInstr &MI, Register R) {
+    return any_of(MI.uses(), [R](MachineOperand &Op) {
+      return Op.isReg() && Op.getReg() == R;
+    });
+  };
+  auto numInsUses = [&MRI](Register R) {
+    return llvm::count_if(MRI.use_nodbg_instructions(R),
+                          [](MachineInstr &) { return true; });
+  };
+
+  // True if this defines a mask from components
+  // available at the current instruction
+  auto isSafeMove = [](MachineInstr &MI) {
+    if (MI.getOpcode() != RISCV::MOV_M_X)
+      return false;
+    Register R = MI.getOperand(1).getReg();
+    return R == RISCV::X0 || R.isVirtual();
+  };
+
   for (MachineBasicBlock &MBB : MF) {
+    // This is the more recent virtual register which
+    // has been copied into M0. This is used to eliminate
+    // subsequent copies of this value into M0
     Register CurrentM0 = 0;
+
+    // Keep track of the last definition of an
+    // instruction which defines a mask and we might
+    // want to pre-allocate to assign to M0 when
+    // it has one use and no intervening reference to M0
+    Register LastDef = 0;
+    unsigned LiveCount = 0; // Number of uses of LastDef not yet seen
+
+    // Process a use of LastDef
+    auto checkLastUse = [&CurrentM0, &LastDef, &LiveCount, &MRI]() {
+      LiveCount -= 1;
+      if (LiveCount == 0 && CurrentM0 == LastDef) {
+        // We have seen all uses of LastDef and
+        // there has been no intervening mask definition
+        // and it has been copied to M0 so we can bind it to M0
+        MRI.replaceRegWith(LastDef, RISCV::M0);
+        LastDef = 0;
+      }
+    };
+
     MachineBasicBlock::iterator Cur = MBB.begin();
     MachineBasicBlock::iterator End = MBB.end();
-    while (Cur !=End) {
-      MachineInstr& MI = *Cur++;
-      if (!MI.isCopy())
+    while (Cur != End) {
+      MachineInstr &MI = *Cur++;
+      if (!MI.isCopy()) {
+        if (LastDef && usesReg(MI, LastDef))
+          checkLastUse();
+        if (definesMask(MI)) {
+          LastDef = MI.getOperand(0).getReg();
+          LiveCount = numInsUses(LastDef);
+        }
         continue;
+      }
       Register DstReg = MI.getOperand(0).getReg();
       if (DstReg.isPhysical() || MRI.getRegClass(DstReg) != &RISCV::MR0RegClass)
         continue;
-      MRI.replaceRegWith(DstReg, RISCV::M0);
       Register SrcReg = MI.getOperand(1).getReg();
+
+      if (MachineInstr *Def = MRI.getVRegDef(SrcReg)) {
+        if (isSafeMove(*Def)) {
+          // Don't copy AllTrue, rematerialize it.
+          BuildMI(MBB, &MI, Def->getDebugLoc(), Def->getDesc(), RISCV::M0)
+              .add(Def->getOperand(1))
+              .add(Def->getOperand(2));
+          CurrentM0 = SrcReg;
+          LastDef = 0;
+        }
+      }
+      // Here we have a copy where the LHS is constrained to be MR0
+      // so we just immediately replace it with M0. This prevents
+      // MachhineCSE::PerformTrivialCopyPropagation from changing
+      // the register class on SrcReg to also be MR0RegClass.
+      MRI.replaceRegWith(DstReg, RISCV::M0);
       if (SrcReg == CurrentM0)
         MI.eraseFromParent();
       else
         CurrentM0 = SrcReg;
+      if (SrcReg == LastDef)
+        checkLastUse();
     }
   }
 }

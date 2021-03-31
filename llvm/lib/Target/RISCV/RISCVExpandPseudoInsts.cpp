@@ -68,6 +68,8 @@ private:
                       MachineBasicBlock::iterator &NextMBBI);
   bool expandMaskLS(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
                     MachineBasicBlock::iterator &NextMBBI);
+  bool expandIOTA(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
+                  MachineBasicBlock::iterator &NextMBBI);
   RegScavenger RS;
 };
 
@@ -430,6 +432,8 @@ bool RISCVExpandPseudo::expandMI(MachineBasicBlock &MBB,
   case RISCV::StackML:
   case RISCV::StackMS:
     return expandMaskLS(MBB, MBBI, NextMBBI);
+  case RISCV::IOTA:
+    return expandIOTA(MBB, MBBI, NextMBBI);
   default:
     if (Optional<unsigned> ImplicitOpcode =
             getImplicitOpcode(MBBI->getOpcode()))
@@ -567,7 +571,7 @@ bool RISCVExpandPseudo::expandMaskLS(MachineBasicBlock& MBB,
   Register Scratch = RS.scavengeRegister(&RISCV::GPRRegClass, 0, false);
   assert(Scratch && "Failed to find scratch register");
   Register M = MBBI->getOperand(0).getReg();
-    DebugLoc DL = MBBI->getDebugLoc();
+  DebugLoc DL = MBBI->getDebugLoc();
   if (MBBI->getOpcode() == RISCV::StackML) {
     BuildMI(MBB, MBBI, DL, TII->get(RISCV::LB), Scratch)
       .add(MBBI->getOperand(1)) 
@@ -586,6 +590,21 @@ bool RISCVExpandPseudo::expandMaskLS(MachineBasicBlock& MBB,
   MBBI->eraseFromParent();
   return true;
 }
+
+bool RISCVExpandPseudo::expandIOTA(MachineBasicBlock &MBB,
+                                   MachineBasicBlock::iterator MBBI,
+                                   MachineBasicBlock::iterator &NextMBBI) {
+  Register DstReg = MBBI->getOperand(0).getReg();
+  DebugLoc DL = MBBI->getDebugLoc();
+
+  for (unsigned Idx = 0; Idx < 8; Idx++) {
+    BuildMI(MBB, MBBI, DL, TII->get(RISCV::MOV_M_X), RISCV::M0).addReg(RISCV::X0).addImm(1ull << Idx);
+    BuildMI(MBB, MBBI, DL, TII->get(RISCV::FBCI_PI), DstReg).addImm(Idx);
+  }
+  MBBI->eraseFromParent();
+  return true;
+}
+
 } // end of anonymous namespace
 
 INITIALIZE_PASS(RISCVExpandPseudo, "riscv-expand-pseudo",
