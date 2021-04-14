@@ -129,6 +129,11 @@ void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
         .addReg(DstReg, getKillRegState(true))
         .addReg(SrcReg, getKillRegState(KillSrc));
     return;
+  } else if (RISCV::FPR32RegClass.contains(DstReg) &&
+             RISCV::GPRRegClass.contains(SrcReg)) {
+    BuildMI(MBB, MBBI, DL, get(RISCV::FMV_W_X), DstReg)
+        .addReg(SrcReg, getKillRegState(KillSrc));
+    return;
   } else
     llvm_unreachable("Impossible reg-to-reg copy");
 
