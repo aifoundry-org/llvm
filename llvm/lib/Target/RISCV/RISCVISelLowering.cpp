@@ -90,8 +90,8 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
 
   if (Subtarget.is64Bit() && Subtarget.hasEsperanto()) {
     addRegisterClass(MVT::v8i1, &RISCV::MRRegClass);
-    addRegisterClass(MVT::v8i32, &RISCV::FPR256RegClass);
-    addRegisterClass(MVT::v8f32, &RISCV::FPR256RegClass);
+    for (MVT VT : {MVT::v8i8, MVT::v8i16, MVT::v8i32, MVT::v8f16, MVT::v8f32})
+      addRegisterClass(VT, &RISCV::FPR256RegClass);
   }
 
   // Compute derived properties from the register classes.
