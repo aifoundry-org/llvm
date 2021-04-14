@@ -54,11 +54,10 @@ class Instruction:
             return False
         # this instruction seems like it should be _PI because
         # it does integer sign extensions of loaded values
-        if re.match("FG[BHW]_PS", self.name):
+        if re.match("FMV[SZ]|FG32|FSC32|FLW|FSW|FG[BHW][GL]?_PS|FSC[BHW]_PS",
+                    self.name):
             return False
         return True
-        
-    
 
 class Attr:
     def __init__(self,name,is_field,ty, value):
@@ -108,14 +107,14 @@ def readDefinitions(tbl, rfilter=instructionsOnly):
 ROOT=dirname(dirname(dirname(abspath(__file__))))
 BUILD=join(ROOT,"build")
 BIN=join(BUILD,"bin")
-def getRecords():
+def getRecords(rfilter=instructionsOnly):
     cmd = [join(BIN,"llvm-tblgen"),
            "-I", join(ROOT,"llvm/lib/Target/RISCV"),
            "-I", join(ROOT,"llvm/lib/Target"),
            "-I", join(ROOT,"llvm/include"),
            join(ROOT,"llvm/lib/Target/RISCV/RISCV.td")]
     p = Popen(cmd, stdout=PIPE, encoding="utf-8")
-    return readDefinitions(p.stdout)
+    return readDefinitions(p.stdout,rfilter)
            
 
 if __name__ == "__main__":

@@ -102,6 +102,7 @@ def int_{target_prefix}_{builtinName} :
             args = getTypes(in_ops, isFloat, maskType="llvm_v8i1_ty")
             if mayLoad or mayStore:
                 args[addr] = "llvm_ptr_ty"
+
             result = ",".join(result)
             args = ",".join(args)
             print(f"""\

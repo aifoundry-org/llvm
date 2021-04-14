@@ -858,48 +858,48 @@ def int_riscv_ffrc_ps_m :
             [IntrNoMem]>;
 def int_riscv_fg32b_ps : 
   GCCBuiltin<"__builtin_riscv_fg32b_ps">,
-  Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_i64_ty,llvm_ptr_ty,llvm_i64_ty],
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty,llvm_i64_ty],
             [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fg32b_ps_m : 
-  Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_i64_ty,llvm_ptr_ty,llvm_v8i1_ty],
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty,llvm_v8i1_ty],
             [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fg32h_ps : 
   GCCBuiltin<"__builtin_riscv_fg32h_ps">,
-  Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_i64_ty,llvm_ptr_ty,llvm_i64_ty],
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty,llvm_i64_ty],
             [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fg32h_ps_m : 
-  Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_i64_ty,llvm_ptr_ty,llvm_v8i1_ty],
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty,llvm_v8i1_ty],
             [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fg32w_ps : 
   GCCBuiltin<"__builtin_riscv_fg32w_ps">,
-  Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_i64_ty,llvm_ptr_ty,llvm_i64_ty],
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty,llvm_i64_ty],
             [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fg32w_ps_m : 
-  Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_i64_ty,llvm_ptr_ty,llvm_v8i1_ty],
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_i64_ty,llvm_ptr_ty,llvm_v8i1_ty],
             [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fgbg_ps : 
   GCCBuiltin<"__builtin_riscv_fgbg_ps">,
-  Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_ptr_ty,llvm_i64_ty],
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_ptr_ty,llvm_i64_ty],
             [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fgbg_ps_m : 
-  Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_ptr_ty,llvm_v8i1_ty],
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_ptr_ty,llvm_v8i1_ty],
             [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fgbl_ps : 
   GCCBuiltin<"__builtin_riscv_fgbl_ps">,
-  Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_ptr_ty,llvm_i64_ty],
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_ptr_ty,llvm_i64_ty],
             [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fgbl_ps_m : 
-  Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_ptr_ty,llvm_v8i1_ty],
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_ptr_ty,llvm_v8i1_ty],
             [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fgb_ps : 
   GCCBuiltin<"__builtin_riscv_fgb_ps">,
@@ -912,21 +912,21 @@ def int_riscv_fgb_ps_m :
             [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fghg_ps : 
   GCCBuiltin<"__builtin_riscv_fghg_ps">,
-  Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_ptr_ty,llvm_i64_ty],
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_ptr_ty,llvm_i64_ty],
             [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fghg_ps_m : 
-  Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_ptr_ty,llvm_v8i1_ty],
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_ptr_ty,llvm_v8i1_ty],
             [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fghl_ps : 
   GCCBuiltin<"__builtin_riscv_fghl_ps">,
-  Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_ptr_ty,llvm_i64_ty],
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_ptr_ty,llvm_i64_ty],
             [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fghl_ps_m : 
-  Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_ptr_ty,llvm_v8i1_ty],
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_ptr_ty,llvm_v8i1_ty],
             [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fgh_ps : 
   GCCBuiltin<"__builtin_riscv_fgh_ps">,
@@ -939,21 +939,21 @@ def int_riscv_fgh_ps_m :
             [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fgwg_ps : 
   GCCBuiltin<"__builtin_riscv_fgwg_ps">,
-  Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_ptr_ty,llvm_i64_ty],
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_ptr_ty,llvm_i64_ty],
             [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fgwg_ps_m : 
-  Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_ptr_ty,llvm_v8i1_ty],
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_ptr_ty,llvm_v8i1_ty],
             [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fgwl_ps : 
   GCCBuiltin<"__builtin_riscv_fgwl_ps">,
-  Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_ptr_ty,llvm_i64_ty],
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_ptr_ty,llvm_i64_ty],
             [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fgwl_ps_m : 
-  Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_ptr_ty,llvm_v8i1_ty],
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_ptr_ty,llvm_v8i1_ty],
             [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fgw_ps : 
   GCCBuiltin<"__builtin_riscv_fgw_ps">,
@@ -1052,30 +1052,30 @@ def int_riscv_flt_ps_m :
             [IntrNoMem]>;
 def int_riscv_flwg_ps : 
   GCCBuiltin<"__builtin_riscv_flwg_ps">,
-  Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_ptr_ty,llvm_i64_ty],
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_ptr_ty,llvm_i64_ty],
             [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<1>>]>;
 def int_riscv_flwg_ps_m : 
-  Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_ptr_ty,llvm_v8i1_ty],
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_ptr_ty,llvm_v8i1_ty],
             [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<1>>]>;
 def int_riscv_flwl_ps : 
   GCCBuiltin<"__builtin_riscv_flwl_ps">,
-  Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_ptr_ty,llvm_i64_ty],
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_ptr_ty,llvm_i64_ty],
             [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<1>>]>;
 def int_riscv_flwl_ps_m : 
-  Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_ptr_ty,llvm_v8i1_ty],
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_ptr_ty,llvm_v8i1_ty],
             [IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<1>>]>;
 def int_riscv_flw_ps : 
   GCCBuiltin<"__builtin_riscv_flw_ps">,
-  Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_i32_ty,llvm_ptr_ty,llvm_i64_ty],
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_i32_ty,llvm_ptr_ty,llvm_i64_ty],
             [ImmArg<ArgIndex<1>>,IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_flw_ps_m : 
-  Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_i32_ty,llvm_ptr_ty,llvm_v8i1_ty],
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_i32_ty,llvm_ptr_ty,llvm_v8i1_ty],
             [ImmArg<ArgIndex<1>>,IntrArgMemOnly,IntrReadMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fmadd_ps : 
   GCCBuiltin<"__builtin_riscv_fmadd_ps">,
@@ -1188,12 +1188,12 @@ def int_riscv_fmul_ps_m :
 def int_riscv_fmvs_x_ps : 
   GCCBuiltin<"__builtin_riscv_fmvs_x_ps">,
   Intrinsic<[llvm_i64_ty],
-            [llvm_v8f32_ty,llvm_i64_ty],
+            [llvm_v8i32_ty,llvm_i64_ty],
             [ImmArg<ArgIndex<1>>,IntrNoMem]>;
 def int_riscv_fmvz_x_ps : 
   GCCBuiltin<"__builtin_riscv_fmvz_x_ps">,
   Intrinsic<[llvm_i64_ty],
-            [llvm_v8f32_ty,llvm_i64_ty],
+            [llvm_v8i32_ty,llvm_i64_ty],
             [ImmArg<ArgIndex<1>>,IntrNoMem]>;
 def int_riscv_fnmadd_ps : 
   GCCBuiltin<"__builtin_riscv_fnmadd_ps">,
@@ -1324,29 +1324,29 @@ def int_riscv_fsatu8_pi_m :
 def int_riscv_fsc32b_ps : 
   GCCBuiltin<"__builtin_riscv_fsc32b_ps">,
   Intrinsic<[],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_ptr_ty,llvm_i64_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_ptr_ty,llvm_i64_ty],
             [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fsc32b_ps_m : 
   Intrinsic<[],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_ptr_ty,llvm_v8i1_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_ptr_ty,llvm_v8i1_ty],
             [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fsc32h_ps : 
   GCCBuiltin<"__builtin_riscv_fsc32h_ps">,
   Intrinsic<[],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_ptr_ty,llvm_i64_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_ptr_ty,llvm_i64_ty],
             [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fsc32h_ps_m : 
   Intrinsic<[],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_ptr_ty,llvm_v8i1_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_ptr_ty,llvm_v8i1_ty],
             [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fsc32w_ps : 
   GCCBuiltin<"__builtin_riscv_fsc32w_ps">,
   Intrinsic<[],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_ptr_ty,llvm_i64_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_ptr_ty,llvm_i64_ty],
             [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fsc32w_ps_m : 
   Intrinsic<[],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_ptr_ty,llvm_v8i1_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_ptr_ty,llvm_v8i1_ty],
             [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fscbg_ps : 
   GCCBuiltin<"__builtin_riscv_fscbg_ps">,
@@ -1369,11 +1369,11 @@ def int_riscv_fscbl_ps_m :
 def int_riscv_fscb_ps : 
   GCCBuiltin<"__builtin_riscv_fscb_ps">,
   Intrinsic<[],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_ptr_ty,llvm_i64_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_ptr_ty,llvm_i64_ty],
             [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fscb_ps_m : 
   Intrinsic<[],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_ptr_ty,llvm_v8i1_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_ptr_ty,llvm_v8i1_ty],
             [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fschg_ps : 
   GCCBuiltin<"__builtin_riscv_fschg_ps">,
@@ -1396,11 +1396,11 @@ def int_riscv_fschl_ps_m :
 def int_riscv_fsch_ps : 
   GCCBuiltin<"__builtin_riscv_fsch_ps">,
   Intrinsic<[],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_ptr_ty,llvm_i64_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_ptr_ty,llvm_i64_ty],
             [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fsch_ps_m : 
   Intrinsic<[],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_ptr_ty,llvm_v8i1_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_ptr_ty,llvm_v8i1_ty],
             [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fscwg_ps : 
   GCCBuiltin<"__builtin_riscv_fscwg_ps">,
@@ -1423,11 +1423,11 @@ def int_riscv_fscwl_ps_m :
 def int_riscv_fscw_ps : 
   GCCBuiltin<"__builtin_riscv_fscw_ps">,
   Intrinsic<[],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_ptr_ty,llvm_i64_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_ptr_ty,llvm_i64_ty],
             [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fscw_ps_m : 
   Intrinsic<[],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_ptr_ty,llvm_v8i1_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_ptr_ty,llvm_v8i1_ty],
             [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fsetm_pi : 
   GCCBuiltin<"__builtin_riscv_fsetm_pi">,
@@ -1563,38 +1563,38 @@ def int_riscv_fsub_ps_m :
 def int_riscv_fswg_ps : 
   GCCBuiltin<"__builtin_riscv_fswg_ps">,
   Intrinsic<[],
-            [llvm_v8f32_ty,llvm_ptr_ty,llvm_i64_ty],
+            [llvm_v8i32_ty,llvm_ptr_ty,llvm_i64_ty],
             [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<1>>]>;
 def int_riscv_fswg_ps_m : 
   Intrinsic<[],
-            [llvm_v8f32_ty,llvm_ptr_ty,llvm_v8i1_ty],
+            [llvm_v8i32_ty,llvm_ptr_ty,llvm_v8i1_ty],
             [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<1>>]>;
 def int_riscv_fswizz_ps : 
   GCCBuiltin<"__builtin_riscv_fswizz_ps">,
-  Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_i32_ty,llvm_i64_ty],
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i32_ty,llvm_i64_ty],
             [ImmArg<ArgIndex<2>>,IntrNoMem]>;
 def int_riscv_fswizz_ps_m : 
-  Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_i32_ty,llvm_v8i1_ty],
+  Intrinsic<[llvm_v8i32_ty],
+            [llvm_v8i32_ty,llvm_v8i32_ty,llvm_i32_ty,llvm_v8i1_ty],
             [ImmArg<ArgIndex<2>>,IntrNoMem]>;
 def int_riscv_fswl_ps : 
   GCCBuiltin<"__builtin_riscv_fswl_ps">,
   Intrinsic<[],
-            [llvm_v8f32_ty,llvm_ptr_ty,llvm_i64_ty],
+            [llvm_v8i32_ty,llvm_ptr_ty,llvm_i64_ty],
             [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<1>>]>;
 def int_riscv_fswl_ps_m : 
   Intrinsic<[],
-            [llvm_v8f32_ty,llvm_ptr_ty,llvm_v8i1_ty],
+            [llvm_v8i32_ty,llvm_ptr_ty,llvm_v8i1_ty],
             [IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<1>>]>;
 def int_riscv_fsw_ps : 
   GCCBuiltin<"__builtin_riscv_fsw_ps">,
   Intrinsic<[],
-            [llvm_v8f32_ty,llvm_i32_ty,llvm_ptr_ty,llvm_i64_ty],
+            [llvm_v8i32_ty,llvm_i32_ty,llvm_ptr_ty,llvm_i64_ty],
             [ImmArg<ArgIndex<1>>,IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fsw_ps_m : 
   Intrinsic<[],
-            [llvm_v8f32_ty,llvm_i32_ty,llvm_ptr_ty,llvm_v8i1_ty],
+            [llvm_v8i32_ty,llvm_i32_ty,llvm_ptr_ty,llvm_v8i1_ty],
             [ImmArg<ArgIndex<1>>,IntrArgMemOnly,IntrWriteMem,NoCapture<ArgIndex<2>>]>;
 def int_riscv_fxor_pi : 
   GCCBuiltin<"__builtin_riscv_fxor_pi">,

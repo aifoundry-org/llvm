@@ -198,6 +198,7 @@ def FeatureSaveRestore : SubtargetFeature<"save-restore", "EnableSaveRestore",
 //===----------------------------------------------------------------------===//
 
 include "RISCVSystemOperands.td"
+include "RISCVSystemOperandsEsperanto.td"
 
 //===----------------------------------------------------------------------===//
 // Registers, calling conventions, instruction descriptions.
