@@ -627,10 +627,14 @@ void RISCVDAGToDAGISel::doPeepholeLoadStoreADDI() {
 void RISCVDAGToDAGISel::doBuildVector() {
 
   SmallVector<SDNode *, 8> BVs;
+  SmallVector<SDNode *, 4> Extract;
   for (SDNode &N : CurDAG->allnodes())
     switch (N.getOpcode()) {
     case ISD::BUILD_VECTOR:
       BVs.push_back(&N);
+      break;
+    case ISD::EXTRACT_VECTOR_ELT:
+      Extract.push_back(&N);
       break;
     }
 
@@ -702,19 +706,36 @@ void RISCVDAGToDAGISel::doBuildVector() {
       continue;
     }
     SDValue Model = N->getOperand(0);
-    if (any_of(N->ops(), [Model](SDValue Op) { return Op != Model; }))
+    bool Splat = true;
+    bool Scalar = true;
+    for (auto Pair : enumerate(N->ops())) {
+      SDValue Op = Pair.value();
+      if (Op == Model) {
+        if (Pair.index())
+          Scalar = false;
+      } else if (!Op.isUndef()) {
+        Splat = false;
+      }
+    }
+    if (!Splat)
       continue;
+    SDValue Input =
+        SDValue(CurDAG->getMachineNode(TargetOpcode::IMPLICIT_DEF, SDLoc(N),
+                                       N->getVTList(), {}),
+                0);
     EVT VT = Model->getValueType(0);
+    if (Scalar) {
+      SDValue NewN = CurDAG->getTargetInsertSubreg(
+          RISCV::sub_32, SDLoc(N), N->getSimpleValueType(0), Input, Model);
+      ReplaceNode(N, NewN.getNode());
+      continue;
+    }
     assert(VT.getSizeInBits() == 32 && "Invalid broadcast not 32 bits");
     SDValue M0Mask =
         SDValue(CurDAG->getMachineNode(
                     RISCV::MOV_M_X, SDLoc(N), MVT::v8i1,
                     CurDAG->getRegister(RISCV::X0, MVT::i64),
                     CurDAG->getTargetConstant(0xff, SDLoc(N), MVT::i64)),
-                0);
-    SDValue Input =
-        SDValue(CurDAG->getMachineNode(TargetOpcode::IMPLICIT_DEF, SDLoc(N),
-                                       N->getVTList(), {}),
                 0);
     if (checkIntegerBroadcast(N, Model, Input, M0Mask))
       continue;
@@ -733,6 +754,24 @@ void RISCVDAGToDAGISel::doBuildVector() {
         RISCV::FBCX_PS_EX, SDLoc(N), N->getVTList(), {Input, Model, M0Mask});
     ReplaceNode(N, NewN);
   }
+
+  for (SDNode *E : Extract) {
+    EVT VT = E->getSimpleValueType(0);
+    if (VT != MVT::i64)
+      continue;
+    // This case breaks tblgen's type system because we are
+    // extracting an i64 from an v8i32
+    SDValue Input = E->getOperand(0);
+    SDValue Index = E->getOperand(1);
+    auto *C = dyn_cast<ConstantSDNode>(Index.getNode());
+    if (!C)
+      continue;
+    SDNode *NewN = CurDAG->getMachineNode(
+        RISCV::FMVS_X_PS, SDLoc(E), MVT::i64,
+        {Input,
+         CurDAG->getTargetConstant(C->getZExtValue(), SDLoc(E), MVT::i32)});
+    ReplaceNode(E, NewN);
+  }
 }
 
 void RISCVDAGToDAGISel::optimizeMaskCopies(MachineFunction &MF) {
@@ -741,6 +780,8 @@ void RISCVDAGToDAGISel::optimizeMaskCopies(MachineFunction &MF) {
   auto definesMask = [&MRI](MachineInstr &MI) {
     unsigned N = MI.getNumDefs();
     if (!N)
+      return false;
+    if (!MI.getOperand(0).isReg())
       return false;
     Register R = MI.getOperand(0).getReg();
     return (R.isVirtual() && MRI.getRegClass(R) == &RISCV::MRRegClass);
@@ -807,16 +848,6 @@ void RISCVDAGToDAGISel::optimizeMaskCopies(MachineFunction &MF) {
         continue;
       Register SrcReg = MI.getOperand(1).getReg();
 
-      if (MachineInstr *Def = MRI.getVRegDef(SrcReg)) {
-        if (isSafeMove(*Def)) {
-          // Don't copy AllTrue, rematerialize it.
-          BuildMI(MBB, &MI, Def->getDebugLoc(), Def->getDesc(), RISCV::M0)
-              .add(Def->getOperand(1))
-              .add(Def->getOperand(2));
-          CurrentM0 = SrcReg;
-          LastDef = 0;
-        }
-      }
       // Here we have a copy where the LHS is constrained to be MR0
       // so we just immediately replace it with M0. This prevents
       // MachhineCSE::PerformTrivialCopyPropagation from changing
@@ -824,10 +855,22 @@ void RISCVDAGToDAGISel::optimizeMaskCopies(MachineFunction &MF) {
       MRI.replaceRegWith(DstReg, RISCV::M0);
       if (SrcReg == CurrentM0)
         MI.eraseFromParent();
-      else
+      else {
         CurrentM0 = SrcReg;
+        if (MachineInstr *Def = MRI.getVRegDef(SrcReg)) {
+          if (isSafeMove(*Def)) {
+            // Don't copy AllTrue, rematerialize it.
+            BuildMI(MBB, &MI, Def->getDebugLoc(), Def->getDesc(), RISCV::M0)
+                .add(Def->getOperand(1))
+                .add(Def->getOperand(2));
+            LastDef = 0;
+            MI.eraseFromParent();
+          }
+        }
+      }
       if (SrcReg == LastDef)
-        checkLastUse();
+        CurrentM0 = SrcReg;
+      checkLastUse();
     }
   }
 }
