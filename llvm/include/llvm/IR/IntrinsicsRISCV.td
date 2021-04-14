@@ -66,4 +66,10 @@ let TargetPrefix = "riscv" in {
   defm int_riscv_masked_cmpxchg : MaskedAtomicRMWFiveArgIntrinsics;
 
 } // TargetPrefix = "riscv"
+
+// begin esperanto
+let TargetPrefix = "riscv" in {
+  def int_riscv_coerce_vector : Intrinsic<[llvm_anyvector_ty],[llvm_anyvector_ty],[IntrNoMem]>;
+}
 include "llvm/IR/IntrinsicsRISCVET.td"
+// end esperanto

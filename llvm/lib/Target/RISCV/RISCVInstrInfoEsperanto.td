@@ -771,6 +771,14 @@ def : Pat<(v8i32 (build_vector GPR:$e0, GPR:$e1, GPR:$e2, GPR:$e3,
               $e6, (v8i1 (MOV_M_X X0, 0b01000000)))),
               $e7, (v8i1 (MOV_M_X X0, 0b10000000))))>;
 
+def : Pat<(v8f32 (build_vector FPR32:$e0, undef, undef, undef,
+                               undef, undef, undef, undef)),
+           (v8f32 (INSERT_SUBREG (v8f32 (IMPLICIT_DEF)), $e0, sub_32))>;
+
+def : Pat<(v8i32 (build_vector (i64 GPR:$e0), undef, undef, undef,
+                               undef, undef, undef, undef)),
+           (v8i32 (INSERT_SUBREG (v8i32 (IMPLICIT_DEF)), $e0, sub_32))>;
+
 def : Pat<(v8f32 (build_vector FPR32:$e0, FPR32:$e1, FPR32:$e2, FPR32:$e3,
                                FPR32:$e4, FPR32:$e5, FPR32:$e6, FPR32:$e7)),
           (v8f32 (FBCX_PS_EX
@@ -821,5 +829,26 @@ def : Pat<(v8f32 (bitconvert (v8i32 FPR256:$in))), (v8f32 (COPY $in))>;
 let Defs = [M0] in 
 def IOTA : Pseudo<(outs FPR256:$rd), (ins), [], "iota", "$rd">;
 def : Pat<(int_riscv_iota), (IOTA)>;
+
+def : Pat<(f32 (extractelt FPR256:$rd, 0)),
+          (f32 (EXTRACT_SUBREG $rd, sub_32))>;
+
+def : Pat<(f32 (extractelt FPR256:$rs1, uimm5:$idx)),
+          (f32 (FMV_W_X (FMVZ_X_PS $rs1, (LO3 $idx))))>;
+
+def : Pat<(v8f32 (insertelt (v8f32 FPR256:$rs1), (f32 FPR32:$rs2), (i64 0))),
+          (v8f32 (INSERT_SUBREG $rs1, $rs2, sub_32))>;
+
+foreach SrcTy = [v8i8, v8i16, v8i32, v8f16, v8f32] in {
+    foreach DstTy = [v8i8, v8i16, v8i32, v8f16, v8f32] in {
+        def : Pat<(DstTy (int_riscv_coerce_vector (SrcTy FPR256:$rs1))),
+                         (COPY $rs1)>;
+    }
+}
+
+def : Pat<(v8i32 (masked_ld GPR:$ptr, undef, (v8i1 MR:$mask), FPR256:$passthru)),
+          (FLW_PS_EX $passthru, 0, $ptr, $mask)>;
+def : Pat<(v8f32 (masked_ld GPR:$ptr, undef, (v8i1 MR:$mask), FPR256:$passthru)),
+          (FLW_PS_EX $passthru, 0, $ptr, $mask)>;
 
 include "RISCVInstrInfoEsperantoPatterns.td"
