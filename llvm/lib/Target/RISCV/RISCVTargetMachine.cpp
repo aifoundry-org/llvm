@@ -139,6 +139,9 @@ TargetPassConfig *RISCVTargetMachine::createPassConfig(PassManagerBase &PM) {
 
 void RISCVPassConfig::addIRPasses() {
   addPass(createAtomicExpandPass());
+#ifdef ESPERANTO
+  addPass(createRISCVOptimizeMemIntrinsicsPass(getRISCVTargetMachine()));
+#endif
   TargetPassConfig::addIRPasses();
 }
 
