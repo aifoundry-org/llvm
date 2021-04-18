@@ -37,9 +37,16 @@ def main():
 let TargetPrefix = "{target_prefix}" in {{
 // Generate iota vector of length 8
 def int_riscv_iota : 
-  Intrinsic<[llvm_v8i32_ty],[], [IntrNoMem]>;''',
+  GCCBuiltin<"__builtin_{target_prefix}_iota">,
+  Intrinsic<[llvm_v8i32_ty],[], [IntrNoMem]>;
+def int_riscv_hartid :  
+  GCCBuiltin<"__builtin_{target_prefix}_hartid">,
+  Intrinsic<[llvm_i64_ty],[], [IntrNoMem]>;''',
           file=intrinsics)
     builtins = initOutput("BuiltinsRISCVET.def")
+    print(f'''\
+BUILTIN(__builtin_riscv_iota,"v8i", "")
+BUILTIN(__builtin_riscv_hartid,"Li", "")''', file=builtins)
     patterns = initOutput("RISCVInstrInfoEsperantoPatterns.td")
     
 

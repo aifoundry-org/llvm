@@ -70,6 +70,8 @@ private:
                     MachineBasicBlock::iterator &NextMBBI);
   bool expandIOTA(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
                   MachineBasicBlock::iterator &NextMBBI);
+  bool expandHARTID(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
+                  MachineBasicBlock::iterator &NextMBBI);
   RegScavenger RS;
 };
 
@@ -434,6 +436,8 @@ bool RISCVExpandPseudo::expandMI(MachineBasicBlock &MBB,
     return expandMaskLS(MBB, MBBI, NextMBBI);
   case RISCV::IOTA:
     return expandIOTA(MBB, MBBI, NextMBBI);
+  case RISCV::HARTID:
+    return expandHARTID(MBB, MBBI, NextMBBI);
   default:
     if (Optional<unsigned> ImplicitOpcode =
             getImplicitOpcode(MBBI->getOpcode()))
@@ -601,6 +605,19 @@ bool RISCVExpandPseudo::expandIOTA(MachineBasicBlock &MBB,
     BuildMI(MBB, MBBI, DL, TII->get(RISCV::MOV_M_X), RISCV::M0).addReg(RISCV::X0).addImm(1ull << Idx);
     BuildMI(MBB, MBBI, DL, TII->get(RISCV::FBCI_PI), DstReg).addImm(Idx);
   }
+  MBBI->eraseFromParent();
+  return true;
+}
+
+bool RISCVExpandPseudo::expandHARTID(MachineBasicBlock &MBB,
+                                   MachineBasicBlock::iterator MBBI,
+                                   MachineBasicBlock::iterator &NextMBBI) 
+ {
+  Register DstReg = MBBI->getOperand(0).getReg();
+  DebugLoc DL = MBBI->getDebugLoc();
+  BuildMI(MBB, MBBI, DL, TII->get(RISCV::CSRRS), DstReg)
+      .addImm(RISCVSysReg::lookupSysRegByName("HARTID")->Encoding)
+      .addReg(RISCV::X0);
   MBBI->eraseFromParent();
   return true;
 }

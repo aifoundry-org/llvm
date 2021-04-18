@@ -2,7 +2,11 @@
 let TargetPrefix = "riscv" in {
 // Generate iota vector of length 8
 def int_riscv_iota : 
+  GCCBuiltin<"__builtin_riscv_iota">,
   Intrinsic<[llvm_v8i32_ty],[], [IntrNoMem]>;
+def int_riscv_hartid :  
+  GCCBuiltin<"__builtin_riscv_hartid">,
+  Intrinsic<[llvm_i64_ty],[], [IntrNoMem]>;
 def int_riscv_amoaddg_d : 
   GCCBuiltin<"__builtin_riscv_amoaddg_d">,
   Intrinsic<[llvm_i64_ty],

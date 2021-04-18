@@ -829,6 +829,8 @@ def : Pat<(v8f32 (bitconvert (v8i32 FPR256:$in))), (v8f32 (COPY $in))>;
 let Defs = [M0] in 
 def IOTA : Pseudo<(outs FPR256:$rd), (ins), [], "iota", "$rd">;
 def : Pat<(int_riscv_iota), (IOTA)>;
+def HARTID : Pseudo<(outs GPR:$rd), (ins), [], "hartid", "$rd">;
+def : Pat<(int_riscv_hartid), (HARTID)>;
 
 def : Pat<(f32 (extractelt FPR256:$rd, 0)),
           (f32 (EXTRACT_SUBREG $rd, sub_32))>;
