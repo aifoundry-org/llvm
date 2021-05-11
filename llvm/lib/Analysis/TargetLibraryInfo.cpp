@@ -116,6 +116,15 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     return;
   }
 
+#ifdef ESPERANTO
+  if (T.isRISCV() && T.getOS() == Triple::UnknownOS ) {
+    TLI.setUnavailable(LibFunc_memcpy);
+    TLI.setUnavailable(LibFunc_memset);
+    TLI.setUnavailable(LibFunc_memset_pattern16);
+    return;
+  }
+#endif
+
   // memset_pattern16 is only available on iOS 3.0 and Mac OS X 10.5 and later.
   // All versions of watchOS support it.
   if (T.isMacOSX()) {
