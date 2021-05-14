@@ -632,55 +632,55 @@ defm FAMOMING_PS  : ETOpsRdR1R2FG<0b1011000, 0b100, "famoming.ps">;
 defm FAMOMAXG_PS  : ETOpsRdR1R2FG<0b1010100, 0b100, "famomaxg.ps">;
 }
 
-class ETOpsR1R2<bits<7> funct7, bits<3> funct3, string opcodestr> :
+class ETOpsR2R1<bits<7> funct7, bits<3> funct3, string opcodestr> :
      RVInstR<funct7, funct3, OPC_OP_32, (outs GPR:$rd),
-            (ins GPR:$rs1, GPR:$rs2), opcodestr,
-            "${rd}, ${rs1}, (${rs2})">;
+            (ins GPR:$rs2, GPR:$rs1), opcodestr,
+            "${rd}, ${rs2}, (${rs1})">;
 
 let mayLoad=1, mayStore=1 in {
-def AMOSWAPL_W : ETOpsR1R2<0b0000100, 0b010, "amoswapl.w">;
-def AMOADDL_W  : ETOpsR1R2<0b0000000, 0b010, "amoaddl.w">;
-def AMOXORL_W  : ETOpsR1R2<0b0010000, 0b010, "amoxorl.w">;
-def AMOANDL_W  : ETOpsR1R2<0b0110000, 0b010, "amoandl.w">;
-def AMOORL_W   : ETOpsR1R2<0b0100000, 0b010, "amoorl.w">;
-def AMOMINL_W  : ETOpsR1R2<0b1000000, 0b010, "amominl.w">;
-def AMOMAXL_W  : ETOpsR1R2<0b1010000, 0b010, "amomaxl.w">;
-def AMOMINUL_W : ETOpsR1R2<0b1100000, 0b010, "amominul.w">;
-def AMOMAXUL_W    : ETOpsR1R2<0b1110000, 0b010, "amomaxul.w">;
-def AMOCMPSWAPL_W : ETOpsR1R2<0b1111000, 0b010, "amocmpswapl.w">;
+def AMOSWAPL_W : ETOpsR2R1<0b0000100, 0b010, "amoswapl.w">;
+def AMOADDL_W  : ETOpsR2R1<0b0000000, 0b010, "amoaddl.w">;
+def AMOXORL_W  : ETOpsR2R1<0b0010000, 0b010, "amoxorl.w">;
+def AMOANDL_W  : ETOpsR2R1<0b0110000, 0b010, "amoandl.w">;
+def AMOORL_W   : ETOpsR2R1<0b0100000, 0b010, "amoorl.w">;
+def AMOMINL_W  : ETOpsR2R1<0b1000000, 0b010, "amominl.w">;
+def AMOMAXL_W  : ETOpsR2R1<0b1010000, 0b010, "amomaxl.w">;
+def AMOMINUL_W : ETOpsR2R1<0b1100000, 0b010, "amominul.w">;
+def AMOMAXUL_W    : ETOpsR2R1<0b1110000, 0b010, "amomaxul.w">;
+def AMOCMPSWAPL_W : ETOpsR2R1<0b1111000, 0b010, "amocmpswapl.w">;
 
-def AMOSWAPG_W : ETOpsR1R2<0b0000101, 0b010, "amoswapg.w">;
-def AMOADDG_W  : ETOpsR1R2<0b0000001, 0b010, "amoaddg.w">;
-def AMOXORG_W  : ETOpsR1R2<0b0010001, 0b010, "amoxorg.w">;
-def AMOANDG_W  : ETOpsR1R2<0b0110001, 0b010, "amoandg.w">;
-def AMOORG_W   : ETOpsR1R2<0b0100001, 0b010, "amoorg.w">;
-def AMOMING_W  : ETOpsR1R2<0b1000001, 0b010, "amoming.w">;
-def AMOMAXG_W  : ETOpsR1R2<0b1010001, 0b010, "amomaxg.w">;
-def AMOMINUG_W : ETOpsR1R2<0b1100001, 0b010, "amominug.w">;
-def AMOMAXUG_W : ETOpsR1R2<0b1110001, 0b010, "amomaxug.w">;
-def AMOCMPSWAPG_W : ETOpsR1R2<0b1111001, 0b010, "amocmpswapg.w">;
+def AMOSWAPG_W : ETOpsR2R1<0b0000101, 0b010, "amoswapg.w">;
+def AMOADDG_W  : ETOpsR2R1<0b0000001, 0b010, "amoaddg.w">;
+def AMOXORG_W  : ETOpsR2R1<0b0010001, 0b010, "amoxorg.w">;
+def AMOANDG_W  : ETOpsR2R1<0b0110001, 0b010, "amoandg.w">;
+def AMOORG_W   : ETOpsR2R1<0b0100001, 0b010, "amoorg.w">;
+def AMOMING_W  : ETOpsR2R1<0b1000001, 0b010, "amoming.w">;
+def AMOMAXG_W  : ETOpsR2R1<0b1010001, 0b010, "amomaxg.w">;
+def AMOMINUG_W : ETOpsR2R1<0b1100001, 0b010, "amominug.w">;
+def AMOMAXUG_W : ETOpsR2R1<0b1110001, 0b010, "amomaxug.w">;
+def AMOCMPSWAPG_W : ETOpsR2R1<0b1111001, 0b010, "amocmpswapg.w">;
 
-def AMOSWAPL_D : ETOpsR1R2<0b0000100, 0b011, "amoswapl.d">;
-def AMOADDL_D  : ETOpsR1R2<0b0000000, 0b011, "amoaddl.d">;
-def AMOXORL_D  : ETOpsR1R2<0b0010000, 0b011, "amoxorl.d">;
-def AMOANDL_D  : ETOpsR1R2<0b0110000, 0b011, "amoandl.d">;
-def AMOORL_D   : ETOpsR1R2<0b0100000, 0b011, "amoorl.d">;
-def AMOMINL_D  : ETOpsR1R2<0b1000000, 0b011, "amominl.d">;
-def AMOMAXL_D  : ETOpsR1R2<0b1010000, 0b011, "amomaxl.d">;
-def AMOMINUL_D : ETOpsR1R2<0b1100000, 0b011, "amominul.d">;
-def AMOMAXUL_D : ETOpsR1R2<0b1110000, 0b011, "amomaxul.d">;
-def AMOCMPSWAPL_D : ETOpsR1R2<0b1111000, 0b011, "amocmpswapl.d">;
+def AMOSWAPL_D : ETOpsR2R1<0b0000100, 0b011, "amoswapl.d">;
+def AMOADDL_D  : ETOpsR2R1<0b0000000, 0b011, "amoaddl.d">;
+def AMOXORL_D  : ETOpsR2R1<0b0010000, 0b011, "amoxorl.d">;
+def AMOANDL_D  : ETOpsR2R1<0b0110000, 0b011, "amoandl.d">;
+def AMOORL_D   : ETOpsR2R1<0b0100000, 0b011, "amoorl.d">;
+def AMOMINL_D  : ETOpsR2R1<0b1000000, 0b011, "amominl.d">;
+def AMOMAXL_D  : ETOpsR2R1<0b1010000, 0b011, "amomaxl.d">;
+def AMOMINUL_D : ETOpsR2R1<0b1100000, 0b011, "amominul.d">;
+def AMOMAXUL_D : ETOpsR2R1<0b1110000, 0b011, "amomaxul.d">;
+def AMOCMPSWAPL_D : ETOpsR2R1<0b1111000, 0b011, "amocmpswapl.d">;
 
-def AMOSWAPG_D : ETOpsR1R2<0b0000101, 0b011, "amoswapg.d">;
-def AMOADDG_D  : ETOpsR1R2<0b0000001, 0b011, "amoaddg.d">;
-def AMOXORG_D  : ETOpsR1R2<0b0010001, 0b011, "amoxorg.d">;
-def AMOANDG_D  : ETOpsR1R2<0b0110001, 0b011, "amoandg.d">;
-def AMOORG_D   : ETOpsR1R2<0b0100001, 0b011, "amoorg.d">;
-def AMOMING_D  : ETOpsR1R2<0b1000001, 0b011, "amoming.d">;
-def AMOMAXG_D  : ETOpsR1R2<0b1010001, 0b011, "amomaxg.d">;
-def AMOMINUG_D : ETOpsR1R2<0b1100001, 0b011, "amominug.d">;
-def AMOMAXUG_D : ETOpsR1R2<0b1110001, 0b011, "amomaxug.d">;
-def AMOCMPSWAPG_D : ETOpsR1R2<0b1111001, 0b011, "amocmpswapg.d">;
+def AMOSWAPG_D : ETOpsR2R1<0b0000101, 0b011, "amoswapg.d">;
+def AMOADDG_D  : ETOpsR2R1<0b0000001, 0b011, "amoaddg.d">;
+def AMOXORG_D  : ETOpsR2R1<0b0010001, 0b011, "amoxorg.d">;
+def AMOANDG_D  : ETOpsR2R1<0b0110001, 0b011, "amoandg.d">;
+def AMOORG_D   : ETOpsR2R1<0b0100001, 0b011, "amoorg.d">;
+def AMOMING_D  : ETOpsR2R1<0b1000001, 0b011, "amoming.d">;
+def AMOMAXG_D  : ETOpsR2R1<0b1010001, 0b011, "amomaxg.d">;
+def AMOMINUG_D : ETOpsR2R1<0b1100001, 0b011, "amominug.d">;
+def AMOMAXUG_D : ETOpsR2R1<0b1110001, 0b011, "amomaxug.d">;
+def AMOCMPSWAPG_D : ETOpsR2R1<0b1111001, 0b011, "amocmpswapg.d">;
 
 } // let mayLoad = 1, mayStore =1 in
 
