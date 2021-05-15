@@ -46,6 +46,14 @@ public:
                         TTI::TargetCostKind CostKind);
   int getIntImmCostIntrin(Intrinsic::ID IID, unsigned Idx, const APInt &Imm,
                           Type *Ty, TTI::TargetCostKind CostKind);
+
+  // This definition inhibits SLP vectorizer from producing vectorized types
+  // that are not currently supported by ISel
+  unsigned getNumberOfParts(Type* Tp) {
+    if (auto* VTy = dyn_cast<FixedVectorType>(Tp))
+      return VTy->getNumElements();
+    return BasicTTIImplBase::getNumberOfParts(Tp);
+  }
 };
 
 } // end namespace llvm
