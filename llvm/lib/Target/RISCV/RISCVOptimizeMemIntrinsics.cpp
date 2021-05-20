@@ -112,6 +112,8 @@ llvm::createRISCVOptimizeMemIntrinsicsPass(RISCVTargetMachine &TM) {
 
 
 bool RISCVOptimizeMemIntrinsics::runOnFunction(Function &F) {
+  if (!EnableOptMem)
+    return false;
   if (!TM->getSubtargetImpl(F)->hasEsperanto())
     return false;
   AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
@@ -157,12 +159,6 @@ namespace {
 // This class monitors register pressure and moves
 // loop invariant operations out of a loop where possible
 class CodeHoister {
-  IRBuilder<> Builder;
-
-  // Operands which have been hoisted out of the loop
-  // which are searched to find CSE's
-  SmallVector<Instruction *, 16> Hoisted;
-
 public:
   CodeHoister(Loop &L)
       : L(L), Builder(L.getLoopPredecessor()->getTerminator()) {
@@ -208,6 +204,12 @@ private:
   // A limited on the above value
   const unsigned RegPressureLimit = 28;
   Loop &L;
+
+  IRBuilder<> Builder;
+
+  // Operands which have been hoisted out of the loop
+  // which are searched to find CSE's
+  SmallVector<Instruction *, 16> Hoisted;
 
   // A computation of v8i1 all ones, built once on demand.
   Value *allOnes{nullptr};
@@ -661,7 +663,8 @@ bool RISCVOptimizeMemIntrinsics::foldSelect(Instruction &I) {
   // then we can stuff F into that
   if (!hasPassThru(T))
     return false;
-  T->setOperand(1, addCast(F, T->getOperand(1)->getType()));
+  const unsigned PASS_THROUGH = 0;
+  T->setOperand(PASS_THROUGH, addCast(F, T->getOperand(PASS_THROUGH)->getType()));
   I.replaceAllUsesWith(addCast(T, I.getType()));
   I.eraseFromParent();
   return true;
