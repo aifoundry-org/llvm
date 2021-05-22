@@ -141,10 +141,14 @@ static Optional<size_t> getMaskOperand(Instruction &I) {
   // Exclude the operands on masks whose last operand
   // can not be simply replaced with all true.
   switch (dyn_cast<CallInst>(&I)->getIntrinsicID()) {
-  case Intrinsic::riscv_maskand:
+  case Intrinsic::riscv_maskand_m:
   case Intrinsic::riscv_maskor_m:
   case Intrinsic::riscv_maskxor_m:
   case Intrinsic::riscv_masknot_m:
+  case Intrinsic::riscv_maskand:
+  case Intrinsic::riscv_maskor:
+  case Intrinsic::riscv_maskxor:
+  case Intrinsic::riscv_masknot:
     return None;
   }
   unsigned Index = I.getNumOperands() - 2;
@@ -153,6 +157,17 @@ static Optional<size_t> getMaskOperand(Instruction &I) {
   if (!isa<FixedVectorType>(Ty) || Ty->getScalarSizeInBits() != 1)
     return None;
   return Index;
+}
+static bool isConstant(Value *V, int C) {
+  auto *CV = dyn_cast<ConstantInt>(V);
+  return CV && CV->getSExtValue() == C;
+}
+
+static bool isAllOnes(Value *V) {
+  auto *C = dyn_cast<CallInst>(V);
+  return (C && C->getIntrinsicID() == Intrinsic::riscv_mov_m_x_m &&
+          isConstant(C->getOperand(1), 0xff) &&
+          isConstant(C->getOperand(0), 0));
 }
 
 namespace {
@@ -186,10 +201,12 @@ public:
     auto Iter = find_if(
         Hoisted, [this, &I](Instruction *Prior) { return matches(*Prior, I); });
     if (Iter != Hoisted.end()) {
+      LLVM_DEBUG(dbgs() << "use " << I << "\n");
       I.replaceAllUsesWith(*Iter);
       I.eraseFromParent();
       return true;
     }
+    LLVM_DEBUG(dbgs() << "hoist " << I << "\n");
     // Hoist this instruction...
     RegPressure += 1;
     Hoisted.push_back(&I);
@@ -236,7 +253,7 @@ private:
     I.setOperand(Idx, allOnes);
   }
 
-  // True if I1 and I2 compute the same value
+ // True if I1 and I2 compute the same value
   bool matches(Instruction &I1, Instruction &I2) {
     if (I1.getNumOperands() != I2.getNumOperands())
       return false;
@@ -366,7 +383,7 @@ void RISCVOptimizeMemIntrinsics::analyzeLoop(Loop &LI) {
   DefMapT DefMap;
 
   SmallVector<Instruction *, 16> VectorOps;
-
+  LLVM_DEBUG(dbgs() << "before "; BB.dump());
   CodeHoister Hoister(LI);
   BasicBlock::iterator Cur = BB.begin();
   BasicBlock::iterator End = BB.end();
@@ -663,6 +680,7 @@ bool RISCVOptimizeMemIntrinsics::foldSelect(Instruction &I) {
   // then we can stuff F into that
   if (!hasPassThru(T))
     return false;
+  LLVM_DEBUG(dbgs() << "fold " << I << "\n");
   const unsigned PASS_THROUGH = 0;
   T->setOperand(PASS_THROUGH, addCast(F, T->getOperand(PASS_THROUGH)->getType()));
   I.replaceAllUsesWith(addCast(T, I.getType()));
@@ -680,25 +698,33 @@ unsigned CodeHoister::estimateVectorUsage(BasicBlock &BB) {
   // defined in the loop and live at the current
   // point. 
   unsigned NumLive = 0;
-  // The maxiumum of NumLive at any point in the lopo
+  // The maximum of NumLive at any point in the loop
   unsigned MaxLive = 0;
   // Map an instruction that defines a vector
   // to the number of uses of that vector we have
   // not yet seen.
-  SmallDenseMap<Instruction *, unsigned> LiveCount;
+  SmallDenseMap<Instruction *, int> LiveCount;
   for (Instruction &I : BB) {
-    for (llvm::Value *Op : I.operands()) {
-      if (!isa<FixedVectorType>(Op->getType()))
-        continue;
-      auto *Def = dyn_cast<Instruction>(Op);
-      if (!Def || !L.contains(Def)) {
-        Invariants.insert(Op);
-        continue;
+    if (!isa<PHINode>(I)) {
+      for (llvm::Value* Op : I.operands()) {
+        if (!isa<FixedVectorType>(Op->getType()))
+          continue;
+        auto* Def = dyn_cast<Instruction>(Op);
+        if (!Def || !L.contains(Def)) {
+          Invariants.insert(Op);
+          continue;
+        }
+        int& C = LiveCount[Def];
+#ifndef NDEBUG
+        if (C < 1) {
+          BB.dump();
+          dbgs() << "failed on " << I << "\nwith def " << *Def << "\n";
+        }
+#endif
+        assert(C > 0);
+        if (--C == 0)
+          NumLive -= 1;
       }
-      unsigned &C = LiveCount[Def];
-      assert(C > 0);
-      if (--C == 0)
-        NumLive -= 1;
     }
     if (!isa<FixedVectorType>(I.getType()))
       continue;
