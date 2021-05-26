@@ -830,6 +830,19 @@ void RISCVDAGToDAGISel::optimizeMaskCopies(MachineFunction &MF) {
       }
     };
 
+    // These instructions will be lowered in a way that
+    // breaks the basic block.
+    auto maySplitBlock = [](const MachineInstr& MI) {
+      switch (MI.getOpcode()) {
+      default:
+        return false;
+      case RISCV::Select_FPR32_Using_CC_GPR:
+      case RISCV::Select_FPR64_Using_CC_GPR:
+      case RISCV::Select_GPR_Using_CC_GPR:
+        return true;
+      }
+    };
+    auto Number = MBB.getNumber();
     MachineBasicBlock::iterator Cur = MBB.begin();
     MachineBasicBlock::iterator End = MBB.end();
     while (Cur != End) {
@@ -837,6 +850,15 @@ void RISCVDAGToDAGISel::optimizeMaskCopies(MachineFunction &MF) {
       if (!MI.isCopy()) {
         if (LastDef && usesReg(MI, LastDef))
           checkLastUse();
+        // Don't allow M0 to be live across an operation
+        // that might split the block because we subsequently
+        // won't pass verification because the splitting code
+        // does not know that M0 is live (apparently).
+        if (maySplitBlock(MI)) {
+          CurrentM0 = 0;
+          LastDef = 0;
+          continue;
+        }
         if (definesMask(MI)) {
           LastDef = MI.getOperand(0).getReg();
           LiveCount = numInsUses(LastDef);
