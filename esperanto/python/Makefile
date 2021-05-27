@@ -7,8 +7,11 @@ IntrinsicsRISCVET.td BuiltinsRISCVET.def: intrinsics.py tblgen.py \
 	./intrinsics.py
 
 RISCVSystemOperandsEsperanto.td: csrs.py
+	cp  ${TARGET}/RISCVSystemOperandsEsperanto.td old
+	cat /dev/null > ${TARGET}/RISCVSystemOperandsEsperanto.td
 	python3 csrs.py > temp
 	mv temp $@
+	mv old ${TARGET}/RISCVSystemOperandsEsperanto.td
 
 update: IntrinsicsRISCVET.td BuiltinsRISCVET.def \
 	RISCVInstrInfoEsperantoPatterns.td \
