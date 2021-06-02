@@ -21,6 +21,7 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/CodeGen/BasicTTIImpl.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/Value.h"
 
 namespace llvm {
 
@@ -53,6 +54,31 @@ public:
     if (auto* VTy = dyn_cast<FixedVectorType>(Tp))
       return VTy->getNumElements();
     return BasicTTIImplBase::getNumberOfParts(Tp);
+  }
+
+  unsigned getArithmeticInstrCost(
+      unsigned Opcode, Type *Ty,
+      TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
+      TTI::OperandValueKind Opd1Info = TTI::OK_AnyValue,
+      TTI::OperandValueKind Opd2Info = TTI::OK_AnyValue,
+      TTI::OperandValueProperties Opd1PropInfo = TTI::OP_None,
+      TTI::OperandValueProperties Opd2PropInfo = TTI::OP_None,
+      ArrayRef<const Value *> Args = ArrayRef<const Value *>(),
+      const Instruction *CxtI = nullptr) {
+    if (isa<FixedVectorType>(Ty))
+      return 10000;
+    return BasicTTIImplBase::getArithmeticInstrCost(
+        Opcode, Ty, CostKind, Opd1Info, Opd2Info, Opd1PropInfo, Opd2PropInfo,
+        Args, CxtI);
+  }
+
+  unsigned getCmpSelInstrCost(unsigned Opcode, Type *ValTy, Type *CondTy,
+                              TTI::TargetCostKind CostKind,
+                              const Instruction *I = nullptr) {
+    if (CondTy && isa<FixedVectorType>(CondTy))
+      return 10000;
+    return BasicTTIImplBase::getCmpSelInstrCost(Opcode, ValTy, CondTy, CostKind,
+                                                I);
   }
 };
 

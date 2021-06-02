@@ -79,6 +79,8 @@ private:
   static const unsigned MAX_VECTOR_LANES = 8;
   // pre-pass handle special cases of BUILD_VECTOR which can be done cheaply
   void doBuildVector();
+  // Pre-pass handle  shared/global memory references
+  void doGlobalShared();
   // post-pass over MachineIstrs, rewrite to improve handling of M0 implicit mask operands
   void optimizeMaskCopies(MachineFunction &MF);
 #endif

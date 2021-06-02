@@ -24,12 +24,13 @@ using namespace llvm;
 
 #define DEBUG_TYPE "riscv-isel"
 
-void RISCVDAGToDAGISel::PostprocessISelDAG() {
-  doPeepholeLoadStoreADDI();
-}
+void RISCVDAGToDAGISel::PostprocessISelDAG() { doPeepholeLoadStoreADDI(); }
 
 #ifdef ESPERANTO
-void RISCVDAGToDAGISel::PreprocessISelDAG() { doBuildVector(); }
+void RISCVDAGToDAGISel::PreprocessISelDAG() {
+  doBuildVector();
+  doGlobalShared();
+}
 #endif
 
 static SDNode *selectImm(SelectionDAG *CurDAG, const SDLoc &DL, int64_t Imm,
@@ -213,7 +214,7 @@ bool RISCVDAGToDAGISel::SelectSLOI(SDValue N, SDValue &RS1, SDValue &Shamt) {
           if (VC1 == maskTrailingOnes<uint64_t>(VC2)) {
             RS1 = Shl.getOperand(0);
             Shamt = CurDAG->getTargetConstant(VC2, SDLoc(N),
-                           Shl.getOperand(1).getValueType());
+                                              Shl.getOperand(1).getValueType());
             return true;
           }
         }
@@ -223,7 +224,7 @@ bool RISCVDAGToDAGISel::SelectSLOI(SDValue N, SDValue &RS1, SDValue &Shamt) {
           if (VC1 == maskTrailingOnes<uint32_t>(VC2)) {
             RS1 = Shl.getOperand(0);
             Shamt = CurDAG->getTargetConstant(VC2, SDLoc(N),
-                           Shl.getOperand(1).getValueType());
+                                              Shl.getOperand(1).getValueType());
             return true;
           }
         }
@@ -257,7 +258,7 @@ bool RISCVDAGToDAGISel::SelectSROI(SDValue N, SDValue &RS1, SDValue &Shamt) {
           if (VC1 == maskLeadingOnes<uint64_t>(VC2)) {
             RS1 = Srl.getOperand(0);
             Shamt = CurDAG->getTargetConstant(VC2, SDLoc(N),
-                           Srl.getOperand(1).getValueType());
+                                              Srl.getOperand(1).getValueType());
             return true;
           }
         }
@@ -267,7 +268,7 @@ bool RISCVDAGToDAGISel::SelectSROI(SDValue N, SDValue &RS1, SDValue &Shamt) {
           if (VC1 == maskLeadingOnes<uint32_t>(VC2)) {
             RS1 = Srl.getOperand(0);
             Shamt = CurDAG->getTargetConstant(VC2, SDLoc(N),
-                           Srl.getOperand(1).getValueType());
+                                              Srl.getOperand(1).getValueType());
             return true;
           }
         }
@@ -313,7 +314,6 @@ bool RISCVDAGToDAGISel::SelectRORI(SDValue N, SDValue &RS1, SDValue &Shamt) {
   }
   return false;
 }
-
 
 // Check that it is a SLLIUW (Shift Logical Left Immediate Unsigned i32
 // on RV64).
@@ -449,11 +449,10 @@ bool RISCVDAGToDAGISel::SelectRORIW(SDValue N, SDValue &RS1, SDValue &Shamt) {
             uint32_t VC1 = Srl.getConstantOperandVal(1);
             uint32_t VC2 = Shl.getConstantOperandVal(1);
             uint32_t VC3 = And.getConstantOperandVal(1);
-            if (VC2 == (32 - VC1) &&
-                VC3 == maskLeadingOnes<uint32_t>(VC2)) {
+            if (VC2 == (32 - VC1) && VC3 == maskLeadingOnes<uint32_t>(VC2)) {
               RS1 = Shl.getOperand(0);
-              Shamt = CurDAG->getTargetConstant(VC1, SDLoc(N),
-                                              Srl.getOperand(1).getValueType());
+              Shamt = CurDAG->getTargetConstant(
+                  VC1, SDLoc(N), Srl.getOperand(1).getValueType());
               return true;
             }
           }
@@ -497,12 +496,11 @@ bool RISCVDAGToDAGISel::SelectFSRIW(SDValue N, SDValue &RS1, SDValue &RS2,
             uint32_t VC1 = Srl.getConstantOperandVal(1);
             uint32_t VC2 = Shl.getConstantOperandVal(1);
             uint32_t VC3 = And.getConstantOperandVal(1);
-            if (VC2 == (32 - VC1) &&
-                VC3 == maskLeadingOnes<uint32_t>(VC2)) {
+            if (VC2 == (32 - VC1) && VC3 == maskLeadingOnes<uint32_t>(VC2)) {
               RS1 = Shl.getOperand(0);
               RS2 = And.getOperand(0);
-              Shamt = CurDAG->getTargetConstant(VC1, SDLoc(N),
-                                              Srl.getOperand(1).getValueType());
+              Shamt = CurDAG->getTargetConstant(
+                  VC1, SDLoc(N), Srl.getOperand(1).getValueType());
               return true;
             }
           }
@@ -730,7 +728,6 @@ void RISCVDAGToDAGISel::doBuildVector() {
       ReplaceNode(N, NewN.getNode());
       continue;
     }
-    assert(VT.getSizeInBits() == 32 && "Invalid broadcast not 32 bits");
     SDValue M0Mask =
         SDValue(CurDAG->getMachineNode(
                     RISCV::MOV_M_X, SDLoc(N), MVT::v8i1,
@@ -771,6 +768,126 @@ void RISCVDAGToDAGISel::doBuildVector() {
         {Input,
          CurDAG->getTargetConstant(C->getZExtValue(), SDLoc(E), MVT::i32)});
     ReplaceNode(E, NewN);
+  }
+}
+
+static void getLoadParams(const LoadSDNode *Ld, unsigned* Opcode, unsigned* TruncateMask) {
+
+  bool Shared = (Ld->getAddressSpace() == 1);
+  assert((Shared || Ld->getAddressSpace() == 2) && "Invalid address specified");
+  switch (Ld->getMemoryVT().getSizeInBits()) {
+  default:
+    llvm_unreachable("invalid MVT for shared memory op");
+  case 8:
+    *Opcode = (Shared ? RISCV::FGBL_PS_EX : RISCV::FGBG_PS_EX);
+    *TruncateMask = 0xff;
+    break;
+  case 16:
+    *Opcode = (Shared ? RISCV::FGHL_PS_EX : RISCV::FGHG_PS_EX);
+    *TruncateMask = 0xffff;
+    break;
+  case 32:
+    *Opcode = (Shared ? RISCV::FGWL_PS_EX : RISCV::FGWG_PS_EX);
+    *TruncateMask = 0;
+    break;
+  }
+  if (Ld->getExtensionType() != ISD::ZEXTLOAD)
+    *TruncateMask = 0;
+}
+
+static void getStoreParams(const StoreSDNode* St, unsigned *Opcode) {
+  bool Shared = (St->getAddressSpace() == 1);
+  assert((Shared || St->getAddressSpace() == 2) && "Invalid address specified");
+
+  switch (St->getMemoryVT().getScalarSizeInBits()) {
+  default:
+    llvm_unreachable("invalid MVT for shared memory op");
+  case 8:
+    *Opcode = (Shared ? RISCV::FSCBL_PS_EX : RISCV::FSCBG_PS_EX);
+    break;
+  case 16:
+    *Opcode = (Shared ? RISCV::FSCHL_PS_EX : RISCV::FSCHG_PS_EX);
+    break;
+  case 32:
+    *Opcode = (Shared ? RISCV::FSCWL_PS_EX : RISCV::FSCWG_PS_EX);
+    break;
+  }
+
+}
+
+void RISCVDAGToDAGISel::doGlobalShared() {
+
+  SmallVector<MemSDNode *, 8> Refs;
+  for (SDNode &N : CurDAG->allnodes())
+    if (auto *Mem = dyn_cast<MemSDNode>(&N)) {
+      if (Mem->getAddressSpace() == 0)
+        continue;
+      if (isa<LoadSDNode>(Mem) || isa<StoreSDNode>(Mem))
+        Refs.push_back(Mem);
+    }
+
+  for (MemSDNode *M : Refs) {
+    unsigned Opcode;
+    unsigned TruncateMask = 0; // target operations only do sign extensions so we 
+                               // may need to truncate the result
+    SDValue Addr;
+    auto *Ld = dyn_cast<LoadSDNode>(M);
+    if (Ld) {
+      Addr = M->getOperand(1);
+      getLoadParams(Ld, &Opcode, &TruncateMask);
+    }
+    else {
+      Addr = M->getOperand(2);
+      getStoreParams(dyn_cast<StoreSDNode>(M), &Opcode);
+    }
+
+    SDValue Chain = M->getOperand(0);
+    SDValue One = CurDAG->getTargetConstant(0x01, SDLoc(M), MVT::i64);
+    SDValue ZeroReg = CurDAG->getRegister(RISCV::X0, MVT::i64);
+    SDValue Mask01(CurDAG->getMachineNode(RISCV::MOV_M_X, SDLoc(M), MVT::v8i1,
+                                          ZeroReg, One),
+                   0);
+    SDValue UndefVec(CurDAG->getMachineNode(TargetOpcode::IMPLICIT_DEF,
+                                            SDLoc(M), MVT::v8i32),
+                     0);
+    SDValue ZeroIndexVec(CurDAG->getMachineNode(RISCV::FBCX_PS_EX, SDLoc(M),
+                                                MVT::v8i32,
+                                                {UndefVec, ZeroReg, Mask01}),
+                         0);
+    SDNode *NewM;
+    if (Ld) {
+      NewM =
+          CurDAG->getMachineNode(Opcode, SDLoc(M), {MVT::v8i32, MVT::Other},
+                                 {UndefVec, ZeroIndexVec, Addr, Mask01, Chain});
+      Chain = SDValue(NewM, 1);
+
+      SDValue Zero = CurDAG->getTargetConstant(0, SDLoc(M), MVT::i32);
+      unsigned MoveOpcode =
+          (Ld->getExtensionType() == ISD::ZEXTLOAD ? RISCV::FMVZ_X_PS
+                                                   : RISCV::FMVS_X_PS);
+      SDValue Result(CurDAG->getMachineNode(MoveOpcode, SDLoc(M), MVT::i64,
+                                            {SDValue(NewM, 0), Zero}),
+                     0);
+      if (TruncateMask)
+        Result = CurDAG->getNode(
+            ISD::AND, SDLoc(M), MVT::i64,
+            {Result, CurDAG->getConstant(TruncateMask, SDLoc(M), MVT::i64)});
+      CurDAG->setNodeMemRefs(dyn_cast<MachineSDNode>(NewM), M->getMemOperand());
+      ReplaceUses(SDValue(M, 0), Result); // Update the value
+      ReplaceUses(SDValue(M, 1), Chain);  // Update the chain
+      CurDAG->RemoveDeadNode(M);
+    } else {
+      // Copy the value into the vector register file
+      SDValue Val = M->getOperand(1);
+      Val = SDValue(CurDAG->getMachineNode(RISCV::FBCX_PS_EX, SDLoc(M),
+                                           MVT::v8i32, {UndefVec, Val, Mask01}),
+                    0);
+      // and store it to memory
+      NewM = CurDAG->getMachineNode(Opcode, SDLoc(M), MVT::Other,
+                                    {Val, ZeroIndexVec, Addr, Mask01, Chain});
+      CurDAG->setNodeMemRefs(dyn_cast<MachineSDNode>(NewM), M->getMemOperand());
+      ReplaceNode(M, NewM);
+    }
   }
 }
 
@@ -832,17 +949,19 @@ void RISCVDAGToDAGISel::optimizeMaskCopies(MachineFunction &MF) {
 
     // These instructions will be lowered in a way that
     // breaks the basic block.
-    auto maySplitBlock = [](const MachineInstr& MI) {
+    auto maySplitBlock = [](const MachineInstr &MI) {
       switch (MI.getOpcode()) {
       default:
         return false;
       case RISCV::Select_FPR32_Using_CC_GPR:
       case RISCV::Select_FPR64_Using_CC_GPR:
       case RISCV::Select_GPR_Using_CC_GPR:
+      case RISCV::PseudoCALL:
+      case RISCV::PseudoCALLIndirect:
+      case RISCV::PseudoCALLReg:
         return true;
       }
     };
-    auto Number = MBB.getNumber();
     MachineBasicBlock::iterator Cur = MBB.begin();
     MachineBasicBlock::iterator End = MBB.end();
     while (Cur != End) {
@@ -877,7 +996,7 @@ void RISCVDAGToDAGISel::optimizeMaskCopies(MachineFunction &MF) {
       MRI.replaceRegWith(DstReg, RISCV::M0);
       if (SrcReg == CurrentM0)
         MI.eraseFromParent();
-      else {
+      else if (SrcReg != RISCV::M0) {
         CurrentM0 = SrcReg;
         if (MachineInstr *Def = MRI.getVRegDef(SrcReg)) {
           if (isSafeMove(*Def)) {

@@ -139,8 +139,8 @@ defm FGH_PS : ETOpsRdF1R2G<0b0101000, "fgh.ps">;
 defm FGB_PS : ETOpsRdF1R2G<0b0100100, "fgb.ps">;
 }
 
-multiclass ETOpsR3R1R2<bits<7> funct7, string opcodestr> {
-   def "" : RVInstE12<funct7, 0b001, OPC_MEM_PS,
+multiclass ETOpsR3R1R2<bits<7> funct7, bits<3> funct3, string opcodestr> {
+   def "" : RVInstE12<funct7, funct3, OPC_MEM_PS,
                   (outs),
                   (ins FPR256:$rs3, FPR256:$rs1, GPR:$rs2),
                   opcodestr, "$rs3, ${rs1}(${rs2})">;
@@ -150,9 +150,9 @@ multiclass ETOpsR3R1R2<bits<7> funct7, string opcodestr> {
                   opcodestr, "$rs3, ${rs1}(${rs2}), $m0">;
 }
 let mayStore = 1 in {                 
-defm FSCW_PS : ETOpsR3R1R2<0b1110000, "fscw.ps">;
-defm FSCH_PS : ETOpsR3R1R2<0b1101000, "fsch.ps">;
-defm FSCB_PS : ETOpsR3R1R2<0b1100100, "fscb.ps">;
+defm FSCW_PS : ETOpsR3R1R2<0b1110000, 0b001, "fscw.ps">;
+defm FSCH_PS : ETOpsR3R1R2<0b1101000, 0b001, "fsch.ps">;
+defm FSCB_PS : ETOpsR3R1R2<0b1100100, 0b001, "fscb.ps">;
 }
 
 multiclass ETOpsRdR1R2Rm<bits<7> funct7, RISCVOpcode opcode,
@@ -508,9 +508,9 @@ defm FG32B_PS : ETOpsRdR1R2G<0b0000100, "fg32b.ps">;
 }
 
 let mayStore = 1 in {
-defm FSC32W_PS : ETOpsR3R1R2<0b1010000, "fsc32w.ps">;
-defm FSC32H_PS : ETOpsR3R1R2<0b1001000, "fsc32h.ps">;
-defm FSC32B_PS : ETOpsR3R1R2<0b1000100, "fsc32b.ps">;
+defm FSC32W_PS : ETOpsR3R1R2<0b1010000, 0b001, "fsc32w.ps">;
+defm FSC32H_PS : ETOpsR3R1R2<0b1001000, 0b001, "fsc32h.ps">;
+defm FSC32B_PS : ETOpsR3R1R2<0b1000100, 0b001, "fsc32b.ps">;
 }
 
 // Specialse FCMOVM has no implicit input since all of output
@@ -578,20 +578,20 @@ defm FGHL_PS : ETOpsRdR1R2FG<0b1000100, 0b111, "fghl.ps">;
 defm FGWL_PS : ETOpsRdR1R2FG<0b1001000, 0b111, "fgwl.ps">;
 }
 
-multiclass ETOpsR1R2R3FS<bits<7> funct7, bits<3> funct3, string opcodestr> {
+multiclass ETOpsR3R1R2FS<bits<7> funct7, bits<3> funct3, string opcodestr> {
   def "" : RVInstE12<funct7, funct3, OPC_MEM_PS, (outs),
-            (ins FPR256:$rs1, FPR256:$rs2, GPR:$rs3), opcodestr,
-            "${rs1}, ${rs2}(${rs3})">;
+            (ins FPR256:$rs3, FPR256:$rs1, GPR:$rs2), opcodestr,
+            "${rs3}, ${rs1}(${rs2})">;
   def _EX : Pseudo<(outs),
-            (ins FPR256:$rs1, FPR256:$rs2, GPR:$rs3, MR0:$m0),
+            (ins FPR256:$rs3, FPR256:$rs1, GPR:$rs2, MR0:$m0),
             [], opcodestr,
-            "${rs1}, ${rs2}(${rs3}), $m0">;
+            "${rs3}, ${rs1}(${rs2}), $m0">;
 }
 
 let mayStore = 1 in {
-defm FSCBL_PS : ETOpsR1R2R3FS<0b1100000, 0b111, "fscbl.ps">;
-defm FSCHL_PS : ETOpsR1R2R3FS<0b1100100, 0b111, "fschl.ps">;
-defm FSCWL_PS : ETOpsR1R2R3FS<0b1101000, 0b111, "fscwl.ps">;
+defm FSCBL_PS : ETOpsR3R1R2FS<0b1100000, 0b111, "fscbl.ps">;
+defm FSCHL_PS : ETOpsR3R1R2FS<0b1100100, 0b111, "fschl.ps">;
+defm FSCWL_PS : ETOpsR3R1R2FS<0b1101000, 0b111, "fscwl.ps">;
 }
           
 
@@ -601,9 +601,9 @@ defm FGHG_PS : ETOpsRdR1R2FG<0b1000101, 0b111, "fghg.ps">;
 defm FGWG_PS : ETOpsRdR1R2FG<0b1001001, 0b111, "fgwg.ps">;
 }
 let mayStore = 1 in {
-defm FSCBG_PS : ETOpsR1R2R3FS<0b1100001, 0b111, "fscbg.ps">;
-defm FSCHG_PS : ETOpsR1R2R3FS<0b1100101, 0b111, "fschg.ps">;
-defm FSCWG_PS : ETOpsR1R2R3FS<0b1101001, 0b111, "fscwg.ps">;
+defm FSCBG_PS : ETOpsR3R1R2FS<0b1100001, 0b111, "fscbg.ps">;
+defm FSCHG_PS : ETOpsR3R1R2FS<0b1100101, 0b111, "fschg.ps">;
+defm FSCWG_PS : ETOpsR3R1R2FS<0b1101001, 0b111, "fscwg.ps">;
 }
 
 let mayLoad = 1, mayStore =1 in {
@@ -854,3 +854,6 @@ def : Pat<(v8f32 (masked_ld GPR:$ptr, undef, (v8i1 MR:$mask), FPR256:$passthru))
           (FLW_PS_EX $passthru, 0, $ptr, $mask)>;
 
 include "RISCVInstrInfoEsperantoPatterns.td"
+
+def : Pat<(i64 (addrspacecast GPR:$in)), (COPY $in)>;
+

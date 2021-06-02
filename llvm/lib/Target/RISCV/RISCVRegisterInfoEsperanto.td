@@ -41,7 +41,11 @@ def FPR256 : RegisterClass<"RISCV", [v8i8, v8i16, v8i32, v8f16, v8f32],
     (sequence "F%u_PS", 28, 31),
     (sequence "F%u_PS", 8, 9),
     (sequence "F%u_PS", 18, 27)
-)>;
+)> {
+  let RegInfos = RegInfoByHwMode<
+      [RV32,                 RV64,                   DefaultMode],
+      [RegInfo<2563,256,32>, RegInfo<256,256,32>, RegInfo<256,256,32>]>;
+}
 
 let RegAltNameIndices = [ABIRegAltName] in {
 // Mask registers m0...m7
