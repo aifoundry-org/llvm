@@ -962,7 +962,7 @@ void RISCVDAGToDAGISel::optimizeMaskCopies(MachineFunction &MF) {
         return true;
       }
     };
-    MachineBasicBlock::iterator Cur = MBB.begin();
+    MachineBasicBlock::iterator Cur = MBB.getFirstNonPHI();
     MachineBasicBlock::iterator End = MBB.end();
     while (Cur != End) {
       MachineInstr &MI = *Cur++;
