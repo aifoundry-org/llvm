@@ -611,20 +611,20 @@ def int_riscv_fcvt_ps_f16_m :
 def int_riscv_fcvt_ps_pwu : 
   GCCBuiltin<"__builtin_riscv_fcvt_ps_pwu">,
   Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_i64_ty,llvm_i64_ty],
+            [llvm_v8f32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_i64_ty],
             [ImmArg<ArgIndex<2>>,IntrNoMem]>;
 def int_riscv_fcvt_ps_pwu_m : 
   Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_i64_ty,llvm_v8i1_ty],
+            [llvm_v8f32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_v8i1_ty],
             [ImmArg<ArgIndex<2>>,IntrNoMem]>;
 def int_riscv_fcvt_ps_pw : 
   GCCBuiltin<"__builtin_riscv_fcvt_ps_pw">,
   Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_i64_ty,llvm_i64_ty],
+            [llvm_v8f32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_i64_ty],
             [ImmArg<ArgIndex<2>>,IntrNoMem]>;
 def int_riscv_fcvt_ps_pw_m : 
   Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_i64_ty,llvm_v8i1_ty],
+            [llvm_v8f32_ty,llvm_v8i32_ty,llvm_i64_ty,llvm_v8i1_ty],
             [ImmArg<ArgIndex<2>>,IntrNoMem]>;
 def int_riscv_fcvt_ps_rast : 
   GCCBuiltin<"__builtin_riscv_fcvt_ps_rast">,
@@ -700,20 +700,20 @@ def int_riscv_fcvt_ps_un8_m :
             [IntrNoMem]>;
 def int_riscv_fcvt_pwu_ps : 
   GCCBuiltin<"__builtin_riscv_fcvt_pwu_ps">,
-  Intrinsic<[llvm_v8f32_ty],
+  Intrinsic<[llvm_v8i32_ty],
             [llvm_v8f32_ty,llvm_v8f32_ty,llvm_i64_ty,llvm_i64_ty],
             [ImmArg<ArgIndex<2>>,IntrNoMem]>;
 def int_riscv_fcvt_pwu_ps_m : 
-  Intrinsic<[llvm_v8f32_ty],
+  Intrinsic<[llvm_v8i32_ty],
             [llvm_v8f32_ty,llvm_v8f32_ty,llvm_i64_ty,llvm_v8i1_ty],
             [ImmArg<ArgIndex<2>>,IntrNoMem]>;
 def int_riscv_fcvt_pw_ps : 
   GCCBuiltin<"__builtin_riscv_fcvt_pw_ps">,
-  Intrinsic<[llvm_v8f32_ty],
+  Intrinsic<[llvm_v8i32_ty],
             [llvm_v8f32_ty,llvm_v8f32_ty,llvm_i64_ty,llvm_i64_ty],
             [ImmArg<ArgIndex<2>>,IntrNoMem]>;
 def int_riscv_fcvt_pw_ps_m : 
-  Intrinsic<[llvm_v8f32_ty],
+  Intrinsic<[llvm_v8i32_ty],
             [llvm_v8f32_ty,llvm_v8f32_ty,llvm_i64_ty,llvm_v8i1_ty],
             [ImmArg<ArgIndex<2>>,IntrNoMem]>;
 def int_riscv_fcvt_rast_ps : 

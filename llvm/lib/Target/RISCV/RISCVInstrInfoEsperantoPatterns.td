@@ -128,10 +128,10 @@ def :Pat<(int_riscv_fcvt_ps_f11 (v8f32 FPR256:$in), (v8f32 FPR256:$rs1), MR0:$m0
 def :Pat<(int_riscv_fcvt_ps_f11_m (v8f32 FPR256:$in), (v8f32 FPR256:$rs1), MR0:$m0), (FCVT_PS_F11_EX $in, $rs1, $m0)>;
 def :Pat<(int_riscv_fcvt_ps_f16 (v8f32 FPR256:$in), (v8f32 FPR256:$rs1), MR0:$m0), (FCVT_PS_F16_EX $in, $rs1, $m0)>;
 def :Pat<(int_riscv_fcvt_ps_f16_m (v8f32 FPR256:$in), (v8f32 FPR256:$rs1), MR0:$m0), (FCVT_PS_F16_EX $in, $rs1, $m0)>;
-def :Pat<(int_riscv_fcvt_ps_pwu (v8f32 FPR256:$in), (v8f32 FPR256:$rs1), timm:$rm, MR0:$m0), (FCVT_PS_PWU_EX $in, $rs1, (LO3 $rm), $m0)>;
-def :Pat<(int_riscv_fcvt_ps_pwu_m (v8f32 FPR256:$in), (v8f32 FPR256:$rs1), timm:$rm, MR0:$m0), (FCVT_PS_PWU_EX $in, $rs1, (LO3 $rm), $m0)>;
-def :Pat<(int_riscv_fcvt_ps_pw (v8f32 FPR256:$in), (v8f32 FPR256:$rs1), timm:$rm, MR0:$m0), (FCVT_PS_PW_EX $in, $rs1, (LO3 $rm), $m0)>;
-def :Pat<(int_riscv_fcvt_ps_pw_m (v8f32 FPR256:$in), (v8f32 FPR256:$rs1), timm:$rm, MR0:$m0), (FCVT_PS_PW_EX $in, $rs1, (LO3 $rm), $m0)>;
+def :Pat<(int_riscv_fcvt_ps_pwu (v8f32 FPR256:$in), (v8i32 FPR256:$rs1), timm:$rm, MR0:$m0), (FCVT_PS_PWU_EX $in, $rs1, (LO3 $rm), $m0)>;
+def :Pat<(int_riscv_fcvt_ps_pwu_m (v8f32 FPR256:$in), (v8i32 FPR256:$rs1), timm:$rm, MR0:$m0), (FCVT_PS_PWU_EX $in, $rs1, (LO3 $rm), $m0)>;
+def :Pat<(int_riscv_fcvt_ps_pw (v8f32 FPR256:$in), (v8i32 FPR256:$rs1), timm:$rm, MR0:$m0), (FCVT_PS_PW_EX $in, $rs1, (LO3 $rm), $m0)>;
+def :Pat<(int_riscv_fcvt_ps_pw_m (v8f32 FPR256:$in), (v8i32 FPR256:$rs1), timm:$rm, MR0:$m0), (FCVT_PS_PW_EX $in, $rs1, (LO3 $rm), $m0)>;
 def :Pat<(int_riscv_fcvt_ps_rast (v8f32 FPR256:$in), (v8f32 FPR256:$rs1), MR0:$m0), (FCVT_PS_RAST_EX $in, $rs1, $m0)>;
 def :Pat<(int_riscv_fcvt_ps_rast_m (v8f32 FPR256:$in), (v8f32 FPR256:$rs1), MR0:$m0), (FCVT_PS_RAST_EX $in, $rs1, $m0)>;
 def :Pat<(int_riscv_fcvt_ps_sn16 (v8f32 FPR256:$in), (v8f32 FPR256:$rs1), MR0:$m0), (FCVT_PS_SN16_EX $in, $rs1, $m0)>;
