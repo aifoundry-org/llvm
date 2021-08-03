@@ -701,20 +701,20 @@ def int_riscv_fcvt_ps_un8_m :
 def int_riscv_fcvt_pwu_ps : 
   GCCBuiltin<"__builtin_riscv_fcvt_pwu_ps">,
   Intrinsic<[llvm_v8i32_ty],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_i64_ty,llvm_i64_ty],
+            [llvm_v8i32_ty,llvm_v8f32_ty,llvm_i64_ty,llvm_i64_ty],
             [ImmArg<ArgIndex<2>>,IntrNoMem]>;
 def int_riscv_fcvt_pwu_ps_m : 
   Intrinsic<[llvm_v8i32_ty],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_i64_ty,llvm_v8i1_ty],
+            [llvm_v8i32_ty,llvm_v8f32_ty,llvm_i64_ty,llvm_v8i1_ty],
             [ImmArg<ArgIndex<2>>,IntrNoMem]>;
 def int_riscv_fcvt_pw_ps : 
   GCCBuiltin<"__builtin_riscv_fcvt_pw_ps">,
   Intrinsic<[llvm_v8i32_ty],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_i64_ty,llvm_i64_ty],
+            [llvm_v8i32_ty,llvm_v8f32_ty,llvm_i64_ty,llvm_i64_ty],
             [ImmArg<ArgIndex<2>>,IntrNoMem]>;
 def int_riscv_fcvt_pw_ps_m : 
   Intrinsic<[llvm_v8i32_ty],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_i64_ty,llvm_v8i1_ty],
+            [llvm_v8i32_ty,llvm_v8f32_ty,llvm_i64_ty,llvm_v8i1_ty],
             [ImmArg<ArgIndex<2>>,IntrNoMem]>;
 def int_riscv_fcvt_rast_ps : 
   GCCBuiltin<"__builtin_riscv_fcvt_rast_ps">,
