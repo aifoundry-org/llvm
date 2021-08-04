@@ -1011,6 +1011,8 @@ void RISCVDAGToDAGISel::optimizeMaskCopies(MachineFunction &MF) {
       }
       if (SrcReg == LastDef)
         CurrentM0 = SrcReg;
+      else
+        LastDef = 0;
       checkLastUse();
     }
   }
