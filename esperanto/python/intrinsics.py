@@ -69,10 +69,10 @@ BUILTIN(__builtin_riscv_hartid,"Li", "")''', file=builtins)
         mayStore = r["mayStore"]
         isFloat = r.is_float()
         out_ops = r.getValue("OutOperandList")
-        result = getTypes(out_ops, isFloat, maskType="llvm_i64_ty")
+        result = getTypes(name, out_ops, isFloat, maskType="llvm_i64_ty")
         in_ops = r.getValue("InOperandList")
 
-        args = getTypes(in_ops, isFloat, maskType="llvm_i64_ty")
+        args = getTypes(name, in_ops, isFloat, maskType="llvm_i64_ty")
         addr = None
         if mayLoad or mayStore:
             addr = len(args) - (2 if isExplicit else 1)
@@ -105,8 +105,8 @@ def int_{target_prefix}_{builtinName} :
 
         hasMask = any([op.startswith("MR") for op in in_ops + out_ops])
         if hasMask:
-            result = getTypes(out_ops, isFloat, maskType="llvm_v8i1_ty")
-            args = getTypes(in_ops, isFloat, maskType="llvm_v8i1_ty")
+            result = getTypes(name, out_ops, isFloat, maskType="llvm_v8i1_ty")
+            args = getTypes(name, in_ops, isFloat, maskType="llvm_v8i1_ty")
             if mayLoad or mayStore:
                 args[addr] = "llvm_ptr_ty"
 
@@ -119,11 +119,11 @@ def int_{target_prefix}_{builtinName}_m :
             [{attrs}]>;""", file=intrinsics);
         
         if result:
-            builtinTypes = getBuiltinTypes(out_ops, isFloat)
+            builtinTypes = getBuiltinTypes(name, out_ops, isFloat)
         else:
             builtinTypes = "v"
 
-        builtinTypes += getBuiltinTypes(in_ops, isFloat)
+        builtinTypes += getBuiltinTypes(name, in_ops, isFloat)
         # last argument a pointer?
         if mayLoad or mayStore:
             # always pointer to int32
@@ -153,8 +153,14 @@ def int_{target_prefix}_{builtinName}_m :
             if tx:
                 return f"({tx} {n})"
             return n
-        intr_args = ", ".join([ addType(op) for op in in_ops ])
-        intr_out = ", ".join([ addTX(op) for op in in_ops ])
+        intr_args = [ addType(op) for op in in_ops ]
+        if name.startswith("fcvt_ps_pw"):
+            intr_args[1] = "(v8i32 FPR256:$rs1)"
+        elif name.startswith("fcvt_pw"):
+            intr_args[0] = "(v8i32 FPR256:$in)"
+        intr_args = ", ".join(intr_args)
+        intr_out = [ addTX(op) for op in in_ops ]
+        intr_out = ", ".join(intr_out)
         print(f'def :Pat<(int_{target_prefix}_{builtinName} {intr_args}),',
               f'({r.name} {intr_out})>;', file=patterns)
         if hasMask:
@@ -189,7 +195,7 @@ TXMap = {  "frmarg" : "LO3",
            "uimm20_lui" : "LO20",
 }
 
-def getTypes(ops, isFloat, maskType):
+def getTypes(iname, ops, isFloat, maskType):
     typeMap = floatTypeMap if isFloat else intTypeMap
     typeList = []
     for op in ops:
@@ -204,6 +210,15 @@ def getTypes(ops, isFloat, maskType):
                 print("invalid type",op,file=stderr)
                 exit(1)
         typeList.append(rty)
+
+    if len(typeList) == 1:   # outputs?
+        if iname.startswith("fcvt_pw"):
+            typeList = ["llvm_v8i32_ty"]
+    else: # inputs 
+        if iname.startswith("fcvt_ps_pw"):
+            typeList[1] = "llvm_v8i32_ty"
+        elif iname.startswith("fcvt_pw"):
+            typeList[0] = "llvm_v8i32_ty"
     return typeList
         
 
@@ -231,7 +246,7 @@ builtinFloatTypeMap = builtinIntTypeMap.copy()
 builtinFloatTypeMap["FPR256"] = "V8f"
 
 
-def getBuiltinTypes(ops, isFloat):
+def getBuiltinTypes(iname, ops, isFloat):
     typeMap = builtinFloatTypeMap if isFloat else builtinIntTypeMap
     typeList = []
     for op in ops:
@@ -244,6 +259,16 @@ def getBuiltinTypes(ops, isFloat):
                 print("invalid type",op,file=stderr)
                 exit(1)
         typeList.append(rty)
+
+    if len(typeList) == 1:   # outputs?
+        if iname.startswith("fcvt_pw"):
+            typeList = ["V8i"]
+    else: # inputs 
+        if iname.startswith("fcvt_ps_pw"):
+            typeList[1] = "V8i"
+        elif iname.startswith("fcvt_pw"):
+            typeList[0] = "V8i"
+
     return "".join(typeList)
 
 
