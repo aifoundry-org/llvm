@@ -77,25 +77,27 @@ private:
 private:
 #ifdef ESPERANTO
   static const unsigned MAX_VECTOR_LANES = 8;
-  // pre-pass handle special cases of BUILD_VECTOR which can be done cheaply
+  // pre-pass to handle some custom lowerings 
   void doEsperantoRewrites();
   void esperantoRewrite(SDNode *N);
+  // Special case some build vectors where optimized
+  // implementations are possible.
   void esperantoBUILD_VECTOR(SDNode *N);
   void esperantoEXTRACT_VECTOR_ELT(SDNode *N);
   void esperantoINSERT_VECTOR_ELT(SDNode *N);
+  // Convert remaining vectors shuffles to FSWIZZ_PS
   void esperantoVECTOR_SHUFFLE(SDNode *N);
-  // Pre-pass handle  shared/global memory references
+  // Handles memory operations that are vector or are not address space 0
   void esperantoMemop(MemSDNode *M, SDValue Value, SDValue Addr,
                       SDValue PassThru, SDValue Mask, ISD::LoadExtType Ext);
+  // Handle et_masked_gather intrinsic
   void esperantoGather(MemIntrinsicSDNode *M);
+  // Handle et_masked_scater intrinsic
   void esperantoScatter(MemIntrinsicSDNode *M);
 
   // post-pass over MachineIstrs, rewrite to improve handling of M0 implicit
   // mask operands
   void optimizeMaskCopies(MachineFunction &MF);
-
-  // Try to convert a vector shuffle into a swizzle instructions
-  SDValue swizzle_mask(SDNode *N);
 #endif
 };
 }

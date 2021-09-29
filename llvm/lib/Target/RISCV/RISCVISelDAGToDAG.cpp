@@ -885,7 +885,7 @@ void RISCVDAGToDAGISel::esperantoBUILD_VECTOR(SDNode *N) {
     if (!isa<ConstantSDNode>(Model))
       return false;
     // We have a special opcode for broadcast so we can pattern match
-    // effectively when looking for immediate variables of operations.
+    // effectively when looking for immediate operands of operations.
     SDValue NewN = CurDAG->getNode(RISCVISD::ET_BROADCAST, SDLoc(N),
                                    N->getValueType(0), Model);
     ReplaceNode(N, NewN.getNode());
@@ -1139,7 +1139,7 @@ void RISCVDAGToDAGISel::esperantoMemop(MemSDNode *M, SDValue Value,
                                           {UndefVec, ZeroReg, mask(isVector ? 0xff : 0x1)}),
                    0);
   if (isVector) {
-    // TODO -- this should be done earlier so they constructed vector
+    // TODO -- this should be done earlier so that the constructed vector
     // is built outside of a loop....
     for (unsigned Idx = 1; Idx < 8; Idx++)
       IndexVec = SDValue(
