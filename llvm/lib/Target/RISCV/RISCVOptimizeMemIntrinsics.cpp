@@ -59,6 +59,8 @@ public:
 
   bool runOnFunction(Function &F) override;
 
+  void rewriteGatherScatters(Function &F);
+
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<AAResultsWrapperPass>();
     AU.addRequired<LoopInfoWrapperPass>();
@@ -94,6 +96,9 @@ private:
 
   // Try to fold a vector select into previous instructions
   bool foldSelect(Instruction &I);
+
+  void rewriteGather(Instruction &I);
+  void rewriteScatter(Instruction &I);
 };
 
 } // end anonymous namespace
@@ -112,6 +117,10 @@ llvm::createRISCVOptimizeMemIntrinsicsPass(RISCVTargetMachine &TM) {
 
 
 bool RISCVOptimizeMemIntrinsics::runOnFunction(Function &F) {
+
+  rewriteGatherScatters(F);
+
+
   if (!EnableOptMem)
     return false;
   if (!TM->getSubtargetImpl(F)->hasEsperanto())
@@ -157,17 +166,6 @@ static Optional<size_t> getMaskOperand(Instruction &I) {
   if (!isa<FixedVectorType>(Ty) || Ty->getScalarSizeInBits() != 1)
     return None;
   return Index;
-}
-static bool isConstant(Value *V, int C) {
-  auto *CV = dyn_cast<ConstantInt>(V);
-  return CV && CV->getSExtValue() == C;
-}
-
-static bool isAllOnes(Value *V) {
-  auto *C = dyn_cast<CallInst>(V);
-  return (C && C->getIntrinsicID() == Intrinsic::riscv_mov_m_x_m &&
-          isConstant(C->getOperand(1), 0xff) &&
-          isConstant(C->getOperand(0), 0));
 }
 
 namespace {
@@ -736,4 +734,74 @@ unsigned CodeHoister::estimateVectorUsage(BasicBlock &BB) {
   }
   return Invariants.size() + MaxLive;
 }
+
+void RISCVOptimizeMemIntrinsics::rewriteGatherScatters(Function &F) {
+  for (BasicBlock &BB : F)
+    for (BasicBlock::iterator Cur = BB.begin(); Cur != BB.end();) {
+      Instruction &I = *Cur++;
+      if (I.getOpcode() != Instruction::Call)
+        continue;
+      switch (dyn_cast<CallBase>(&I)->getIntrinsicID()) {
+      case Intrinsic::masked_scatter:
+        rewriteScatter(I);
+        break;
+      case Intrinsic::masked_gather:
+        rewriteGather(I);
+        break;
+      }
+    }
+}
+
+// Decompose an address vector into a common base pointer
+// and a vector of offsets.
+static bool isUniform(Value *Addr, Value **Base, Value **Index) {
+  auto *GEP = dyn_cast<GetElementPtrInst>(Addr);
+  if (!GEP)
+    return false;
+  // We need a uniform
+  *Base = GEP->getOperand(0);
+  if ((*Base)->getType()->isVectorTy())
+    return false;
+  *Index = GEP->getOperand(1);
+  auto *VT = dyn_cast<FixedVectorType>((*Index)->getType());
+  return (VT && VT->getNumElements() == 8 && VT->getScalarSizeInBits() == 32);
+}
+
+void RISCVOptimizeMemIntrinsics::rewriteGather(Instruction &I) {
+  Value *Base, *Index;
+  if (!isUniform(I.getOperand(0), &Base, &Index))
+    return;
+
+  IRBuilder<> B(&I);
+  Value *ByteIndex = B.CreateMul(Index, B.CreateVectorSplat(8, B.getInt32(4)));
+  // Convert to "et_masked_gather"
+
+  CallInst *G = B.CreateIntrinsic(
+      Intrinsic::riscv_et_gather, {I.getType(), Base->getType()},
+      {/*Ptr*/ Base, ByteIndex,
+       /*PassThru*/ I.getOperand(3),
+       /*Load Ext*/ B.getInt32(ISD::LoadExtType::NON_EXTLOAD),
+       /*Mask*/ I.getOperand(2)});
+  I.replaceAllUsesWith(G);
+  I.eraseFromParent();
+}
+
+void RISCVOptimizeMemIntrinsics::rewriteScatter(Instruction &I) {
+  Value *Base, *Index;
+  if (!isUniform(I.getOperand(1), &Base, &Index))
+    return;
+
+  IRBuilder<> B(&I);
+  Value *ByteIndex = B.CreateMul(Index, B.CreateVectorSplat(8, B.getInt32(4)));
+
+  // Convert to "et_masked_gather"
+  CallInst *S = B.CreateIntrinsic(
+      Intrinsic::riscv_et_scatter, {I.getOperand(0)->getType(), Base->getType()},
+      {/*Value*/ I.getOperand(0),
+        /*Ptr*/ Base, ByteIndex,
+       /*Mask*/ I.getOperand(3)});
+  I.replaceAllUsesWith(S);
+  I.eraseFromParent();
+}
+
 #endif

@@ -1,0 +1,25 @@
+; RUN: llc -mcpu=et-soc1-min < %s | FileCheck %s
+target triple = "riscv64-unknown-unknown-elf"
+
+%VEC = type <8 x float>
+%IVEC = type <8 x i32>
+
+define void @ugt(%VEC* %result, %VEC* %0, %VEC* %1) {
+  %x = load %VEC, %VEC* %0
+  %y = load %VEC, %VEC* %1
+  %cmp = fcmp ugt %VEC %x, %y
+  %r = select <8 x i1> %cmp, %VEC %x, %VEC %y
+  store %VEC %r, %VEC* %result
+  ret void
+}
+
+; CHECK:	flq2	ft0, 0(a1)
+; CHECK-NEXT:	flq2	ft1, 0(a2)
+; CHECK-NEXT:	mov.m.x	m0, zero, 255
+; CHECK-NEXT:	fltm.ps	m1, ft1, ft0
+; CHECK-NEXT:	feqm.ps	m2, ft1, ft1
+; CHECK-NEXT:	feqm.ps	m0, ft0, ft0
+; CHECK-NEXT:	maskand	m0, m0, m2
+; CHECK-NEXT:	masknot	m0, m0
+; CHECK-NEXT:	maskor	m0, m1, m0
+; CHECK-NEXT:	fcmovm.ps	ft0, ft0, ft1

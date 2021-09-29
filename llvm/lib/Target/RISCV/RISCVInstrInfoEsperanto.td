@@ -133,7 +133,7 @@ multiclass ETOpsRdF1R2G<bits<7> funct7, string opcodestr> {
          let Constraints = "$rd = $in"; 
    }
 }
-let mayLoad = 1 in {
+let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in {
 defm FGW_PS : ETOpsRdF1R2G<0b0110000, "fgw.ps">;
 defm FGH_PS : ETOpsRdF1R2G<0b0101000, "fgh.ps">;
 defm FGB_PS : ETOpsRdF1R2G<0b0100100, "fgb.ps">;
@@ -149,7 +149,7 @@ multiclass ETOpsR3R1R2<bits<7> funct7, bits<3> funct3, string opcodestr> {
                  (ins FPR256:$rs3, FPR256:$rs1, GPR:$rs2, MR0:$m0), [],
                   opcodestr, "$rs3, ${rs1}(${rs2}), $m0">;
 }
-let mayStore = 1 in {                 
+let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in {
 defm FSCW_PS : ETOpsR3R1R2<0b1110000, 0b001, "fscw.ps">;
 defm FSCH_PS : ETOpsR3R1R2<0b1101000, 0b001, "fsch.ps">;
 defm FSCB_PS : ETOpsR3R1R2<0b1100100, 0b001, "fscb.ps">;
@@ -723,36 +723,399 @@ def StackML : Pseudo<(outs MR:$rd),
                      "ml", "$rd, ${imm}(${rs1})">;
 
 } // let hasSideEffects = 0, mayLoad = 0, mayStore = 0 
+
 } // HasEsperanto
 } // DecoderNamespace                                 
 
-                     
-foreach ty =[v8i32, v8f32] in {
-def : Pat<(store (ty FPR256:$rs2), GPR:$rs1), (FSQ2 $rs2, 0, $rs1)>;
-def : Pat<(store (ty FPR256:$rs2), AddrFI:$rs1), (StackFSQ2 $rs2, $rs1, 0)>;
-def : Pat<(store (ty FPR256:$rs2), (add GPR:$rs1, simm12:$imm12)),
-          (FSQ2 $rs2, $imm12, $rs1)>;
-def : Pat<(store (ty FPR256:$rs2), (add AddrFI:$rs1, simm12:$imm12)),
-          (StackFSQ2 $rs2, $rs1, $imm12)>;
-
-def : Pat<(ty (load GPR:$rs1)), (FLQ2 0, $rs1)>;
-def : Pat<(ty (load (add GPR:$rs1, simm12:$imm12))), (FLQ2 $imm12, $rs1)>;
-def : Pat<(ty (load (add AddrFI:$rs1, simm12:$imm12))), (StackFLQ2 $rs1, $imm12)>;
-def : Pat<(ty (load (add AddrFI:$rs1, simm12:$imm12))), (StackFLQ2 $rs1, $imm12)>;
+class EspPat<dag pattern, dag result> : Pat<pattern, result> {
+  let Predicates = [HasEsperanto];
 }
 
-def : Pat<(v8i1 (build_vector (i1 1), (i1 1), (i1 1), (i1 1),
+foreach ty =[v8i32, v8f32] in {
+def : EspPat<(store (ty FPR256:$rs2), GPR:$rs1), (FSQ2 $rs2, 0, $rs1)>;
+def : EspPat<(store (ty FPR256:$rs2), AddrFI:$rs1), (StackFSQ2 $rs2, $rs1, 0)>;
+def : EspPat<(store (ty FPR256:$rs2), (add GPR:$rs1, simm12:$imm12)),
+          (FSQ2 $rs2, $imm12, $rs1)>;
+def : EspPat<(store (ty FPR256:$rs2), (add AddrFI:$rs1, simm12:$imm12)),
+          (StackFSQ2 $rs2, $rs1, $imm12)>;
+
+def : EspPat<(ty (load GPR:$rs1)), (FLQ2 0, $rs1)>;
+def : EspPat<(ty (load (add GPR:$rs1, simm12:$imm12))), (FLQ2 $imm12, $rs1)>;
+def : EspPat<(ty (load (add AddrFI:$rs1, simm12:$imm12))), (StackFLQ2 $rs1, $imm12)>;
+def : EspPat<(ty (load (add AddrFI:$rs1, simm12:$imm12))), (StackFLQ2 $rs1, $imm12)>;
+}
+
+                     
+foreach ty =[v8i32, v8f32] in {
+def : EspPat<(store (ty FPR256:$rs2), GPR:$rs1), (FSQ2 $rs2, 0, $rs1)>;
+def : EspPat<(store (ty FPR256:$rs2), AddrFI:$rs1), (StackFSQ2 $rs2, $rs1, 0)>;
+def : EspPat<(store (ty FPR256:$rs2), (add GPR:$rs1, simm12:$imm12)),
+          (FSQ2 $rs2, $imm12, $rs1)>;
+def : EspPat<(store (ty FPR256:$rs2), (add AddrFI:$rs1, simm12:$imm12)),
+          (StackFSQ2 $rs2, $rs1, $imm12)>;
+
+def : EspPat<(ty (load GPR:$rs1)), (FLQ2 0, $rs1)>;
+def : EspPat<(ty (load (add GPR:$rs1, simm12:$imm12))), (FLQ2 $imm12, $rs1)>;
+def : EspPat<(ty (load (add AddrFI:$rs1, simm12:$imm12))), (StackFLQ2 $rs1, $imm12)>;
+def : EspPat<(ty (load (add AddrFI:$rs1, simm12:$imm12))), (StackFLQ2 $rs1, $imm12)>;
+}
+
+class RoundingMode<int Value> {
+   int rm = Value;
+}
+def RTZ : RoundingMode<0b001> ;
+def DYN : RoundingMode<0b111> ;
+
+def allLanes : OutPatFrag<(ops ), (MOV_M_X X0, 0xff)>;
+
+def : EspPat<(v8i32 (et_broadcast simm20:$e0)),
+          (FBCI_PI_EX (IMPLICIT_DEF), (LO20s $e0), (allLanes))>;
+
+def : EspPat<(v8i32 (et_broadcast GPR:$e0)),
+          (FBCX_PS_EX (IMPLICIT_DEF), $e0, (allLanes))>;
+
+def : EspPat<(add (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
+          (FADD_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+def : EspPat<(add (v8i32 FPR256:$rs1), (et_broadcast simm10:$c)),
+          (FADDI_PI_EX (IMPLICIT_DEF), $rs1, (LO10s $c), (allLanes))>;
+def : EspPat<(sub (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
+          (FSUB_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+def : EspPat<(mul (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
+          (FMUL_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+def : EspPat<(and (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
+          (FAND_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+def : EspPat<(and (v8i32 FPR256:$rs1), (et_broadcast simm10:$c)),
+          (FANDI_PI_EX (IMPLICIT_DEF), $rs1, (LO10s $c), (allLanes))>;
+def : EspPat<(or (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
+          (FOR_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+def : EspPat<(xor (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
+          (FXOR_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+
+def splat8 : PatFrag<(ops node:$X),
+    	             (build_vector $X, $X, $X, $X, $X, $X, $X, $X)>;	  
+
+def : EspPat<(xor (v8i32 FPR256:$rs1), (et_broadcast (i64 -1))),
+          (FNOT_PI_EX (IMPLICIT_DEF), $rs1, (allLanes))>;
+
+// The simulator does uses all bits of the shift amount
+// instead of the low 5 like the sllw.s instructions deos
+// so here we explicitly mask the low bits so that vector
+// and scalar aggree.
+def : EspPat<(shl (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
+          (FSLL_PI_EX (IMPLICIT_DEF), $rs1,
+	              (FANDI_PI_EX (IMPLICIT_DEF), $rs2, 31, (allLanes)),
+		      (allLanes))>;
+		      
+def : EspPat<(shl (v8i32 FPR256:$rs1), (v8i32 (et_broadcast uimm5:$c))),
+          (FSLLI_PI_EX (IMPLICIT_DEF), $rs1, (LO5 $c), (allLanes))>;
+
+// same comment as shl above
+def : EspPat<(srl (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
+          (FSRL_PI_EX (IMPLICIT_DEF), $rs1, 
+	              (FANDI_PI_EX (IMPLICIT_DEF), $rs2, 31, (allLanes)),
+		      (allLanes))>;
+
+def : EspPat<(srl (v8i32 FPR256:$rs1), (v8i32 (et_broadcast uimm5:$c))),
+          (FSRLI_PI_EX (IMPLICIT_DEF), $rs1, (LO5 $c), (allLanes))>;
+
+// same comment as shl above 
+def : EspPat<(sra (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
+          (FSRA_PI_EX (IMPLICIT_DEF), $rs1, 
+	              (FANDI_PI_EX (IMPLICIT_DEF), $rs2, 31, (allLanes)),
+		      (allLanes))>;
+		      
+def : EspPat<(sra (v8i32 FPR256:$rs1), (v8i32 (et_broadcast uimm5:$c))),
+          (FSRAI_PI_EX (IMPLICIT_DEF), $rs1, (LO5 $c), (allLanes))>;
+	  
+
+def : EspPat<(sdiv (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
+          (FDIV_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+def : EspPat<(udiv (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
+          (FDIVU_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+def : EspPat<(srem (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
+          (FREM_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+def : EspPat<(urem (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
+          (FREMU_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+def : EspPat<(fadd (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
+          (FADD_PS_EX (IMPLICIT_DEF), $rs1, $rs2, DYN.rm, (allLanes))>;
+def : EspPat<(fsub (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
+          (FSUB_PS_EX (IMPLICIT_DEF), $rs1, $rs2, DYN.rm, (allLanes))>;
+def : EspPat<(fmul (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
+          (FMUL_PS_EX (IMPLICIT_DEF), $rs1, $rs2, DYN.rm, (allLanes))>;
+def : EspPat<(fdiv (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
+          (FDIV_PS_EX (IMPLICIT_DEF), $rs1, $rs2, DYN.rm, (allLanes))>;
+def : EspPat<(fdiv (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
+          (FDIV_PS_EX (IMPLICIT_DEF), $rs1, $rs2, DYN.rm, (allLanes))>;
+
+def : EspPat<(frem (v8f32 FPR256:$x), (v8f32 FPR256:$y)),
+          (FNMSUB_PS_EX
+	        (IMPLICIT_DEF),
+		(FROUND_PS_EX (IMPLICIT_DEF),
+		      (FDIV_PS_EX (IMPLICIT_DEF), $x, $y, DYN.rm, (allLanes)),
+		      /*RTZ*/ 0b001, (allLanes)),
+		$y, $x, DYN.rm, (allLanes))>;
+		
+
+def : EspPat<(fma (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2), (v8f32 FPR256:$rs3)),
+          (FMADD_PS_EX (IMPLICIT_DEF), $rs1, $rs2, $rs3, DYN.rm,
+	               (allLanes))>;
+def : EspPat<(fmad (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2), (v8f32 FPR256:$rs3)),
+          (FADD_PS_EX (IMPLICIT_DEF), 
+	  	      (FMUL_PS_EX (IMPLICIT_DEF), $rs1, $rs2, DYN.rm, (allLanes)),
+	              $rs3, DYN.rm, (allLanes))>;
+def : EspPat<(fmad (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2), (fneg (v8f32 FPR256:$rs3))),
+          (FSUB_PS_EX (IMPLICIT_DEF), 
+	  	      (FMUL_PS_EX (IMPLICIT_DEF), $rs1, $rs2, DYN.rm, (allLanes)),
+	              $rs3, DYN.rm, (allLanes))>;
+
+def : EspPat<(fmad (fneg (v8f32 FPR256:$rs1)), (v8f32 FPR256:$rs2), (v8f32 FPR256:$rs3)),
+          (FSUB_PS_EX (IMPLICIT_DEF),
+	              $rs3,
+	  	      (FMUL_PS_EX (IMPLICIT_DEF), $rs1, $rs2, DYN.rm, (allLanes)),
+	              DYN.rm, (allLanes))>;
+
+def : EspPat<(fmad (v8f32 FPR256:$rs1), (fneg (v8f32 FPR256:$rs2)), (v8f32 FPR256:$rs3)),
+          (FSUB_PS_EX (IMPLICIT_DEF),
+	              $rs3,
+	  	      (FMUL_PS_EX (IMPLICIT_DEF), $rs1, $rs2, DYN.rm, (allLanes)),
+	              DYN.rm, (allLanes))>;
+
+def : EspPat<(fma (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2), (fneg (v8f32 FPR256:$rs3))),
+          (FMSUB_PS_EX (IMPLICIT_DEF), $rs1, $rs2, $rs3, DYN.rm,
+	               (allLanes))>;
+
+def : EspPat<(fma (fneg (v8f32 FPR256:$rs1)), (v8f32 FPR256:$rs2),
+						(v8f32 FPR256:$rs3)),
+          (FNMSUB_PS_EX (IMPLICIT_DEF), $rs1, $rs2, $rs3, DYN.rm,
+	                (allLanes))>;
+
+def : EspPat<(fma (v8f32 FPR256:$rs1), (fneg (v8f32 FPR256:$rs2)),
+      	       	      		    	  	 (v8f32 FPR256:$rs3)),
+          (FNMSUB_PS_EX (IMPLICIT_DEF), $rs1, $rs2, $rs3, DYN.rm,
+	                (allLanes))>;
+
+def : EspPat<(fma (fneg (v8f32 FPR256:$rs1)), (v8f32 FPR256:$rs2),
+                                               (fneg (v8f32 FPR256:$rs3))),
+          (FNMADD_PS_EX (IMPLICIT_DEF), $rs1, $rs2, $rs3, DYN.rm,
+	                (allLanes))>;
+
+def : EspPat<(fneg (fma (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2),
+      		     	    (v8f32 FPR256:$rs3))),
+          (FNMADD_PS_EX (IMPLICIT_DEF), $rs1, $rs2, $rs3, DYN.rm,
+	                (allLanes))>;
+			
+def : EspPat<(fminimum (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
+          (FMIN_PS_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+
+def : EspPat<(fmaximum (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
+          (FMAX_PS_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+
+def : EspPat<(fcopysign (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
+          (FSGNJ_PS_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+
+def : EspPat<(fcopysign (v8f32 FPR256:$rs1), (fneg (v8f32 FPR256:$rs2))),
+          (FSGNJN_PS_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+
+def : EspPat<(fabs (v8f32 FPR256:$rs1)),
+          (FSGNJX_PS_EX (IMPLICIT_DEF), $rs1, $rs1, (allLanes))>;
+
+def : EspPat<(fsqrt (v8f32 FPR256:$rs1)),
+          (FSQRT_PS_EX (IMPLICIT_DEF), $rs1, (allLanes))>;
+
+def : EspPat<(fsin (v8f32 FPR256:$rs1)),
+          (FSIN_PS_EX (IMPLICIT_DEF), $rs1, (allLanes))>;
+
+def : EspPat<(fneg (v8f32 FPR256:$rs1)),
+          (FSGNJN_PS_EX (IMPLICIT_DEF), $rs1, $rs1, (allLanes))>;
+
+def : EspPat<(flog2 (v8f32 FPR256:$rs1)),
+          (FLOG_PS_EX (IMPLICIT_DEF), $rs1, (allLanes))>;
+
+def : EspPat<(fexp2 (v8f32 FPR256:$rs1)),
+          (FEXP_PS_EX (IMPLICIT_DEF), $rs1, (allLanes))>;
+
+
+def : EspPat<(setoeq (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
+          (v8i1 (FEQM_PS_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes)))>;
+def : EspPat<(v8i32 (sext (v8i1 (setoeq (v8f32 FPR256:$rs1),
+      		       	     	    (v8f32 FPR256:$rs2))))),
+          (FEQ_PS_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+
+
+def : EspPat<(setolt (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
+          (v8i1 (FLTM_PS_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes)))>;
+def : EspPat<(v8i32 (sext (v8i1 (setolt (v8f32 FPR256:$rs1),
+      		       	     	     (v8f32 FPR256:$rs2))))),
+          (FLT_PS_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+
+def : EspPat<(setole (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
+          (v8i1 (FLEM_PS_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes)))>;
+def : EspPat<(v8i32 (sext (v8i1 (setole (v8f32 FPR256:$rs1),
+      		       	     	     (v8f32 FPR256:$rs2))))),
+          (FLE_PS_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+
+
+def : EspPat<(seto (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
+          (v8i1 (FEQM_PS_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes)))>;
+
+def : EspPat<(v8i32 (sext (v8i1 (seto (v8f32 FPR256:$rs1),
+      		       	     	    (v8f32 FPR256:$rs2))))),
+          (FEQ_PS_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+
+
+def : EspPat<(setune (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
+          (v8i1 (MASKNOT
+	        (FEQM_PS_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))))>;
+
+
+def : EspPat<(setult (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
+          (v8i1 (FSETM_PI_EX (IMPLICIT_DEF),
+	               (FLTU_PI_EX  (IMPLICIT_DEF), $rs1, $rs2, (allLanes)),
+		       (allLanes)))>;
+
+def : EspPat<(v8i32 (sext (v8i1 (setult (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2))))),
+          (FLTU_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+
+def : EspPat<(v8i32 (sext (v8i1 (setle (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2))))),
+          (FLE_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+
+foreach ty =[v8i32, v8f32] in {
+def : EspPat<(vselect (v8i1 (setle (ty FPR256:$rs1), (ty FPR256:$rs2))),
+                   (ty FPR256:$true), (ty FPR256:$false)),
+          (ty (FCMOV_PS_EX (ty (IMPLICIT_DEF)), 
+        	      (FLE_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes)),
+		      $true, $false,
+		      (allLanes)))>;
+}
+
+def : EspPat<(v8i32 (sext (v8i1 (setlt (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2))))),
+          (FLT_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+
+def : EspPat<(v8i1 (setlt (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2))),
+          (FLTM_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+
+// 0, -1  -> -1, 0
+def v8i32_not : OutPatFrag<(ops node:$n),
+          (FNOT_PI_EX (IMPLICIT_DEF), $n, (allLanes))>;
+
+// x != y -->  !(x == y)
+def : EspPat<(v8i32 (sext (v8i1 (setne (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2))))),
+           (v8i32_not (FEQ_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes)))>;
+       
+def : EspPat<(v8i32 (sext (v8i1 (seteq (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2))))),
+          (v8i32 (FEQ_PI_EX  (IMPLICIT_DEF), $rs1, $rs2, (allLanes)))>;
+
+def : EspPat<(seteq (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
+          (v8i1 (FSETM_PI_EX (IMPLICIT_DEF),
+	               (FEQ_PI_EX  (IMPLICIT_DEF), $rs1, $rs2,
+		       		   (allLanes)),
+		       (allLanes)))>;
+
+foreach ty =[v8i32, v8f32] in {
+def : EspPat<(vselect (v8i1 (seteq (ty FPR256:$rs1), (ty FPR256:$rs2))),
+                   (ty FPR256:$true), (ty FPR256:$false)),
+          (ty (FCMOV_PS_EX (ty (IMPLICIT_DEF)), 
+        	      (FEQ_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes)),
+		      $true, $false,
+		      (allLanes)))>;
+}
+
+
+def : EspPat<(v8i32 (sext (v8i1 (setult (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2))))),
+          (FLTU_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+
+foreach ty =[v8i32, v8f32] in {
+def : EspPat<(vselect (v8i1 (setult (ty FPR256:$rs1), (ty FPR256:$rs2))),
+                   (ty FPR256:$true), (ty FPR256:$false)),
+          (ty (FCMOV_PS_EX (ty (IMPLICIT_DEF)), 
+        	      (FLTU_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes)),
+		      $true, $false,
+		      (allLanes)))>;		      
+}
+
+// x >=u y =>	!(y < x)
+def : EspPat<(setuge (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
+          (v8i1 (MASKNOT (FLTM_PI_EX (IMPLICIT_DEF),
+			             $rs2, $rs1, (allLanes))))>;
+				     
+def : EspPat<(v8i32 (sext (v8i1 (setuge (v8i32 FPR256:$rs1),
+      		       	             (v8i32 FPR256:$rs2))))),
+          (v8i32_not (FLTU_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes)))>; 
+
+
+
+// x <=u  y =>   x <u y  | x == y
+def et_ule : OutPatFrag<(ops node:$rs1, node:$rs2), 
+          (FOR_PI_EX (IMPLICIT_DEF),
+	             (FLTU_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes)),
+	             (FEQ_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes)),
+		     (allLanes))>;
+		     
+def : EspPat<(v8i32 (sext (v8i1 (setule (v8i32 FPR256:$rs1),
+      		       	             (v8i32 FPR256:$rs2))))),
+          (et_ule $rs1, $rs2)>;
+
+foreach ty =[v8i32, v8f32] in {
+def : EspPat<(vselect (v8i1 (setule (ty FPR256:$rs1), (ty FPR256:$rs2))),
+                   (ty FPR256:$true), (ty FPR256:$false)),
+          (ty (FCMOV_PS_EX (ty (IMPLICIT_DEF)), 
+        	      (et_ule $rs1, $rs2),
+		      $true, $false,
+		      (allLanes)))>;
+}
+
+def : EspPat<(smin (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
+          (FMIN_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+def : EspPat<(smax (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
+          (FMAX_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+def : EspPat<(umin (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
+          (FMINU_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+def : EspPat<(umax (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
+          (FMAXU_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+
+// Rounding modes match RISVInstrInfoF.td
+def : EspPat<(sint_to_fp (v8i32 FPR256:$rs1)),
+          (v8f32 (FCVT_PS_PW_EX (v8f32 (IMPLICIT_DEF)), $rs1,
+	  	 		DYN.rm, (allLanes)))>;
+def : EspPat<(uint_to_fp (v8i32 FPR256:$rs1)),
+          (v8f32 (FCVT_PS_PWU_EX (v8f32 (IMPLICIT_DEF)), $rs1,
+	                        DYN.rm, (allLanes)))>;
+def : EspPat<(fp_to_sint (v8f32 FPR256:$rs1)),
+          (v8i32 (FCVT_PW_PS_EX (v8i32 (IMPLICIT_DEF)), $rs1,
+	  	                RTZ.rm, (allLanes)))>;
+def : EspPat<(fp_to_uint (v8f32 FPR256:$rs1)),
+          (v8i32 (FCVT_PWU_PS_EX (v8i32 (IMPLICIT_DEF)), $rs1,
+	  	                RTZ.rm, (allLanes)))>;
+
+def : EspPat<(v8i32 (sext (v8i1 MR:$m))),
+          (FBCI_PI_EX (FBCI_PI_EX (IMPLICIT_DEF), 0, (allLanes)),
+	              -1, $m)>;
+
+def : EspPat<(xor (v8i1 MR:$m),
+               (v8i1 (build_vector (i64 1), (i64 1), (i64 1), (i64 1),
+                                   (i64 1), (i64 1), (i64 1), (i64 1)))),
+           (MASKNOT $m)>;
+
+def : EspPat<(xor (v8i1 MR:$m),
+               (v8i1 (build_vector (i1 1), (i1 1), (i1 1), (i1 1),
+                                   (i1 1), (i1 1), (i1 1), (i1 1)))),
+           (MASKNOT $m)>;
+
+def : EspPat<(v8i1 (build_vector (i1 1), (i1 1), (i1 1), (i1 1),
                               (i1 1), (i1 1), (i1 1), (i1 1))),
-           (v8i1 (MOV_M_X X0, 0xff))>;
-def : Pat<(v8i1 (build_vector (i64 1), (i64 1), (i64 1), (i64 1),
+           (v8i1 (allLanes))>;
+def : EspPat<(v8i1 (build_vector (i64 1), (i64 1), (i64 1), (i64 1),
                               (i64 1), (i64 1), (i64 1), (i64 1))),
-           (v8i1 (MOV_M_X X0, 0xff))>;
+           (v8i1 (allLanes))>;
 foreach ty = [v8f32, v8i32] in {
-   def : Pat<(ty (vselect MR:$cond, FPR256:$true, FPR256:$false)),
+   def : EspPat<(ty (vselect MR:$cond, FPR256:$true, FPR256:$false)),
           (FCMOVM_PS_EX $true, $false, $cond)>; 
 }
 
-def : Pat<(v8i32 (build_vector GPR:$e0, GPR:$e1, GPR:$e2, GPR:$e3,
+def : EspPat<(v8i32 (splat8 (i64 -1))),
+          (FBCI_PI_EX (IMPLICIT_DEF), -1, (allLanes))>;
+	  
+def : EspPat<(v8i32 (build_vector GPR:$e0, GPR:$e1, GPR:$e2, GPR:$e3,
                                GPR:$e4, GPR:$e5, GPR:$e6, GPR:$e7)),
           (v8i32 (FBCX_PS_EX
           (v8i32 (FBCX_PS_EX
@@ -771,15 +1134,15 @@ def : Pat<(v8i32 (build_vector GPR:$e0, GPR:$e1, GPR:$e2, GPR:$e3,
               $e6, (v8i1 (MOV_M_X X0, 0b01000000)))),
               $e7, (v8i1 (MOV_M_X X0, 0b10000000))))>;
 
-def : Pat<(v8f32 (build_vector FPR32:$e0, undef, undef, undef,
+def : EspPat<(v8f32 (build_vector FPR32:$e0, undef, undef, undef,
                                undef, undef, undef, undef)),
            (v8f32 (INSERT_SUBREG (v8f32 (IMPLICIT_DEF)), $e0, sub_32))>;
 
-def : Pat<(v8i32 (build_vector (i64 GPR:$e0), undef, undef, undef,
+def : EspPat<(v8i32 (build_vector (i64 GPR:$e0), undef, undef, undef,
                                undef, undef, undef, undef)),
            (v8i32 (INSERT_SUBREG (v8i32 (IMPLICIT_DEF)), $e0, sub_32))>;
 
-def : Pat<(v8f32 (build_vector FPR32:$e0, FPR32:$e1, FPR32:$e2, FPR32:$e3,
+def : EspPat<(v8f32 (build_vector FPR32:$e0, FPR32:$e1, FPR32:$e2, FPR32:$e3,
                                FPR32:$e4, FPR32:$e5, FPR32:$e6, FPR32:$e7)),
           (v8f32 (FBCX_PS_EX
           (v8f32 (FBCX_PS_EX
@@ -798,7 +1161,7 @@ def : Pat<(v8f32 (build_vector FPR32:$e0, FPR32:$e1, FPR32:$e2, FPR32:$e3,
               (FMV_X_W $e6), (v8i1 (MOV_M_X X0, 0b01000000)))),
               (FMV_X_W $e7), (v8i1 (MOV_M_X X0, 0b10000000))))>;
 
-def : Pat<(v8i32 (build_vector simm20:$e0, simm20:$e1,
+def : EspPat<(v8i32 (build_vector simm20:$e0, simm20:$e1,
                                simm20:$e2, simm20:$e3,
                                simm20:$e4, simm20:$e5,
                                simm20:$e6, simm20:$e7)),
@@ -819,41 +1182,47 @@ def : Pat<(v8i32 (build_vector simm20:$e0, simm20:$e1,
               (LO20s $e6), (v8i1 (MOV_M_X X0, 0b01000000))),
               (LO20s $e7), (v8i1 (MOV_M_X X0, 0b10000000)))>;
 
-def : Pat<(v8i1 (and (v8i1 MR:$x), (v8i1 MR:$y))), (MASKAND $x, $y)>;
-def : Pat<(v8i1 (or (v8i1 MR:$x), (v8i1 MR:$y))), (MASKOR $x, $y)>;
-def : Pat<(v8i1 (xor (v8i1 MR:$x), (v8i1 MR:$y))), (MASKXOR $x, $y)>;
+def : EspPat<(v8i1 (and (v8i1 MR:$x), (v8i1 MR:$y))), (MASKAND $x, $y)>;
+def : EspPat<(v8i1 (or (v8i1 MR:$x), (v8i1 MR:$y))), (MASKOR $x, $y)>;
+def : EspPat<(v8i1 (xor (v8i1 MR:$x), (v8i1 MR:$y))), (MASKXOR $x, $y)>;
 
-def : Pat<(v8i32 (bitconvert (v8f32 FPR256:$in))), (v8i32 (COPY $in))>;
-def : Pat<(v8f32 (bitconvert (v8i32 FPR256:$in))), (v8f32 (COPY $in))>;
+def : EspPat<(v8i32 (bitconvert (v8f32 FPR256:$in))), (v8i32 (COPY $in))>;
+def : EspPat<(v8f32 (bitconvert (v8i32 FPR256:$in))), (v8f32 (COPY $in))>;
 
 let Defs = [M0] in 
 def IOTA : Pseudo<(outs FPR256:$rd), (ins), [], "iota", "$rd">;
-def : Pat<(int_riscv_iota), (IOTA)>;
+def : EspPat<(int_riscv_iota), (IOTA)>;
 def HARTID : Pseudo<(outs GPR:$rd), (ins), [], "hartid", "$rd">;
-def : Pat<(int_riscv_hartid), (HARTID)>;
+def : EspPat<(int_riscv_hartid), (HARTID)>;
 
-def : Pat<(f32 (extractelt FPR256:$rd, 0)),
+def : EspPat<(f32 (extractelt FPR256:$rd, 0)),
           (f32 (EXTRACT_SUBREG $rd, sub_32))>;
 
-def : Pat<(f32 (extractelt FPR256:$rs1, uimm5:$idx)),
+def : EspPat<(f32 (extractelt FPR256:$rs1, uimm5:$idx)),
           (f32 (FMV_W_X (FMVZ_X_PS $rs1, (LO3 $idx))))>;
 
-def : Pat<(v8f32 (insertelt (v8f32 FPR256:$rs1), (f32 FPR32:$rs2), (i64 0))),
+def : EspPat<(v8f32 (insertelt (v8f32 FPR256:$rs1), (f32 FPR32:$rs2), (i64 0))),
           (v8f32 (INSERT_SUBREG $rs1, $rs2, sub_32))>;
 
-foreach SrcTy = [v8i8, v8i16, v8i32, v8f16, v8f32] in {
-    foreach DstTy = [v8i8, v8i16, v8i32, v8f16, v8f32] in {
-        def : Pat<(DstTy (int_riscv_coerce_vector (SrcTy FPR256:$rs1))),
+foreach SrcTy = [v8i32, v8f32] in {
+    foreach DstTy = [v8i32, v8f32] in {
+        def : EspPat<(DstTy (int_riscv_coerce_vector (SrcTy FPR256:$rs1))),
                          (COPY $rs1)>;
     }
 }
 
-def : Pat<(v8i32 (masked_ld GPR:$ptr, undef, (v8i1 MR:$mask), FPR256:$passthru)),
+def : EspPat<(v8i32 (masked_ld GPR:$ptr, undef, (v8i1 MR:$mask), FPR256:$passthru)),
           (FLW_PS_EX $passthru, 0, $ptr, $mask)>;
-def : Pat<(v8f32 (masked_ld GPR:$ptr, undef, (v8i1 MR:$mask), FPR256:$passthru)),
+def : EspPat<(v8f32 (masked_ld GPR:$ptr, undef, (v8i1 MR:$mask), FPR256:$passthru)),
           (FLW_PS_EX $passthru, 0, $ptr, $mask)>;
+
+def : EspPat<(masked_st (v8i32 FPR256:$rs1), GPR:$ptr, undef, (v8i1 MR:$mask)),
+          (FSW_PS_EX $rs1, 0, $ptr, $mask)>;
+def : EspPat<(masked_st (v8f32 FPR256:$rs1), GPR:$ptr, undef, (v8i1 MR:$mask)),
+          (FSW_PS_EX $rs1, 0, $ptr, $mask)>;
+
 
 include "RISCVInstrInfoEsperantoPatterns.td"
 
-def : Pat<(i64 (addrspacecast GPR:$in)), (COPY $in)>;
+def : EspPat<(i64 (addrspacecast GPR:$in)), (COPY $in)>;
 

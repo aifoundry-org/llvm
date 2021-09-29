@@ -9,6 +9,10 @@
 //  Esperanto ET-SOC-1
 //===----------------------------------------------------------------------===//
 
+
+def SDT_RISCVBroadcast : SDTypeProfile<1,1, []>;
+def et_broadcast : SDNode<"RISCVISD::ET_BROADCAST", SDT_RISCVBroadcast>;
+
 def OPC_MEM_PS      : RISCVOpcode<0b0001011>;
 def OPC_IMM_PS      : RISCVOpcode<0b0011111>;
 def OPC_IMM10_PI    : RISCVOpcode<0b0111111>;

@@ -1,0 +1,118 @@
+#!/usr/bin/env python3
+from subprocess import check_output, run
+from sys import stderr
+from tempfile import TemporaryFile
+import logging
+dry_run = False
+verbose = False
+logger = logging.getLogger()
+logging.basicConfig(
+    format="{asctime} ({filename}:{lineno}) {levelname}: {message}",
+    level=logging.WARN,
+    style="{",
+)
+
+
+def main():
+    args = parse_args()
+    input = "echo foo 1>&2 ; false"
+    output("bash", input=input)
+
+
+def do_parse_args(parser, verbose_init=None):
+    parser.add_argument("--dry-run", action='store_true')
+    parser.add_argument("-v", "--verbose", action='store_true')
+    args = parser.parse_args()
+    global dry_run, verbose
+    dry_run = args.dry_run
+    verbose = dry_run or args.verbose if verbose_init is None else verbose_init
+    setup_logging(verbose)
+    return args
+
+
+def command(cmd, **keywords):
+    if isinstance(cmd, str):
+        cmd = cmd.split()
+    return _command(cmd, keywords)
+
+
+def shell(cmd, **keywords):
+    keywords['shell'] = True
+    return _command(cmd, keywords)
+
+
+def _command(cmd, keywords):
+    if 'check' not in keywords:
+        keywords['check'] = True
+    if 'input' in keywords:
+        if 'encoding' not in keywords:
+            keywords['encoding'] = 'utf-8'
+    if verbose:
+        c = keywords.get('cwd', '.')
+        inp = keywords.get('input',None)
+        text = cmd if isinstance(cmd,str) else " ".join(cmd)
+        if text == "bash" and isinstance(inp,str):
+            text = inp
+        logger.debug(c + ": " + text)
+        if dry_run:
+            return
+    if 'stderr' in keywords:
+        return run(cmd, **keywords)
+    with TemporaryFile() as err:
+        try:
+            return run(cmd, stderr=err, **keywords)
+        except:
+            err.seek(0)
+            stderr.write(err.read().decode('utf-8'))
+            raise
+
+
+def output(cmd, **keywords):
+    if isinstance(cmd, str):
+        cmd = cmd.split()
+    if 'encoding' not in keywords:
+        keywords['encoding'] = 'utf-8'
+    first = keywords.pop('first', False)
+    if verbose:
+        c = keywords.get('cwd', '.')
+        logger.debug(c + ": " + cmd if isinstance(cmd,str) else " ".join(cmd))
+    if 'stderr' in keywords:
+        text = check_output(cmd, **keywords)
+    else:
+        with TemporaryFile() as err:
+            try:
+                text = check_output(cmd, stderr=err, **keywords)
+            except:
+                err.seek(0)
+                stderr.write(err.read().decode('utf-8'))
+                raise
+    if not first:
+        return text.splitlines()
+    if verbose:
+        c = keywords.get('cwd', '.')
+        logger.debug(c + ": " + ' '.join(cmd))
+        if dry_run:
+            return
+    return text.split("\n", 1)[0]
+
+
+def setup_logging(debug=False):
+    # set custom logging format
+    # enable INFO/DEBUG logger for this file
+    logger.setLevel(logging.DEBUG if debug else logging.INFO)
+    return logger
+
+
+def log_msg(text):
+    logger.debug(text)
+
+
+if __name__ == "__main__":
+    logger.info("info 1")
+    setup_logging(debug=True)
+    logger.info("info 2")
+
+
+
+if __name__ == "__main__":
+    main()

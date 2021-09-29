@@ -80,6 +80,22 @@ public:
     return BasicTTIImplBase::getCmpSelInstrCost(Opcode, ValTy, CondTy, CostKind,
                                                 I);
   }
+
+  /// Return true if the target supports masked store.
+  bool isLegalMaskedStore(Type *DataType, Align Alignment) const {
+    if (Alignment != 4 || !DataType->isVectorTy())
+      return false;
+    auto *VT = dyn_cast<FixedVectorType>(DataType);
+    return (VT->getScalarSizeInBits() == 32 && VT->getNumElements() == 8);
+  }
+
+  bool isLegalMaskedLoad(Type *DataType, Align Alignment) const {
+    return isLegalMaskedStore(DataType, Alignment);
+  }
+
+  bool isLegalMaskedGather(Type *DataType, Align Alignment) const {
+    return isLegalMaskedStore(DataType, Alignment);
+  }
 };
 
 } // end namespace llvm

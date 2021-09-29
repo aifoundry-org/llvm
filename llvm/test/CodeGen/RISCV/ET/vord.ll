@@ -1,0 +1,24 @@
+; RUN: llc -mcpu=et-soc1-min < %s | FileCheck %s
+target triple = "riscv64-unknown-unknown-elf"
+
+%VEC = type <8 x float>
+%IVEC = type <8 x i32>
+
+define void @ord(%IVEC* %result, %VEC* %0, %VEC* %1) {
+  %x = load %VEC, %VEC* %0
+  %y = load %VEC, %VEC* %1
+  %cmp = fcmp ord %VEC %x, %y
+  %sext = sext <8 x i1> %cmp to %IVEC
+  store %IVEC %sext, %IVEC* %result
+  ret void
+}
+
+; CHECK:	flq2	ft0, 0(a2)
+; CHECK-NEXT:	flq2	ft1, 0(a1)
+; CHECK-NEXT:	mov.m.x	m0, zero, 255
+; CHECK-NEXT:	feqm.ps	m1, ft0, ft0
+; CHECK-NEXT:	feqm.ps	m2, ft1, ft1
+; CHECK-NEXT:	maskand	m1, m2, m1
+; CHECK-NEXT:	fbci.pi	ft0, 0
+; CHECK-NEXT:	maskand	m0, m1, m1
+; CHECK-NEXT:	fbci.pi	ft0, -1

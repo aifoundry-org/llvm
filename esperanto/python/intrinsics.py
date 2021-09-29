@@ -35,6 +35,22 @@ def main():
     intrinsics = initOutput("IntrinsicsRISCVET.td")
     print(f'''\
 let TargetPrefix = "{target_prefix}" in {{
+def int_riscv_et_gather: Intrinsic<[llvm_anyvector_ty],        
+                                 [LLVMAnyPointerType<LLVMMatchType<0>>,
+                                  llvm_v8i32_ty,  // 2 Index vector
+                                  LLVMMatchType<0>, // 3  PassThrou
+                                  llvm_i32_ty,    // 4 load extension type
+                                  llvm_v8i1_ty], //  5 Mask
+                                 [IntrReadMem, IntrArgMemOnly,
+                                  IntrWillReturn, ImmArg<ArgIndex<3>>]>;
+
+def int_riscv_et_scatter: Intrinsic<[],        
+                                 [llvm_anyvector_ty,
+				  LLVMAnyPointerType<LLVMMatchType<0>>,
+                                  llvm_v8i32_ty, // 2 Index vector
+                                  llvm_v8i1_ty], // 3 Mask
+                                 [IntrWriteMem, IntrArgMemOnly,
+				  IntrWillReturn]>;
 // Generate iota vector of length 8
 def int_riscv_iota : 
   GCCBuiltin<"__builtin_{target_prefix}_iota">,
@@ -161,10 +177,10 @@ def int_{target_prefix}_{builtinName}_m :
         intr_args = ", ".join(intr_args)
         intr_out = [ addTX(op) for op in in_ops ]
         intr_out = ", ".join(intr_out)
-        print(f'def :Pat<(int_{target_prefix}_{builtinName} {intr_args}),',
+        print(f'def : EspPat<(int_{target_prefix}_{builtinName} {intr_args}),',
               f'({r.name} {intr_out})>;', file=patterns)
         if hasMask:
-            print(f'def :Pat<(int_{target_prefix}_{builtinName}_m {intr_args}),',
+            print(f'def : EspPat<(int_{target_prefix}_{builtinName}_m {intr_args}),',
                   f'({r.name} {intr_out})>;', file=patterns)
         
     print(f'}} // TargetPrefix = "{target_prefix}"',file=intrinsics)

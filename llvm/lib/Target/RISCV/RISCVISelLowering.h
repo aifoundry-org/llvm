@@ -51,7 +51,16 @@ enum NodeType : unsigned {
   FMV_X_ANYEXTW_RV64,
   // READ_CYCLE_WIDE - A read of the 64-bit cycle CSR on a 32-bit target
   // (returns (Lo, Hi)). It takes a chain operand.
-  READ_CYCLE_WIDE
+  READ_CYCLE_WIDE,
+
+#ifdef ESPERANTO
+  // ET_BROADCAST -- capture a splat build_vector for easier
+  // matching.
+  ET_BROADCAST,
+
+  // ET_SWIZZLLE -- a limited form of vector shuffle
+  ET_SWIZZLE,
+#endif
 };
 }
 
@@ -201,7 +210,10 @@ public:
                                           Value *AlignedAddr, Value *CmpVal,
                                           Value *NewVal, Value *Mask,
                                           AtomicOrdering Ord) const override;
-
+#ifdef ESPERANTO
+  bool isFMAFasterThanFMulAndFAdd(const MachineFunction &MF,
+                                  EVT ET) const override;
+#endif
 private:
   void analyzeInputArgs(MachineFunction &MF, CCState &CCInfo,
                         const SmallVectorImpl<ISD::InputArg> &Ins,
@@ -228,6 +240,13 @@ private:
   SDValue lowerShiftLeftParts(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerShiftRightParts(SDValue Op, SelectionDAG &DAG, bool IsSRA) const;
   SDValue LowerINTRINSIC_WO_CHAIN(SDValue Op, SelectionDAG &DAG) const;
+
+
+#ifdef ESPERANTO
+  SDValue LowerSETCC(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerVSELECT(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerVECTOR_SHUFFLE(SDValue Op, SelectionDAG &DAG) const;
+#endif
 
   bool isEligibleForTailCallOptimization(
       CCState &CCInfo, CallLoweringInfo &CLI, MachineFunction &MF,

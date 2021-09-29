@@ -13,6 +13,7 @@
 #include "RISCVISelDAGToDAG.h"
 #include "MCTargetDesc/RISCVMCTargetDesc.h"
 #include "Utils/RISCVMatInt.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/IR/IntrinsicsRISCV.h"
 #include "llvm/Support/Alignment.h"
@@ -27,9 +28,9 @@ using namespace llvm;
 void RISCVDAGToDAGISel::PostprocessISelDAG() { doPeepholeLoadStoreADDI(); }
 
 #ifdef ESPERANTO
-void RISCVDAGToDAGISel::PreprocessISelDAG() {
-  doBuildVector();
-  doGlobalShared();
+void RISCVDAGToDAGISel::PreprocessISelDAG() { 
+  if (Subtarget->hasEsperanto())
+     doEsperantoRewrites(); 
 }
 #endif
 
@@ -622,23 +623,241 @@ void RISCVDAGToDAGISel::doPeepholeLoadStoreADDI() {
   }
 }
 
-void RISCVDAGToDAGISel::doBuildVector() {
+#ifdef ESPERANTO
+void RISCVDAGToDAGISel::doEsperantoRewrites() {
 
-  SmallVector<SDNode *, 8> BVs;
-  SmallVector<SDNode *, 4> Extract;
-  for (SDNode &N : CurDAG->allnodes())
-    switch (N.getOpcode()) {
-    case ISD::BUILD_VECTOR:
-      BVs.push_back(&N);
-      break;
-    case ISD::EXTRACT_VECTOR_ELT:
-      Extract.push_back(&N);
-      break;
+  SmallVector<SDNode *, 8> DeadNodes;
+  SelectionDAG::allnodes_iterator End = CurDAG->allnodes_end();
+  SelectionDAG::allnodes_iterator Cur = CurDAG->allnodes_begin();
+  while (Cur != End) {
+    SDNode &N = *Cur++;
+    esperantoRewrite(&N);
+  }
+}
+
+void RISCVDAGToDAGISel::esperantoRewrite(SDNode *N) {
+  switch (N->getOpcode()) {
+  default:
+    return;
+  case ISD::LOAD:
+    return esperantoMemop(cast<MemSDNode>(N),
+                          /*Value*/ SDValue(),
+                          /*Addr*/ N->getOperand(1),
+                          /*PassThru*/ SDValue(),
+                          /*Mask*/ SDValue(),
+                          cast<LoadSDNode>(N)->getExtensionType());
+  case ISD::STORE:
+    return esperantoMemop(cast<MemSDNode>(N),
+                          /*Value*/ N->getOperand(1),
+                          /*Addr*/ N->getOperand(2),
+                          /*PassThru*/ SDValue(),
+                          /*Mask*/ SDValue(), ISD::LoadExtType::NON_EXTLOAD);
+  case ISD::MLOAD:
+    return esperantoMemop(cast<MemSDNode>(N),
+                          /*Value*/ SDValue(),
+                          /*Addr*/ N->getOperand(1),
+                          /*PassThru*/ N->getOperand(4),
+                          /*Mask*/ N->getOperand(3),
+                          cast<MaskedLoadSDNode>(N)->getExtensionType());
+  case ISD::MSTORE:
+    return esperantoMemop(cast<MemSDNode>(N),
+                          /*Value*/ N->getOperand(1),
+                          /*Addr*/ N->getOperand(2),
+                          /*PassThru*/ SDValue(),
+                          /*Mask*/ N->getOperand(4),
+                          ISD::LoadExtType::NON_EXTLOAD);
+  case ISD::INTRINSIC_W_CHAIN:
+    if (N->getConstantOperandVal(1) == Intrinsic::riscv_et_gather)
+       esperantoGather(cast<MemIntrinsicSDNode>(N));
+    return;
+  case ISD::INTRINSIC_VOID:
+    if (N->getConstantOperandVal(1) == Intrinsic::riscv_et_scatter)
+       esperantoScatter(cast<MemIntrinsicSDNode>(N));
+    return;
+  case ISD::BUILD_VECTOR:
+    return esperantoBUILD_VECTOR(N);
+  case ISD::EXTRACT_VECTOR_ELT:
+    return esperantoEXTRACT_VECTOR_ELT(N);
+  case ISD::INSERT_VECTOR_ELT:
+    return esperantoINSERT_VECTOR_ELT(N);
+  case ISD::VECTOR_SHUFFLE:
+    return esperantoVECTOR_SHUFFLE(N);
+  }
+}
+
+#ifndef NDEBUG
+static const char *bits(unsigned Lanes) {
+  static char bits_[9];
+  for (unsigned Idx = 0; Idx < 8; Idx++)
+    bits_[7 - Idx] = '0' + ((Lanes >> Idx) & 1);
+  bits_[8] = 0;
+  return bits_;
+}
+#endif
+
+// This function attempts to build a constant v8i32 vector by starting
+// with a broadcast of the minimum value and then a series
+// of add-immediate operations that effect subsets of the vector to
+// build up the final values.
+static SDValue buildComplexIntegerVector(SDNode *N, SelectionDAG *CurDAG) {
+
+  // If the value is a 20-bit immediate integer, return it
+  // Otherwise None.
+  auto getImmediate = [](SDValue Elt) -> Optional<int> {
+    auto *EltC = dyn_cast<ConstantSDNode>(Elt);
+    if (!EltC || !isInt<20>(EltC->getSExtValue()))
+      return None;
+    int64_t EltV = EltC->getSExtValue();
+    if (!isInt<20>(EltV))
+      return None;
+    return EltV;
+  };
+
+  // Split the operands in to Immediate and NonImmediate values
+  // each with associated lanes. We use a MapVector so that
+  // we output the values in a deterministic order when
+  // they are not constructued through addition.
+  MapVector<SDValue, unsigned> NonImmediateLanes;
+  MapVector<int, unsigned> Immediates;
+  for (unsigned Idx = 0; Idx < 8; Idx++) {
+    SDValue Elt = N->getOperand(Idx);
+    unsigned Lane = 1 << Idx;
+    if (Optional<int> C = getImmediate(Elt))
+      Immediates[*C] |= Lane;
+    else if (!Elt->isUndef())
+      NonImmediateLanes[Elt] |= Lane;
+  }
+
+  // Find the smallest immediate
+  int Min = std::numeric_limits<int>::max();
+  for (auto Pair : Immediates)
+    Min = std::min(Min, Pair.first);
+  LLVM_DEBUG(dbgs() << "build vector "; N->dump(); dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "min " << Min << "\n");
+
+  // Compute all bit positions which will need to be set in some lane
+  // assuming we initialize to Min
+  unsigned Bits = 0;
+  for (auto &Pair : Immediates)
+    Bits |= (Pair.first - Min);
+
+  // For each bit position, determine which vector
+  // immediate lanes needs that bit to be set.
+  // If we have "3" in one lane and "7" in another
+  // The bit masks for 0b001 and 0b010 will refer to
+  // both those lanes and 0b100 will refer to the "7"
+  // lane and not the "3".
+  struct Bit2LaneElt {
+    unsigned Value;
+    unsigned Lanes;
+  };
+  SmallVector<Bit2LaneElt, 8> Bits2Lanes;
+  while (Bits) {
+    unsigned SingleBitValue = (1 << llvm::countTrailingZeros(Bits));
+    Bits &= ~SingleBitValue;
+    unsigned Lanes = 0;
+    for (auto &Pair : Immediates)
+      if ((Pair.first - Min) & SingleBitValue)
+        Lanes |= Pair.second;
+    Bits2Lanes.push_back({SingleBitValue, Lanes});
+  }
+
+  // Sort so that values with the same lanes are adjacent
+  auto cmp = [](const Bit2LaneElt &X, const Bit2LaneElt &Y) {
+    return X.Lanes < Y.Lanes;
+  };
+  std::sort(Bits2Lanes.begin(), Bits2Lanes.end(), cmp);
+
+  LLVM_DEBUG({
+    for (Bit2LaneElt E : Bits2Lanes)
+      dbgs() << "value " << E.Value << " lanes " << bits(E.Lanes) << " "
+             << E.Lanes << "\n";
+  });
+
+  // Combine values that effect the same lanes into a single
+  // value. For example if we have just "3" and "7" in Immediates
+  // this will combine the 0b001 and 0b010 will change
+  // the first to be 0b011 and clear the second so we do
+  // both bits 1 and 2 in a single operation leaving
+  // the 0b100 value for the "7" lane unmodified.
+  for (unsigned Idx = 0; Idx < Bits2Lanes.size(); Idx++) {
+    unsigned Lanes = Bits2Lanes[Idx].Lanes;
+    if (!Lanes)
+      continue;
+    for (unsigned Jdx = Idx + 1; Jdx < Bits2Lanes.size(); Jdx++)
+      if (Bits2Lanes[Jdx].Lanes == Lanes) {
+        Bits2Lanes[Idx].Value += Bits2Lanes[Jdx].Value;
+        Bits2Lanes[Jdx].Lanes = 0;
+      }
+  }
+  // Remove the lanes folded into another value which now have no bits to
+  // contribute
+  Bits2Lanes.erase(std::remove_if(Bits2Lanes.begin(), Bits2Lanes.end(),
+                                  [](Bit2LaneElt &E) { return E.Lanes == 0; }),
+                   Bits2Lanes.end());
+
+  SDLoc DL(N);
+  EVT VT = N->getValueType(0);
+  // build a mask for the specified lanes
+  auto mask = [CurDAG, N, DL](unsigned Lanes) {
+    return SDValue(
+        CurDAG->getMachineNode(RISCV::MOV_M_X, SDLoc(N), MVT::v8i1,
+                               CurDAG->getRegister(RISCV::X0, MVT::i64),
+                               CurDAG->getTargetConstant(Lanes, DL, MVT::i32)),
+        0);
+  };
+  auto Undef = SDValue(CurDAG->getMachineNode(TargetOpcode::IMPLICIT_DEF, DL,
+                                              N->getVTList(), {}),
+                       0);
+  SDValue Value = Undef;
+
+  if ((1 + Bits2Lanes.size()) >= Immediates.size()) {
+    // try setting the first mask to all lanes
+    // hoping that might be the ambient value in M0...
+    if (!Immediates.empty()) {
+      Immediates.front().second = 0xff;
+      // It is cheaper to just poke in each immediate value separately
+      for (auto &Pair : Immediates)
+        Value = SDValue(CurDAG->getMachineNode(
+                            RISCV::FBCI_PI_EX, SDLoc(N), VT, Value,
+                            CurDAG->getTargetConstant(Pair.first, DL, MVT::i32),
+                            mask(Pair.second)),
+                        0);
+    } else {
+      NonImmediateLanes.front().second = 0xff;
     }
+  } else {
+    // Initialize the value to Min in all lanes
+    Value =
+        SDValue(CurDAG->getMachineNode(
+                    RISCV::FBCI_PI_EX, SDLoc(N), VT, Value,
+                    CurDAG->getTargetConstant(Min, DL, MVT::i32), mask(0xff)),
+                0);
+    // Now build remaining values a few bits at a time
+    for (Bit2LaneElt &Bits : Bits2Lanes)
+      Value = SDValue(CurDAG->getMachineNode(
+                          RISCV::FADDI_PI_EX, DL, VT,
+                          {Value, Value,
+                           CurDAG->getTargetConstant(Bits.Value, DL, MVT::i32),
+                           mask(Bits.Lanes)}),
+                      0);
+  }
 
+  // Now broadcast the values which are not immediate. One poke for each
+  // value spanning multiple lanes.
+  for (auto &Pair : NonImmediateLanes)
+    Value =
+        SDValue(CurDAG->getMachineNode(RISCV::FBCX_PS_EX, SDLoc(N), VT, Value,
+                                       Pair.first, mask(Pair.second)),
+                0);
+
+  return Value;
+}
+
+void RISCVDAGToDAGISel::esperantoBUILD_VECTOR(SDNode *N) {
   // Try to implemented using MOV_M_X where
   // the result is a constant-valued bit-vector.
-  auto checkBuildMake = [this](SDNode *N) {
+  auto checkBuildMask = [this](SDNode *N) {
     if (any_of(N->ops(), [](SDValue Op) { return !isa<ConstantSDNode>(Op); }))
       return;
 
@@ -649,32 +868,31 @@ void RISCVDAGToDAGISel::doBuildVector() {
       if (cast<ConstantSDNode>(Pair.value())->getZExtValue())
         Value |= (static_cast<uint64_t>(1) << Pair.index());
 
+    if (Value ==
+        0xff) // This is handled by patterns including in XOR -> MASKNOT
+      return;
     SDValue MaskValue = CurDAG->getTargetConstant(Value, SDLoc(N), MVT::i64);
     SDValue Zero = CurDAG->getRegister(RISCV::X0, MVT::i64);
     SDNode *NewN = CurDAG->getMachineNode(RISCV::MOV_M_X, SDLoc(N),
                                           N->getValueType(0), Zero, MaskValue);
     ReplaceNode(N, NewN);
+    return;
   };
 
   // Try to implement using integer immediate broadcast
   auto checkIntegerBroadcast = [this](SDNode *N, SDValue Model, SDValue Input,
                                       SDValue M0Mask) {
-    if (auto *C = dyn_cast<ConstantSDNode>(Model)) {
-      if (isInt<20>(C->getSExtValue())) {
-        // TODO -- make sure FBCI_PS is correctly simm20
-        // Use FBCI_PS
-        SDValue NewC = CurDAG->getTargetConstant(*C->getConstantIntValue(),
-                                                 SDLoc(N), MVT::i64);
-        SDNode *NewN = CurDAG->getMachineNode(
-            RISCV::FBCI_PS_EX, SDLoc(N), N->getVTList(), {Input, NewC, M0Mask});
-        ReplaceNode(N, NewN);
-        return true;
-      }
-    }
-    return false;
+    if (!isa<ConstantSDNode>(Model))
+      return false;
+    // We have a special opcode for broadcast so we can pattern match
+    // effectively when looking for immediate variables of operations.
+    SDValue NewN = CurDAG->getNode(RISCVISD::ET_BROADCAST, SDLoc(N),
+                                   N->getValueType(0), Model);
+    ReplaceNode(N, NewN.getNode());
+    return true;
   };
 
-  // Try to implement using the restricted float immiedate broadcast
+  // Try to implement using the restricted float immediate broadcast
   auto checkFloatBroadcast = [this](SDNode *N, SDValue Model, SDValue Input,
                                     SDValue M0Mask) {
     auto *C = dyn_cast<ConstantFPSDNode>(Model);
@@ -698,197 +916,311 @@ void RISCVDAGToDAGISel::doBuildVector() {
     return true;
   };
 
-  for (SDNode *N : BVs) {
-    if (N->getValueType(0) == MVT::v8i1) {
-      checkBuildMake(N);
-      continue;
-    }
-    SDValue Model = N->getOperand(0);
-    bool Splat = true;
-    bool Scalar = true;
-    for (auto Pair : enumerate(N->ops())) {
-      SDValue Op = Pair.value();
-      if (Op == Model) {
-        if (Pair.index())
-          Scalar = false;
-      } else if (!Op.isUndef()) {
-        Splat = false;
-      }
-    }
-    if (!Splat)
-      continue;
-    SDValue Input =
-        SDValue(CurDAG->getMachineNode(TargetOpcode::IMPLICIT_DEF, SDLoc(N),
-                                       N->getVTList(), {}),
-                0);
-    EVT VT = Model->getValueType(0);
-    if (Scalar) {
-      SDValue NewN = CurDAG->getTargetInsertSubreg(
-          RISCV::sub_32, SDLoc(N), N->getSimpleValueType(0), Input, Model);
-      ReplaceNode(N, NewN.getNode());
-      continue;
-    }
-    SDValue M0Mask =
-        SDValue(CurDAG->getMachineNode(
-                    RISCV::MOV_M_X, SDLoc(N), MVT::v8i1,
-                    CurDAG->getRegister(RISCV::X0, MVT::i64),
-                    CurDAG->getTargetConstant(0xff, SDLoc(N), MVT::i64)),
-                0);
-    if (checkIntegerBroadcast(N, Model, Input, M0Mask))
-      continue;
+  if (N->getValueType(0) == MVT::v8i1)
+    return checkBuildMask(N);
 
-    if (VT.isFloatingPoint()) {
-      if (checkFloatBroadcast(N, Model, Input, M0Mask))
-        continue;
-      // We have to move the floating point value to the GPR registers.
-      // (and type it as an i64)
-      // TODO: handle the case for constants better
-      Model = SDValue(
-          CurDAG->getMachineNode(RISCV::FMV_X_W, SDLoc(N), MVT::i64, Model), 0);
+  SDValue Model = N->getOperand(0);
+  bool Splat = true;
+  bool Scalar = true;
+  for (auto Pair : enumerate(N->ops())) {
+    SDValue Op = Pair.value();
+    if (Op == Model) {
+      if (Pair.index())
+        Scalar = false;
+    } else if (!Op.isUndef()) {
+      Splat = false;
     }
-
-    SDNode *NewN = CurDAG->getMachineNode(
-        RISCV::FBCX_PS_EX, SDLoc(N), N->getVTList(), {Input, Model, M0Mask});
-    ReplaceNode(N, NewN);
+  }
+  if (!Splat) {
+    SDValue NewN = buildComplexIntegerVector(N, CurDAG);
+    ReplaceNode(N, NewN.getNode());
+    return;
   }
 
-  for (SDNode *E : Extract) {
-    EVT VT = E->getSimpleValueType(0);
-    if (VT != MVT::i64)
-      continue;
-    // This case breaks tblgen's type system because we are
-    // extracting an i64 from an v8i32
-    SDValue Input = E->getOperand(0);
-    SDValue Index = E->getOperand(1);
-    auto *C = dyn_cast<ConstantSDNode>(Index.getNode());
-    if (!C)
-      continue;
-    SDNode *NewN = CurDAG->getMachineNode(
-        RISCV::FMVS_X_PS, SDLoc(E), MVT::i64,
-        {Input,
-         CurDAG->getTargetConstant(C->getZExtValue(), SDLoc(E), MVT::i32)});
-    ReplaceNode(E, NewN);
+  SDValue Input = SDValue(CurDAG->getMachineNode(TargetOpcode::IMPLICIT_DEF,
+                                                 SDLoc(N), N->getVTList(), {}),
+                          0);
+  EVT VT = Model->getValueType(0);
+  if (Scalar) {
+    // Special case where we have only one element and we just insert
+    // that element into an otherwise Undefined vector.
+    SDValue NewN = CurDAG->getTargetInsertSubreg(
+        RISCV::sub_32, SDLoc(N), N->getSimpleValueType(0), Input, Model);
+    ReplaceNode(N, NewN.getNode());
+    return;
   }
+  SDValue M0Mask =
+      SDValue(CurDAG->getMachineNode(
+                  RISCV::MOV_M_X, SDLoc(N), MVT::v8i1,
+                  CurDAG->getRegister(RISCV::X0, MVT::i64),
+                  CurDAG->getTargetConstant(0xff, SDLoc(N), MVT::i64)),
+              0);
+  if (checkIntegerBroadcast(N, Model, Input, M0Mask))
+    return;
+
+  if (VT.isFloatingPoint()) {
+    if (checkFloatBroadcast(N, Model, Input, M0Mask))
+      return;
+    // We have to move the floating point value to the GPR registers.
+    // (and type it as an i64)
+    // TODO: handle the case for constants better
+    Model = SDValue(
+        CurDAG->getMachineNode(RISCV::FMV_X_W, SDLoc(N), MVT::i64, Model), 0);
+  }
+
+  SDNode *NewN = CurDAG->getMachineNode(RISCV::FBCX_PS_EX, SDLoc(N),
+                                        N->getVTList(), {Input, Model, M0Mask});
+  ReplaceNode(N, NewN);
 }
 
-static void getLoadParams(const LoadSDNode *Ld, unsigned* Opcode, unsigned* TruncateMask) {
+void RISCVDAGToDAGISel::esperantoEXTRACT_VECTOR_ELT(SDNode *E) {
+  EVT VT = E->getSimpleValueType(0);
+  if (VT != MVT::i64)
+    return;
+  // This case breaks tblgen's type system because we are
+  // extracting an i64 from an v8i32
+  SDValue Input = E->getOperand(0);
+  SDValue Index = E->getOperand(1);
+  auto *C = dyn_cast<ConstantSDNode>(Index.getNode());
+  SDNode *NewN = CurDAG->getMachineNode(
+      RISCV::FMVS_X_PS, SDLoc(E), MVT::i64,
+      {Input,
+       CurDAG->getTargetConstant(C->getZExtValue(), SDLoc(E), MVT::i32)});
+  ReplaceNode(E, NewN);
+}
 
-  bool Shared = (Ld->getAddressSpace() == 1);
-  assert((Shared || Ld->getAddressSpace() == 2) && "Invalid address specified");
-  switch (Ld->getMemoryVT().getSizeInBits()) {
+void RISCVDAGToDAGISel::esperantoINSERT_VECTOR_ELT(SDNode *I) {
+
+  SDValue InputVec = I->getOperand(0);
+  SDValue InputElt = I->getOperand(1);
+  SDValue Index = I->getOperand(2);
+  unsigned MaskVal = 1 << cast<ConstantSDNode>(Index)->getZExtValue();
+  SDLoc DL(I);
+  SDValue Mask = SDValue(
+      CurDAG->getMachineNode(RISCV::MOV_M_X, DL, MVT::v8i1,
+                             CurDAG->getRegister(RISCV::X0, MVT::i64),
+                             CurDAG->getTargetConstant(MaskVal, DL, MVT::i32)),
+      0);
+
+  if (auto *C = dyn_cast<ConstantSDNode>(InputElt)) {
+    if (isInt<20>(C->getSExtValue())) {
+      SDNode *NewN = CurDAG->getMachineNode(
+          RISCV::FBCI_PI_EX, DL, I->getValueType(0), InputVec,
+          CurDAG->getTargetConstant(C->getSExtValue(), DL, MVT::i32), Mask);
+      ReplaceNode(I, NewN);
+      return;
+    }
+  }
+  if (InputElt.getValueType() == MVT::f32)
+    InputElt = SDValue(
+        CurDAG->getMachineNode(RISCV::FMV_X_W, DL, MVT::i32, InputElt), 0);
+  // TODO -- handle FBCI_PS
+  SDNode *NewN = CurDAG->getMachineNode(
+      RISCV::FBCX_PS_EX, DL, I->getValueType(0), InputVec, InputElt, Mask);
+  ReplaceNode(I, NewN);
+}
+
+void RISCVDAGToDAGISel::esperantoVECTOR_SHUFFLE(SDNode *N) {
+  auto *VS = cast<ShuffleVectorSDNode>(N);
+  ArrayRef<int> Mask = VS->getMask();
+  unsigned MaskValue = 0;
+  for (unsigned Idx = 0; Idx < 4; Idx++) {
+    int M = Mask[Idx];
+    if (M < 0) {
+      M = Mask[Idx + 4];
+      if (M < 0)
+        M = Idx;
+    }
+    MaskValue |= M << (2 * Idx);
+  }
+
+  SDValue Input = SDValue(CurDAG->getMachineNode(TargetOpcode::IMPLICIT_DEF,
+                                                 SDLoc(N), N->getVTList(), {}),
+                          0);
+  SDNode *NewN = CurDAG->getMachineNode(
+      RISCV::FSWIZZ_PS_EX, SDLoc(N), N->getValueType(0),
+      {Input, N->getOperand(0),
+       CurDAG->getTargetConstant(MaskValue, SDLoc(N), MVT::i32),
+       CurDAG->getTargetConstant(0xff, SDLoc(N), MVT::i32)}); // All Lanes Mask
+  ReplaceNode(N, NewN);
+}
+
+static void getLoadParams(MemSDNode *M, ISD::LoadExtType Ext, unsigned *Opcode,
+                          unsigned *TruncateMask) {
+  unsigned AddrSpace = M->getAddressSpace();
+  static unsigned OpMap[9] = {
+      RISCV::FGB_PS_EX, RISCV::FGBL_PS_EX, RISCV::FGBG_PS_EX,
+      RISCV::FGH_PS_EX, RISCV::FGHL_PS_EX, RISCV::FGHG_PS_EX,
+      RISCV::FGW_PS_EX, RISCV::FGWL_PS_EX, RISCV::FGWG_PS_EX,
+  };
+
+  switch (M->getMemoryVT().getScalarSizeInBits()) {
   default:
     llvm_unreachable("invalid MVT for shared memory op");
   case 8:
-    *Opcode = (Shared ? RISCV::FGBL_PS_EX : RISCV::FGBG_PS_EX);
+    *Opcode = OpMap[AddrSpace];
     *TruncateMask = 0xff;
     break;
   case 16:
-    *Opcode = (Shared ? RISCV::FGHL_PS_EX : RISCV::FGHG_PS_EX);
+    *Opcode = OpMap[3 + AddrSpace];
     *TruncateMask = 0xffff;
     break;
   case 32:
-    *Opcode = (Shared ? RISCV::FGWL_PS_EX : RISCV::FGWG_PS_EX);
+    *Opcode = OpMap[6 + AddrSpace];
     *TruncateMask = 0;
     break;
   }
-  if (Ld->getExtensionType() != ISD::ZEXTLOAD)
+  if (Ext != ISD::LoadExtType::ZEXTLOAD)
     *TruncateMask = 0;
 }
 
-static void getStoreParams(const StoreSDNode* St, unsigned *Opcode) {
-  bool Shared = (St->getAddressSpace() == 1);
-  assert((Shared || St->getAddressSpace() == 2) && "Invalid address specified");
-
-  switch (St->getMemoryVT().getScalarSizeInBits()) {
+static void getStoreParams(MemSDNode *M, unsigned *Opcode) {
+  unsigned AddrSpace = M->getAddressSpace();
+  assert(AddrSpace < 3);
+  static unsigned OpMap[9] = {
+      RISCV::FSCB_PS_EX, RISCV::FSCBL_PS_EX, RISCV::FSCBG_PS_EX,
+      RISCV::FSCH_PS_EX, RISCV::FSCHL_PS_EX, RISCV::FSCHG_PS_EX,
+      RISCV::FSCW_PS_EX, RISCV::FSCWL_PS_EX, RISCV::FSCWG_PS_EX,
+  };
+  switch (M->getMemoryVT().getScalarSizeInBits()) {
   default:
     llvm_unreachable("invalid MVT for shared memory op");
   case 8:
-    *Opcode = (Shared ? RISCV::FSCBL_PS_EX : RISCV::FSCBG_PS_EX);
+    *Opcode = OpMap[AddrSpace];
     break;
   case 16:
-    *Opcode = (Shared ? RISCV::FSCHL_PS_EX : RISCV::FSCHG_PS_EX);
+    *Opcode = OpMap[3 + AddrSpace];
     break;
   case 32:
-    *Opcode = (Shared ? RISCV::FSCWL_PS_EX : RISCV::FSCWG_PS_EX);
+    *Opcode = OpMap[6 + AddrSpace];
     break;
   }
-
 }
 
-void RISCVDAGToDAGISel::doGlobalShared() {
+void RISCVDAGToDAGISel::esperantoMemop(MemSDNode *M, SDValue Value,
+                                       SDValue Addr, SDValue PassThru,
+                                       SDValue Mask, ISD::LoadExtType Ext) {
+  unsigned MemWidth = M->getMemoryVT().getScalarSizeInBits();
+  if (MemWidth > 32 || (M->getAddressSpace() == 0 && MemWidth == 32))
+    return;
+  unsigned Opcode;
+  unsigned TruncateMask = 0; // target operations only do sign extensions so
+                             // we may need to truncate the result
+  if (!Value) {
+    getLoadParams(M, Ext, &Opcode, &TruncateMask);
+  } else {
+    getStoreParams(M, &Opcode);
+  }
 
-  SmallVector<MemSDNode *, 8> Refs;
-  for (SDNode &N : CurDAG->allnodes())
-    if (auto *Mem = dyn_cast<MemSDNode>(&N)) {
-      if (Mem->getAddressSpace() == 0)
-        continue;
-      if (isa<LoadSDNode>(Mem) || isa<StoreSDNode>(Mem))
-        Refs.push_back(Mem);
-    }
-
-  for (MemSDNode *M : Refs) {
-    unsigned Opcode;
-    unsigned TruncateMask = 0; // target operations only do sign extensions so we 
-                               // may need to truncate the result
-    SDValue Addr;
-    auto *Ld = dyn_cast<LoadSDNode>(M);
-    if (Ld) {
-      Addr = M->getOperand(1);
-      getLoadParams(Ld, &Opcode, &TruncateMask);
-    }
-    else {
-      Addr = M->getOperand(2);
-      getStoreParams(dyn_cast<StoreSDNode>(M), &Opcode);
-    }
-
-    SDValue Chain = M->getOperand(0);
-    SDValue One = CurDAG->getTargetConstant(0x01, SDLoc(M), MVT::i64);
-    SDValue ZeroReg = CurDAG->getRegister(RISCV::X0, MVT::i64);
-    SDValue Mask01(CurDAG->getMachineNode(RISCV::MOV_M_X, SDLoc(M), MVT::v8i1,
-                                          ZeroReg, One),
+  auto constant = [this, M](int Value) {
+    return CurDAG->getTargetConstant(Value, SDLoc(M), MVT::i32);
+  };
+  auto mask = [this, M](unsigned Value) {
+    return SDValue(CurDAG->getMachineNode(
+                       RISCV::MOV_M_X, SDLoc(M), MVT::v8i1,
+                       CurDAG->getRegister(RISCV::X0, MVT::i64),
+                       CurDAG->getTargetConstant(Value, SDLoc(M), MVT::i32)),
                    0);
-    SDValue UndefVec(CurDAG->getMachineNode(TargetOpcode::IMPLICIT_DEF,
-                                            SDLoc(M), MVT::v8i32),
-                     0);
-    SDValue ZeroIndexVec(CurDAG->getMachineNode(RISCV::FBCX_PS_EX, SDLoc(M),
-                                                MVT::v8i32,
-                                                {UndefVec, ZeroReg, Mask01}),
-                         0);
-    SDNode *NewM;
-    if (Ld) {
-      NewM =
-          CurDAG->getMachineNode(Opcode, SDLoc(M), {MVT::v8i32, MVT::Other},
-                                 {UndefVec, ZeroIndexVec, Addr, Mask01, Chain});
-      Chain = SDValue(NewM, 1);
+  };
 
+  SDValue Chain = M->getOperand(0);
+
+  bool isVector =
+      (Value ? Value.getValueType() : M->getValueType(0)).isVector();
+  SDValue ZeroReg = CurDAG->getRegister(RISCV::X0, MVT::i64);
+  if (!Mask)
+    Mask = mask(isVector ? 0xff : 0x01);
+  SDValue UndefVec(
+      CurDAG->getMachineNode(TargetOpcode::IMPLICIT_DEF, SDLoc(M), MVT::v8i32),
+      0);
+  SDNode *NewM;
+  SDValue IndexVec(CurDAG->getMachineNode(RISCV::FBCX_PS_EX, SDLoc(M),
+                                          MVT::v8i32,
+                                          {UndefVec, ZeroReg, mask(isVector ? 0xff : 0x1)}),
+                   0);
+  if (isVector) {
+    // TODO -- this should be done earlier so they constructed vector
+    // is built outside of a loop....
+    for (unsigned Idx = 1; Idx < 8; Idx++)
+      IndexVec = SDValue(
+          CurDAG->getMachineNode(RISCV::FBCI_PI_EX, SDLoc(M), MVT::v8i32,
+                                 {IndexVec, constant(Idx), mask(1 << Idx)}),
+          0);
+    if (MemWidth > 8)
+      IndexVec = CurDAG->getNode(
+          ISD::SHL, SDLoc(M), MVT::v8i32, IndexVec,
+          CurDAG->getSplatBuildVector(
+              MVT::v8i32, SDLoc(M),
+              CurDAG->getConstant(MemWidth == 16 ? 1 : 2, SDLoc(M), MVT::i32)));
+  }
+  if (!Value) {
+    NewM = CurDAG->getMachineNode(Opcode, SDLoc(M), {MVT::v8i32, MVT::Other},
+                                  {UndefVec, IndexVec, Addr, Mask, Chain});
+    CurDAG->setNodeMemRefs(dyn_cast<MachineSDNode>(NewM), M->getMemOperand());
+    Chain = SDValue(NewM, 1);
+    SDValue Result = SDValue(NewM, 0);
+    if (!isVector) {
       SDValue Zero = CurDAG->getTargetConstant(0, SDLoc(M), MVT::i32);
       unsigned MoveOpcode =
-          (Ld->getExtensionType() == ISD::ZEXTLOAD ? RISCV::FMVZ_X_PS
-                                                   : RISCV::FMVS_X_PS);
-      SDValue Result(CurDAG->getMachineNode(MoveOpcode, SDLoc(M), MVT::i64,
-                                            {SDValue(NewM, 0), Zero}),
-                     0);
+          (Ext == ISD::ZEXTLOAD ? RISCV::FMVZ_X_PS : RISCV::FMVS_X_PS);
+      Result = SDValue(CurDAG->getMachineNode(MoveOpcode, SDLoc(M), MVT::i64,
+                                              {SDValue(NewM, 0), Zero}),
+                       0);
       if (TruncateMask)
         Result = CurDAG->getNode(
             ISD::AND, SDLoc(M), MVT::i64,
             {Result, CurDAG->getConstant(TruncateMask, SDLoc(M), MVT::i64)});
-      CurDAG->setNodeMemRefs(dyn_cast<MachineSDNode>(NewM), M->getMemOperand());
-      ReplaceUses(SDValue(M, 0), Result); // Update the value
-      ReplaceUses(SDValue(M, 1), Chain);  // Update the chain
-      CurDAG->RemoveDeadNode(M);
-    } else {
-      // Copy the value into the vector register file
-      SDValue Val = M->getOperand(1);
-      Val = SDValue(CurDAG->getMachineNode(RISCV::FBCX_PS_EX, SDLoc(M),
-                                           MVT::v8i32, {UndefVec, Val, Mask01}),
-                    0);
-      // and store it to memory
-      NewM = CurDAG->getMachineNode(Opcode, SDLoc(M), MVT::Other,
-                                    {Val, ZeroIndexVec, Addr, Mask01, Chain});
-      CurDAG->setNodeMemRefs(dyn_cast<MachineSDNode>(NewM), M->getMemOperand());
-      ReplaceNode(M, NewM);
     }
+    ReplaceUses(SDValue(M, 0), Result); // Update the value
+    ReplaceUses(SDValue(M, 1), Chain);  // Update the chain
+    CurDAG->RemoveDeadNode(M);
+  } else {
+    if (!isVector)
+      // Copy the value into the vector register file
+      Value =
+          SDValue(CurDAG->getMachineNode(RISCV::FBCX_PS_EX, SDLoc(M),
+                                         MVT::v8i32, {UndefVec, Value, Mask}),
+                  0);
+    // and store it to memory
+    NewM = CurDAG->getMachineNode(Opcode, SDLoc(M), MVT::Other,
+                                  {Value, IndexVec, Addr, Mask, Chain});
+    CurDAG->setNodeMemRefs(dyn_cast<MachineSDNode>(NewM), M->getMemOperand());
+    ReplaceNode(M, NewM);
   }
+}
+
+void RISCVDAGToDAGISel::esperantoGather(MemIntrinsicSDNode *M) {
+  SDValue Chain = M->getOperand(0);
+  SDValue Addr = M->getOperand(2);
+  SDValue IndexVec = M->getOperand(3);
+  SDValue PassThru = M->getOperand(4);
+  auto Ext = static_cast<ISD::LoadExtType>(M->getConstantOperandVal(5));
+  SDValue Mask = M->getOperand(6);
+  unsigned Opcode;
+  unsigned TruncateMask;
+  getLoadParams(M, Ext, &Opcode, &TruncateMask);
+
+  SDNode *NewM =
+      CurDAG->getMachineNode(Opcode, SDLoc(M), {MVT::v8i32, MVT::Other},
+                             {PassThru, IndexVec, Addr, Mask, Chain});
+  CurDAG->setNodeMemRefs(dyn_cast<MachineSDNode>(NewM), M->getMemOperand());
+  ReplaceNode(M, NewM);
+}
+
+void RISCVDAGToDAGISel::esperantoScatter(MemIntrinsicSDNode *M) {
+  SDValue Chain = M->getOperand(0);
+  SDValue Value = M->getOperand(2);
+  SDValue Addr = M->getOperand(3);
+  SDValue IndexVec = M->getOperand(4);
+  SDValue Mask = M->getOperand(5);
+  unsigned Opcode;
+  getStoreParams(M, &Opcode);
+
+  SDNode *NewM =
+      CurDAG->getMachineNode(Opcode, SDLoc(M), MVT::Other,
+                             {Value, IndexVec, Addr, Mask, Chain});
+  CurDAG->setNodeMemRefs(dyn_cast<MachineSDNode>(NewM), M->getMemOperand());
+  ReplaceNode(M, NewM);
 }
 
 void RISCVDAGToDAGISel::optimizeMaskCopies(MachineFunction &MF) {
@@ -1017,6 +1349,7 @@ void RISCVDAGToDAGISel::optimizeMaskCopies(MachineFunction &MF) {
     }
   }
 }
+#endif
 
 // This pass converts a legalized DAG into a RISCV-specific DAG, ready
 // for instruction scheduling.

@@ -1,0 +1,128 @@
+addb.ll passed
+addh.ll passed
+extr4.ll passed
+fabs.ll passed
+fcopysign.ll passed
+fcopysignneg.ll passed
+fexp2.ll link failed
+finsert.ll passed
+flog2.ll link failed
+freduce.ll passed
+fsin.ll link failed
+fsqrt.ll failed
+gmgather.ll unsupported test
+gmgatherb.ll unsupported test
+gmload.ll unsupported test
+gmscatter.ll unsupported test
+gmstore.ll unsupported test
+insert.ll unsupported parameter type
+lgloads.ll unsupported parameter type
+lgstores.ll unsupported parameter type
+lmgather.ll unsupported test
+lmload.ll unsupported test
+lmscatter.ll unsupported test
+lmscatterh.ll unsupported test
+lmstore.ll unsupported test
+mgather.ll unsupported test
+mload.ll unsupported test
+mscatter.ll unsupported test
+mstore.ll unsupported test
+msvoge.ll passed
+msvogt.ll passed
+msvole.ll passed
+msvolt.ll passed
+mvige.ll passed
+mvigt.ll passed
+mvile.ll passed
+mvilt.ll passed
+mviuge.ll passed
+mviugt.ll passed
+mviule.ll passed
+mviult.ll passed
+splatAllOnes.ll passed
+srem.ll passed
+svfuge.ll passed
+svfugt.ll passed
+svfule.ll passed
+svfult.ll passed
+svieq.ll passed
+svige.ll passed
+svigt.ll passed
+svile.ll passed
+svilt.ll passed
+svine.ll passed
+sviuge.ll passed
+sviugt.ll passed
+sviule.ll passed
+sviult.ll passed
+svoeq.ll passed
+svoge.ll passed
+svogt.ll passed
+svole.ll passed
+svolt.ll passed
+svone.ll passed
+svord.ll passed
+svueq.ll passed
+svune.ll passed
+svuno.ll passed
+urem.ll passed
+vadd.ll passed
+vadd4.ll unsupported parameter type
+vaddi.ll passed
+vand.ll passed
+vandi.ll passed
+vashr.ll passed
+vashri.ll passed
+vbcast.ll unsupported parameter type
+vf2si.ll passed
+vf2ui.ll passed
+vfadd.ll passed
+vfbast.ll passed
+vfdiv.ll passed
+vfibcast.ll passed
+vfmadd.ll passed
+vfmsub.ll passed
+vfmul.ll passed
+vfneg.ll passed
+vfnmadd.ll passed
+vfnmsub.ll passed
+vfrem.ll link failed
+vfsub.ll passed
+vfuge.ll passed
+vfugt.ll passed
+vfule.ll passed
+vfult.ll passed
+vibcast.ll passed
+vieq.ll passed
+vige.ll passed
+vigt.ll passed
+vile.ll passed
+vilt.ll passed
+vine.ll passed
+viuge.ll passed
+viugt.ll passed
+viule.ll passed
+viult.ll passed
+vlshr.ll passed
+vlshri.ll passed
+vmul.ll passed
+vnot.ll passed
+voeq.ll passed
+voge.ll passed
+vogt.ll passed
+vole.ll passed
+volt.ll passed
+vone.ll passed
+vor.ll passed
+vord.ll passed
+vsdiv.ll passed
+vshl.ll passed
+vshli.ll passed
+vsi2f.ll passed
+vsub.ll passed
+vudiv.ll passed
+vueq.ll passed
+vui2f.ll passed
+vune.ll passed
+vuno.ll passed
+vxor.ll passed

@@ -88,12 +88,13 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
   if (Subtarget.hasStdExtD())
     addRegisterClass(MVT::f64, &RISCV::FPR64RegClass);
 
+#ifdef ESPERANTO
   if (Subtarget.is64Bit() && Subtarget.hasEsperanto()) {
     addRegisterClass(MVT::v8i1, &RISCV::MRRegClass);
-    for (MVT VT : {MVT::v8i8, MVT::v8i16, MVT::v8i32, MVT::v8f16, MVT::v8f32})
+    for (MVT VT : {MVT::v8i32, MVT::v8f32})
       addRegisterClass(VT, &RISCV::FPR256RegClass);
   }
-
+#endif 
   // Compute derived properties from the register classes.
   computeRegisterProperties(STI.getRegisterInfo());
 
@@ -249,15 +250,58 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
     setMaxAtomicSizeInBitsSupported(0);
   }
 
+ #ifdef ESPERANTO
   if (Subtarget.is64Bit() && Subtarget.hasEsperanto()) {
+    // by default, expand all vector types except
+    // where we have support
+    for (MVT VT : MVT::vector_valuetypes())
+      for (unsigned Op = ISD::ADD; Op < ISD::BUILTIN_OP_END; Op++)
+        if (Op != ISD::VECTOR_SHUFFLE)
+          setOperationAction(Op, VT, Expand);
+
     for (MVT MT : {MVT::v8i1, MVT::v8i32, MVT::v8f32}) {
       setOperationAction(ISD::INTRINSIC_WO_CHAIN, MT, Legal);
       setOperationAction(ISD::INTRINSIC_W_CHAIN, MT, Legal);
       setOperationAction(ISD::STORE, MT, Legal);
       setOperationAction(ISD::LOAD, MT, Legal);
     }
-  }
+    // Special handling of partial-word gathers
+    for (MVT MT : {MVT::v8i8, MVT::v8i16}) {
+      setOperationAction(ISD::INTRINSIC_W_CHAIN, MT, Custom); // gather
+      setOperationAction(ISD::INTRINSIC_VOID, MT, Custom);    // scatter
+    }
 
+    for (unsigned Op : {
+             ISD::ADD,        ISD::AND,         ISD::BUILD_VECTOR,
+             ISD::MUL,        ISD::OR,          ISD::SDIV,
+             ISD::SETCC,      ISD::SIGN_EXTEND, ISD::SHL,
+             ISD::SMAX,       ISD::SMIN,        ISD::SRA,
+             ISD::SRL,        ISD::SREM,        ISD::SUB,
+             ISD::UDIV,       ISD::UMAX,        ISD::UMIN,
+             ISD::UREM,       ISD::XOR,         ISD::SINT_TO_FP,
+             ISD::UINT_TO_FP, ISD::FP_TO_SINT,  ISD::FP_TO_UINT,
+             ISD::MSTORE,     ISD::MGATHER, ISD::BITCAST,
+         })
+      setOperationAction(Op, MVT::v8i32, Legal);
+    // TODO -- add library support for emulated fdiv.s fdiv.ps
+    for (unsigned Op :
+         {ISD::FADD, ISD::FSUB, ISD::FMUL, ISD::SETCC, ISD::FDIV, ISD::FABS,
+          ISD::FSIN, ISD::FLOG2, ISD::FEXP2, ISD::FSQRT, ISD::FMINIMUM,
+          ISD::FMAXIMUM, ISD::FMA, ISD::FMAD, ISD::FNEG, ISD::BUILD_VECTOR, ISD::BITCAST,
+          ISD::FREM, ISD::FCOPYSIGN})
+      setOperationAction(Op, MVT::v8f32, Legal);
+    for (unsigned Op : {ISD::BUILD_VECTOR, ISD::AND, ISD::OR, ISD::XOR})
+      setOperationAction(Op, MVT::v8i1, Legal);
+    setOperationAction(ISD::SETCC, MVT::v8i1, Custom);
+    for (unsigned Op : {ISD::VSELECT, ISD::VECTOR_SHUFFLE,
+                        ISD::EXTRACT_VECTOR_ELT, ISD::INSERT_VECTOR_ELT}) {
+      setOperationAction(Op, MVT::v8i32, Custom);
+      setOperationAction(Op, MVT::v8f32, Custom);
+    }
+    setOperationAction(ISD::BITCAST, MVT::i8, Custom);
+  }
+#endif
+  
   setBooleanContents(ZeroOrOneBooleanContent);
 
   // Function alignments.
@@ -289,6 +333,21 @@ bool RISCVTargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
   switch (Intrinsic) {
   default:
     return false;
+#ifdef ESPERANTO
+  case Intrinsic::riscv_et_gather:
+  case Intrinsic::riscv_et_scatter: {
+    unsigned Idx = (Intrinsic == Intrinsic::riscv_et_scatter ? 1 : 0);
+    PointerType *PtrTy = cast<PointerType>(I.getArgOperand(Idx)->getType());
+    Info.opc = (Idx ? ISD::INTRINSIC_VOID : ISD::INTRINSIC_W_CHAIN);
+    Info.memVT = MVT::getVT(PtrTy->getElementType());
+    Info.ptrVal = I.getArgOperand(Idx);
+    Info.offset = 0;
+    Info.align = Align(Info.memVT.getScalarSizeInBits() / 8);
+    Info.flags = MachineMemOperand::MOLoad | MachineMemOperand::MOStore |
+                 MachineMemOperand::MOVolatile;
+    return true;
+  }
+#endif
   case Intrinsic::riscv_masked_atomicrmw_xchg_i32:
   case Intrinsic::riscv_masked_atomicrmw_add_i32:
   case Intrinsic::riscv_masked_atomicrmw_sub_i32:
@@ -437,6 +496,13 @@ static unsigned getBranchOpcodeForIntCondCode(ISD::CondCode CC) {
   }
 }
 
+#ifdef ESPERANTO
+static bool validVectorIndex(SDValue Index) {
+  auto *C = dyn_cast<ConstantSDNode>(Index);
+  return C && C->getZExtValue() < 8;
+}
+#endif
+
 SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
                                             SelectionDAG &DAG) const {
   switch (Op.getOpcode()) {
@@ -477,6 +543,32 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
   }
   case ISD::INTRINSIC_WO_CHAIN:
     return LowerINTRINSIC_WO_CHAIN(Op, DAG);
+#ifdef ESPERANTO
+  case ISD::INTRINSIC_VOID: {
+    assert(Op->getConstantOperandVal(1) == Intrinsic::riscv_et_scatter);
+    EVT VT = Op->getOperand(2).getValueType();
+    assert(VT == MVT::v8i8 || VT == MVT::v8i16);
+    SmallVector<SDValue, 6> Ops;
+    for (unsigned Idx = 0; Idx < Op->getNumOperands(); Idx++)
+      Ops.push_back(Op->getOperand(Idx));
+    Ops[2] = DAG.getNode(ISD::ANY_EXTEND, SDLoc(Op), MVT::v8i32, Ops[2]);
+    auto *Mem = cast<MemIntrinsicSDNode>(Op.getNode());
+    SDValue Scatter = DAG.getMemIntrinsicNode(
+        ISD::INTRINSIC_VOID, SDLoc(Op), Mem->getVTList(), Ops,
+        Mem->getMemoryVT(), Mem->getMemOperand());
+    return Scatter;
+  }
+  case ISD::SETCC:
+    return LowerSETCC(Op, DAG);
+  case ISD::VSELECT:
+    return LowerVSELECT(Op, DAG);
+  case ISD::EXTRACT_VECTOR_ELT:
+    return (validVectorIndex(Op.getOperand(1)) ? Op : SDValue());
+  case ISD::INSERT_VECTOR_ELT:
+    return (validVectorIndex(Op.getOperand(2)) ? Op : SDValue());
+  case ISD::VECTOR_SHUFFLE:
+    return LowerVECTOR_SHUFFLE(Op, DAG);
+#endif
   }
 }
 
@@ -894,6 +986,255 @@ SDValue RISCVTargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
   }
 }
 
+#ifdef ESPERANTO
+SDValue RISCVTargetLowering::LowerSETCC(SDValue Op, SelectionDAG &DAG) const {
+  // This is only enabled for Esperanto mask generating operations
+  assert(Op.getValueType() == MVT::v8i1);
+
+  ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(2))->get();
+  SDValue LHS = Op.getOperand(0);
+  SDValue RHS = Op.getOperand(1);
+  bool isFloat = (LHS.getValueType() == MVT::v8f32);
+  SDLoc DL(Op);
+
+  // Helper lambda functions to abstract node constructions
+
+  // Build a condition code node for CC.
+  auto cc = [&DAG, DL](ISD::CondCode CC) { return DAG.getCondCode(CC); };
+
+  // Logical operatros
+  auto not_ = [&DAG, DL](SDValue X) {
+    return DAG.getNode(ISD::XOR, DL, MVT::v8i1, X,
+                       DAG.getSplatBuildVector(
+                           MVT::v8i1, DL, DAG.getConstant(1, DL, MVT::i1)));
+  };
+  auto and_ = [&DAG, DL](SDValue X, SDValue Y) {
+    return DAG.getNode(ISD::AND, DL, MVT::v8i1, X, Y);
+  };
+  auto or_ = [&DAG, DL](SDValue X, SDValue Y) {
+    return DAG.getNode(ISD::OR, DL, MVT::v8i1, X, Y);
+  };
+
+  // Build a SELECT with the operand's swapped using CC is the code.
+  auto swapOperands = [&](ISD::CondCode CC) {
+    return DAG.getNode(ISD::SETCC, DL, MVT::v8i1, RHS, LHS, cc(CC),
+                       Op->getFlags());
+  };
+  // Build a new SELECT with CC but other parameters the same
+  auto make = [&](ISD::CondCode CC) {
+    return DAG.getNode(ISD::SETCC, DL, MVT::v8i1, LHS, RHS, cc(CC),
+                       Op->getFlags());
+  };
+  // Compute a mask that is true when both operands are not NaN
+  auto ordered = [&]() {
+    SDValue OLHS =
+        DAG.getNode(ISD::SETCC, DL, MVT::v8i1, LHS, LHS, cc(ISD::SETO));
+    SDValue ORHS =
+        DAG.getNode(ISD::SETCC, DL, MVT::v8i1, RHS, RHS, cc(ISD::SETO));
+    // TOOD -- somewhere we should fold an and by
+    // using the OLHS mask to ORHS
+    return and_(OLHS, ORHS);
+  };
+
+  // Rewrite CC kinds to mostly avoid operations not directly supported
+  // by the hardare. In some cases, we can't fully avoid that because
+  // subsequent combining/simplification will just reverse the action here
+  // or where the rewrite yields much worse code than a code generation
+  // pattern.
+  switch (CC) {
+  default:
+    return Op;
+  case ISD::SETOGT:
+    return swapOperands(ISD::SETOLT);
+  case ISD::SETOGE:
+    return swapOperands(ISD::SETOLE);
+  case ISD::SETONE:
+    return and_(not_(make(ISD::SETOEQ)), ordered());
+  case ISD::SETO:
+    return (LHS == RHS ? Op : ordered());
+  case ISD::SETUO:
+    return not_(ordered());
+  case ISD::SETUEQ:
+    return or_(make(ISD::SETOEQ), not_(ordered()));
+  case ISD::SETULE:
+    return (isFloat ? or_(make(ISD::SETOLE), not_(ordered())) : Op);
+  case ISD::SETULT:
+    return (isFloat ? or_(make(ISD::SETOLT), not_(ordered())) : Op);
+  case ISD::SETUGT:
+    return (isFloat ? or_(swapOperands(ISD::SETOLT), not_(ordered()))
+                    : swapOperands(ISD::SETULT));
+  case ISD::SETUGE:
+    return (isFloat ? or_(swapOperands(ISD::SETOLE), not_(ordered())) : Op);
+  case ISD::SETGT:
+    return swapOperands(ISD::SETLT);
+  case ISD::SETGE:
+    return swapOperands(ISD::SETLE);
+  }
+  return Op;
+}
+
+// Return the appropriate opcode if we convert MIN to MAX or the reverse.
+static ISD::NodeType swapMinMax(ISD::NodeType OpCode) { // x < y ? y : x
+  switch (OpCode) {
+  default:
+    llvm_unreachable("invalid min/max opcode");
+  case ISD::SMAX:
+    return ISD::SMIN;
+  case ISD::SMIN:
+    return ISD::SMAX;
+  case ISD::UMAX:
+    return ISD::UMIN;
+  case ISD::UMIN:
+    return ISD::UMAX;
+  case ISD::FMAXIMUM:
+    return ISD::FMINIMUM;
+  case ISD::FMINIMUM:
+    return ISD::FMAXIMUM;
+  }
+}
+
+SDValue RISCVTargetLowering::LowerVSELECT(SDValue Op, SelectionDAG &DAG) const {
+  SDValue CondV = Op.getOperand(0);
+
+  // Try to match logical complement expressed with xor
+  if (CondV->getOpcode() == ISD::XOR) {
+    SDValue RHS = CondV.getOperand(1);
+    if (RHS.getOpcode() != ISD::BUILD_VECTOR)
+      return Op;
+
+    // Match vector of all 1's
+    if (RHS.getOpcode() != ISD::BUILD_VECTOR ||
+        !all_of(RHS->ops(), [this](SDValue CV) {
+          auto *C = dyn_cast<ConstantSDNode>(CV);
+          return (C && C->getZExtValue() == 1);
+        }))
+      return Op;
+
+    // Remove the  complement and swap the operands.
+    CondV = CondV->getOperand(0);
+    Op = DAG.getNode(ISD::VSELECT, SDLoc(Op), Op.getValueType(), CondV,
+                     Op.getOperand(2), Op.getOperand(1));
+  }
+
+  if (CondV->getOpcode() != ISD::SETCC)
+    return Op;
+
+  ISD::CondCode CC = cast<CondCodeSDNode>(CondV.getOperand(2))->get();
+  SDValue LHS = CondV.getOperand(0);
+  EVT VT = LHS.getValueType();
+
+  // Build a new select using negated condition NewCC
+  // with swapped value operands.
+  auto negateCondition = [&](ISD::CondCode NewCC) {
+    SDLoc DL(Op);
+    SDValue RHS = CondV.getOperand(1);
+    SDValue TrueV = Op.getOperand(1);
+    SDValue FalseV = Op.getOperand(2);
+    SDValue NewCondV = DAG.getNode(ISD::SETCC, DL, MVT::v8i1, LHS, RHS,
+                                   DAG.getCondCode(NewCC));
+    return DAG.getNode(ISD::VSELECT, DL, Op.getValueType(), NewCondV, FalseV,
+                       TrueV);
+  };
+
+  // Write to a single min/max operation with specified opcode.
+  auto buildMinMax = [&](ISD::NodeType OpCode) {
+
+    // Exclude the case 'U' cases when looking for unsigned integer
+    // or when we are strict about floating point semantics.
+    if (Op.getValueType() != MVT::v8i32 &&
+        (OpCode == ISD::UMAX || OpCode == ISD::UMIN ||
+         !CondV->getFlags().hasAllowContract()))  // fp_contract=fast
+      return Op;
+
+    SDValue RHS = CondV.getOperand(1);
+    SDValue TrueV = Op.getOperand(1);
+    SDValue FalseV = Op.getOperand(2);
+    // Verify that we have something like (x <y ? x : y) for min
+    if (LHS != TrueV) {
+      if (LHS != FalseV || RHS != TrueV)
+        return Op;
+      // swap the sense of the operations to match the value operand order in the select
+      // (x < y : y : x) becomes  MAX instead of MIN
+      OpCode = swapMinMax(OpCode);
+    } else if (RHS != FalseV)
+      return Op;
+    return DAG.getNode(OpCode, SDLoc(Op), Op.getValueType(), TrueV, FalseV);
+  };
+
+  // normalize the select to avoid extract negation and to
+  // find min/max operations
+  switch (CC) {
+  default:
+    return Op;
+  case ISD::SETUGE: {
+    SDValue M = buildMinMax(ISD::UMAX);
+    if (M != Op)
+      return M;
+  }
+    /*FALLTHROUGH*/
+  case ISD::SETUNE:
+  case ISD::SETNE:
+    return negateCondition(ISD::getSetCCInverse(CC, VT));
+  case ISD::SETLT:
+  case ISD::SETLE:
+    return buildMinMax(ISD::SMIN);
+  case ISD::SETULT:
+  case ISD::SETULE:
+    return buildMinMax(ISD::UMIN);
+  case ISD::SETGT:
+  case ISD::SETGE:
+    return buildMinMax(ISD::SMAX);
+  case ISD::SETUGT:
+    return buildMinMax(ISD::UMAX);
+  case ISD::SETOLT:
+  case ISD::SETOLE:
+    return buildMinMax(ISD::FMINIMUM);
+  case ISD::SETOGT:
+  case ISD::SETOGE:
+    return buildMinMax(ISD::FMAXIMUM);
+  }
+}
+
+SDValue RISCVTargetLowering::LowerVECTOR_SHUFFLE(SDValue Op,
+                                                 SelectionDAG &DAG) const {
+  // Esperanto only...
+  assert(Op.getValueType().getVectorNumElements() == 8);
+
+  // the FSWIZZ.PS instruction has a limited form of shuffle
+  // where an 8-bit immediate is interpreted as 4 2-bit indices
+  // where these correspond to the source for each output lane
+  // and are applied independently to the top 4 and bottom 4 lanes.
+  std::array<Optional<int>, 4> Index;
+  ArrayRef<int> Mask = cast<ShuffleVectorSDNode>(Op)->getMask();
+  for (unsigned Idx = 0; Idx < 8; Idx++) {
+    int M = Mask[Idx];
+    if (M < 0)
+      continue;
+    M &= 3;
+    Optional<int> &MI = Index[Idx & 3];
+    if (!MI)
+      MI = M;
+    else if (MI != M)
+      return SDValue(); // give up
+  }
+
+  // Success, this is a legal swizzle
+  return Op;
+
+  unsigned MaskValue = 0;
+  for (unsigned Idx = 0; Idx < 4; Idx++) {
+    Optional<int> &MI = Index[Idx];
+    if (!MI)
+      MI = Idx;
+    MaskValue |= MI.getValue() << (2 * Idx);
+  }
+  return DAG.getNode(RISCVISD::ET_SWIZZLE, SDLoc(Op), Op.getValueType(),
+                     Op.getOperand(0),
+                     DAG.getConstant(MaskValue, SDLoc(Op), MVT::i32));
+}
+
+#endif
+
 // Returns the opcode of the target-specific SDNode that implements the 32-bit
 // form of the given Opcode.
 static RISCVISD::NodeType getRISCVWOpcode(unsigned Opcode) {
@@ -1017,6 +1358,20 @@ void RISCVTargetLowering::ReplaceNodeResults(SDNode *N,
     Results.push_back(customLegalizeToWOp(N, DAG));
     break;
   case ISD::BITCAST: {
+#ifdef ESPERANTO
+    if (N->getValueType(0) == MVT::i8) {
+      assert(Subtarget.hasEsperanto());
+      SDLoc DL(N);
+      SDValue Op0 = N->getOperand(0);
+      if (Op0.getValueType() != MVT::v8i1)
+        return;
+      auto Copy =
+          SDValue(DAG.getMachineNode(RISCV::COPY, DL, MVT::i64, Op0), 0);
+      auto Trunc = DAG.getNode(ISD::TRUNCATE, DL, MVT::i8, Copy);
+      Results.push_back(Trunc);
+      return;
+    }
+#endif
     assert(N->getValueType(0) == MVT::i32 && Subtarget.is64Bit() &&
            Subtarget.hasStdExtF() && "Unexpected custom legalisation");
     SDLoc DL(N);
@@ -1028,6 +1383,25 @@ void RISCVTargetLowering::ReplaceNodeResults(SDNode *N,
     Results.push_back(DAG.getNode(ISD::TRUNCATE, DL, MVT::i32, FPConv));
     break;
   }
+#ifdef ESPERANTO
+  case ISD::INTRINSIC_W_CHAIN: {
+    assert(N->getConstantOperandVal(1) == Intrinsic::riscv_et_gather);
+    EVT VT = N->getValueType(0);
+    assert(VT == MVT::v8i8 || VT == MVT::v8i16);
+    SmallVector<SDValue, 6> Ops;
+    for (unsigned Idx = 0; Idx < N->getNumOperands(); Idx++)
+      Ops.push_back(N->getOperand(Idx));
+    Ops[4] = DAG.getUNDEF(MVT::v8i32);
+    auto *Mem = cast<MemIntrinsicSDNode>(N);
+    SDValue Gather =
+        DAG.getMemIntrinsicNode(ISD::INTRINSIC_W_CHAIN, SDLoc(N),
+                                DAG.getVTList({MVT::v8i32, MVT::Other}), Ops,
+                                Mem->getMemoryVT(), Mem->getMemOperand());
+    Results.push_back(Gather);
+    Results.push_back(SDValue(Gather.getNode(), 1));
+    return;
+  }
+#endif
   }
 }
 
@@ -2640,6 +3014,12 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
     return "RISCVISD::FMV_X_ANYEXTW_RV64";
   case RISCVISD::READ_CYCLE_WIDE:
     return "RISCVISD::READ_CYCLE_WIDE";
+#ifdef ESPERANTO
+  case RISCVISD::ET_BROADCAST:
+    return "RISCVISD::ET_BROADCAST";
+  case RISCVISD::ET_SWIZZLE:
+    return "RISCVISD::ET_SWIZZLE";
+#endif
   }
   return nullptr;
 }
@@ -3047,3 +3427,10 @@ RISCVTargetLowering::getRegisterByName(const char *RegName, LLT VT,
                              StringRef(RegName) + "\"."));
   return Reg;
 }
+
+#ifdef ESPERANTO
+bool RISCVTargetLowering::isFMAFasterThanFMulAndFAdd(const MachineFunction &MF,
+                                                     EVT ET) const {
+  return Subtarget.hasEsperanto() && ET == MVT::v8f32;
+}
+#endif
