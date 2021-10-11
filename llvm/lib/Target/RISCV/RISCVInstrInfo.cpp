@@ -131,6 +131,11 @@ void RISCVInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
     BuildMI(MBB, MBBI, DL, get(RISCV::FMV_W_X), DstReg)
         .addReg(SrcReg, getKillRegState(KillSrc));
     return;
+  } else if (RISCV::FPR32RegClass.contains(SrcReg) &&
+             RISCV::GPRRegClass.contains(DstReg)) {
+    BuildMI(MBB, MBBI, DL, get(RISCV::FMV_X_W), DstReg)
+        .addReg(SrcReg, getKillRegState(KillSrc));
+    return;
   } else if (RISCV::FPR256RegClass.contains(DstReg) &&
              RISCV::FPR256RegClass.contains(SrcReg)) {
     BuildMI(MBB, MBBI, DL, get(RISCV::FCMOVM_PS_EX), DstReg)

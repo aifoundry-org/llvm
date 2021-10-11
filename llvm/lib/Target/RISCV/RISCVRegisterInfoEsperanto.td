@@ -59,7 +59,7 @@ foreach Index = 0-7 in {
 // easier. Perhaps we should drop builtin support for
 // masks and remove i64 here
 def MR : RegisterClass<"RISCV", [i64, v8i1], 8, (add
-                       (sequence "M%u", 0, 7))> {
+                       (sequence "M%u", 1, 7), M0)> {
     let Size = 8;
 }
 def MR0 : RegisterClass<"RISCV", [i64, v8i1], 8, (add M0)> {

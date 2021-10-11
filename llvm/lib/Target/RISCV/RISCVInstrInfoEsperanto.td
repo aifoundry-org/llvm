@@ -735,14 +735,17 @@ foreach ty =[v8i32, v8f32] in {
 def : EspPat<(store (ty FPR256:$rs2), GPR:$rs1), (FSQ2 $rs2, 0, $rs1)>;
 def : EspPat<(store (ty FPR256:$rs2), AddrFI:$rs1), (StackFSQ2 $rs2, $rs1, 0)>;
 def : EspPat<(store (ty FPR256:$rs2), (add GPR:$rs1, simm12:$imm12)),
-          (FSQ2 $rs2, $imm12, $rs1)>;
+          (FSQ2 $rs2, (LO12s $imm12), $rs1)>;
 def : EspPat<(store (ty FPR256:$rs2), (add AddrFI:$rs1, simm12:$imm12)),
-          (StackFSQ2 $rs2, $rs1, $imm12)>;
+          (StackFSQ2 $rs2, $rs1, (LO12s $imm12))>;
 
 def : EspPat<(ty (load GPR:$rs1)), (FLQ2 0, $rs1)>;
-def : EspPat<(ty (load (add GPR:$rs1, simm12:$imm12))), (FLQ2 $imm12, $rs1)>;
-def : EspPat<(ty (load (add AddrFI:$rs1, simm12:$imm12))), (StackFLQ2 $rs1, $imm12)>;
-def : EspPat<(ty (load (add AddrFI:$rs1, simm12:$imm12))), (StackFLQ2 $rs1, $imm12)>;
+def : EspPat<(ty (load (add GPR:$rs1, simm12:$imm12))),
+             (FLQ2 (LO12s $imm12), $rs1)>;
+def : EspPat<(ty (load (add AddrFI:$rs1, simm12:$imm12))),
+             (StackFLQ2 $rs1, (LO12s $imm12))>;
+def : EspPat<(ty (load (add AddrFI:$rs1, simm12:$imm12))),
+             (StackFLQ2 $rs1, (LO12s $imm12))>;
 }
 
                      
@@ -750,14 +753,17 @@ foreach ty =[v8i32, v8f32] in {
 def : EspPat<(store (ty FPR256:$rs2), GPR:$rs1), (FSQ2 $rs2, 0, $rs1)>;
 def : EspPat<(store (ty FPR256:$rs2), AddrFI:$rs1), (StackFSQ2 $rs2, $rs1, 0)>;
 def : EspPat<(store (ty FPR256:$rs2), (add GPR:$rs1, simm12:$imm12)),
-          (FSQ2 $rs2, $imm12, $rs1)>;
+          (FSQ2 $rs2, (LO12s $imm12), $rs1)>;
 def : EspPat<(store (ty FPR256:$rs2), (add AddrFI:$rs1, simm12:$imm12)),
-          (StackFSQ2 $rs2, $rs1, $imm12)>;
+          (StackFSQ2 $rs2, $rs1, (LO12s $imm12))>;
 
 def : EspPat<(ty (load GPR:$rs1)), (FLQ2 0, $rs1)>;
-def : EspPat<(ty (load (add GPR:$rs1, simm12:$imm12))), (FLQ2 $imm12, $rs1)>;
-def : EspPat<(ty (load (add AddrFI:$rs1, simm12:$imm12))), (StackFLQ2 $rs1, $imm12)>;
-def : EspPat<(ty (load (add AddrFI:$rs1, simm12:$imm12))), (StackFLQ2 $rs1, $imm12)>;
+def : EspPat<(ty (load (add GPR:$rs1, simm12:$imm12))),
+             (FLQ2 (LO12s $imm12), $rs1)>;
+def : EspPat<(ty (load (add AddrFI:$rs1, simm12:$imm12))),
+             (StackFLQ2 $rs1, (LO12s $imm12))>;
+def : EspPat<(ty (load (add AddrFI:$rs1, simm12:$imm12))),
+             (StackFLQ2 $rs1, (LO12s $imm12))>;
 }
 
 class RoundingMode<int Value> {

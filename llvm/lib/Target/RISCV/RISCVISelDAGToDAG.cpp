@@ -28,9 +28,9 @@ using namespace llvm;
 void RISCVDAGToDAGISel::PostprocessISelDAG() { doPeepholeLoadStoreADDI(); }
 
 #ifdef ESPERANTO
-void RISCVDAGToDAGISel::PreprocessISelDAG() { 
+void RISCVDAGToDAGISel::PreprocessISelDAG() {
   if (Subtarget->hasEsperanto())
-     doEsperantoRewrites(); 
+    doEsperantoRewrites();
 }
 #endif
 
@@ -668,11 +668,11 @@ void RISCVDAGToDAGISel::esperantoRewrite(SDNode *N) {
                           ISD::LoadExtType::NON_EXTLOAD);
   case ISD::INTRINSIC_W_CHAIN:
     if (N->getConstantOperandVal(1) == Intrinsic::riscv_et_gather)
-       esperantoGather(cast<MemIntrinsicSDNode>(N));
+      esperantoGather(cast<MemIntrinsicSDNode>(N));
     return;
   case ISD::INTRINSIC_VOID:
     if (N->getConstantOperandVal(1) == Intrinsic::riscv_et_scatter)
-       esperantoScatter(cast<MemIntrinsicSDNode>(N));
+      esperantoScatter(cast<MemIntrinsicSDNode>(N));
     return;
   case ISD::BUILD_VECTOR:
     return esperantoBUILD_VECTOR(N);
@@ -1134,10 +1134,10 @@ void RISCVDAGToDAGISel::esperantoMemop(MemSDNode *M, SDValue Value,
       CurDAG->getMachineNode(TargetOpcode::IMPLICIT_DEF, SDLoc(M), MVT::v8i32),
       0);
   SDNode *NewM;
-  SDValue IndexVec(CurDAG->getMachineNode(RISCV::FBCX_PS_EX, SDLoc(M),
-                                          MVT::v8i32,
-                                          {UndefVec, ZeroReg, mask(isVector ? 0xff : 0x1)}),
-                   0);
+  SDValue IndexVec(
+      CurDAG->getMachineNode(RISCV::FBCX_PS_EX, SDLoc(M), MVT::v8i32,
+                             {UndefVec, ZeroReg, mask(isVector ? 0xff : 0x1)}),
+      0);
   if (isVector) {
     // TODO -- this should be done earlier so that the constructed vector
     // is built outside of a loop....
@@ -1216,17 +1216,26 @@ void RISCVDAGToDAGISel::esperantoScatter(MemIntrinsicSDNode *M) {
   unsigned Opcode;
   getStoreParams(M, &Opcode);
 
-  SDNode *NewM =
-      CurDAG->getMachineNode(Opcode, SDLoc(M), MVT::Other,
-                             {Value, IndexVec, Addr, Mask, Chain});
+  SDNode *NewM = CurDAG->getMachineNode(Opcode, SDLoc(M), MVT::Other,
+                                        {Value, IndexVec, Addr, Mask, Chain});
   CurDAG->setNodeMemRefs(dyn_cast<MachineSDNode>(NewM), M->getMemOperand());
   ReplaceNode(M, NewM);
 }
 
-void RISCVDAGToDAGISel::optimizeMaskCopies(MachineFunction &MF) {
-  MachineRegisterInfo &MRI = MF.getRegInfo();
+namespace cdc {
+class OptimizeMaskCopies {
+  MachineFunction &MF;
+  MachineRegisterInfo &MRI;
 
-  auto definesMask = [&MRI](MachineInstr &MI) {
+public:
+  OptimizeMaskCopies(MachineFunction &MF) : MF(MF), MRI(MF.getRegInfo()) {}
+  void run() {
+    for (MachineBasicBlock &MBB : MF)
+      processBlock(MBB);
+  }
+
+private:
+  bool definesMask(MachineInstr &MI) {
     unsigned N = MI.getNumDefs();
     if (!N)
       return false;
@@ -1234,27 +1243,25 @@ void RISCVDAGToDAGISel::optimizeMaskCopies(MachineFunction &MF) {
       return false;
     Register R = MI.getOperand(0).getReg();
     return (R.isVirtual() && MRI.getRegClass(R) == &RISCV::MRRegClass);
-  };
-  auto usesReg = [](MachineInstr &MI, Register R) {
+  }
+  static bool usesReg(MachineInstr &MI, Register R) {
     return any_of(MI.uses(), [R](MachineOperand &Op) {
       return Op.isReg() && Op.getReg() == R;
     });
   };
-  auto numInsUses = [&MRI](Register R) {
+  unsigned numInsUses(Register R) {
     return llvm::count_if(MRI.use_nodbg_instructions(R),
                           [](MachineInstr &) { return true; });
   };
-
   // True if this defines a mask from components
   // available at the current instruction
-  auto isSafeMove = [](MachineInstr &MI) {
+  static bool isSafeMove(MachineInstr &MI) {
     if (MI.getOpcode() != RISCV::MOV_M_X)
       return false;
     Register R = MI.getOperand(1).getReg();
     return R == RISCV::X0 || R.isVirtual();
   };
-
-  for (MachineBasicBlock &MBB : MF) {
+  void processBlock(MachineBasicBlock &MBB) {
     // This is the more recent virtual register which
     // has been copied into M0. This is used to eliminate
     // subsequent copies of this value into M0
@@ -1268,7 +1275,7 @@ void RISCVDAGToDAGISel::optimizeMaskCopies(MachineFunction &MF) {
     unsigned LiveCount = 0; // Number of uses of LastDef not yet seen
 
     // Process a use of LastDef
-    auto checkLastUse = [&CurrentM0, &LastDef, &LiveCount, &MRI]() {
+    auto checkLastUse = [&CurrentM0, &LastDef, &LiveCount, this]() {
       LiveCount -= 1;
       if (LiveCount == 0 && CurrentM0 == LastDef) {
         // We have seen all uses of LastDef and
@@ -1279,21 +1286,6 @@ void RISCVDAGToDAGISel::optimizeMaskCopies(MachineFunction &MF) {
       }
     };
 
-    // These instructions will be lowered in a way that
-    // breaks the basic block.
-    auto maySplitBlock = [](const MachineInstr &MI) {
-      switch (MI.getOpcode()) {
-      default:
-        return false;
-      case RISCV::Select_FPR32_Using_CC_GPR:
-      case RISCV::Select_FPR64_Using_CC_GPR:
-      case RISCV::Select_GPR_Using_CC_GPR:
-      case RISCV::PseudoCALL:
-      case RISCV::PseudoCALLIndirect:
-      case RISCV::PseudoCALLReg:
-        return true;
-      }
-    };
     MachineBasicBlock::iterator Cur = MBB.getFirstNonPHI();
     MachineBasicBlock::iterator End = MBB.end();
     while (Cur != End) {
@@ -1348,6 +1340,32 @@ void RISCVDAGToDAGISel::optimizeMaskCopies(MachineFunction &MF) {
       checkLastUse();
     }
   }
+
+  // These instructions will be lowered in a way that
+  // breaks the basic block.
+  static bool maySplitBlock(const MachineInstr &MI) {
+    switch (MI.getOpcode()) {
+    default:
+      return false;
+    case RISCV::Select_FPR32_Using_CC_GPR:
+    case RISCV::Select_FPR64_Using_CC_GPR:
+    case RISCV::Select_GPR_Using_CC_GPR:
+    case RISCV::PseudoCALL:
+    case RISCV::PseudoCALLIndirect:
+    case RISCV::PseudoCALLReg:
+      return true;
+    }
+  };
+};
+} // namespace cdc
+using namespace cdc;
+
+void RISCVDAGToDAGISel::optimizeMaskCopies(MachineFunction &MF) {
+  // The fast register allocator does not correctly handle
+  // references to M0 and marks them killed incorrectly
+  if (MF.getTarget().getOptLevel() != CodeGenOpt::Level::None &&
+      !MF.getFunction().hasOptNone())
+    OptimizeMaskCopies(MF).run();
 }
 #endif
 
