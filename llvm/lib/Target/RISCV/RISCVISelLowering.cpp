@@ -1116,8 +1116,19 @@ SDValue RISCVTargetLowering::LowerVSELECT(SDValue Op, SelectionDAG &DAG) const {
                      Op.getOperand(2), Op.getOperand(1));
   }
 
-  if (CondV->getOpcode() != ISD::SETCC)
+  if (CondV->getOpcode() != ISD::SETCC) {
+    if (CondV.getValueType() == MVT::v8i1)
+      return Op;
+    assert(CondV.getValueType() == MVT::v8i32);
+    CondV = DAG.getSetCC(
+        SDLoc(Op), MVT::v8i1, CondV,
+        DAG.getSplatBuildVector(MVT::v8i32, SDLoc(Op),
+                                DAG.getConstant(0, SDLoc(Op), MVT::i32)),
+        ISD::CondCode::SETNE);
+    Op = DAG.getNode(ISD::VSELECT, SDLoc(Op), Op.getValueType(),
+                                 CondV, Op.getOperand(2), Op.getOperand(1));
     return Op;
+  }
 
   ISD::CondCode CC = cast<CondCodeSDNode>(CondV.getOperand(2))->get();
   SDValue LHS = CondV.getOperand(0);
