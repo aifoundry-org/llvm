@@ -1170,6 +1170,13 @@ void RISCVDAGToDAGISel::esperantoMemop(MemSDNode *M, SDValue Value,
         Result = CurDAG->getNode(
             ISD::AND, SDLoc(M), MVT::i64,
             {Result, CurDAG->getConstant(TruncateMask, SDLoc(M), MVT::i64)});
+    } else if (TruncateMask) {
+      Result = CurDAG->getNode(
+          ISD::AND, SDLoc(M), MVT::v8i32,
+          {Result, CurDAG->getSplatBuildVector(
+                       MVT::v8i32, SDLoc(M),
+                       CurDAG->getConstant(TruncateMask, SDLoc(M), MVT::i64))});
+    
     }
     ReplaceUses(SDValue(M, 0), Result); // Update the value
     ReplaceUses(SDValue(M, 1), Chain);  // Update the chain

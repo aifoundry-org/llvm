@@ -1126,7 +1126,7 @@ SDValue RISCVTargetLowering::LowerVSELECT(SDValue Op, SelectionDAG &DAG) const {
                                 DAG.getConstant(0, SDLoc(Op), MVT::i32)),
         ISD::CondCode::SETNE);
     Op = DAG.getNode(ISD::VSELECT, SDLoc(Op), Op.getValueType(),
-                                 CondV, Op.getOperand(2), Op.getOperand(1));
+                                 CondV, Op.getOperand(1), Op.getOperand(2));
     return Op;
   }
 
