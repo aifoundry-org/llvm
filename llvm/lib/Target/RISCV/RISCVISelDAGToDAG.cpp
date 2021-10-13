@@ -858,19 +858,22 @@ void RISCVDAGToDAGISel::esperantoBUILD_VECTOR(SDNode *N) {
   // Try to implemented using MOV_M_X where
   // the result is a constant-valued bit-vector.
   auto checkBuildMask = [this](SDNode *N) {
-    if (any_of(N->ops(), [](SDValue Op) { return !isa<ConstantSDNode>(Op); }))
-      return;
 
     // Use MOV_M_X to set a mask to a constant
     assert(N->getNumOperands() <= MAX_VECTOR_LANES);
     uint64_t Value = 0;
-    for (auto Pair : enumerate(N->ops()))
-      if (cast<ConstantSDNode>(Pair.value())->getZExtValue())
-        Value |= (static_cast<uint64_t>(1) << Pair.index());
+    for (auto Pair : enumerate(N->ops())) {
+      if (auto *C = dyn_cast<ConstantSDNode>(Pair.value())) {
+        if (C->getZExtValue())
+          Value |= (static_cast<uint64_t>(1) << Pair.index());
+      } else if (!SDValue(Pair.value()).isUndef()) 
+        return;
+    }
 
-    if (Value ==
-        0xff) // This is handled by patterns including in XOR -> MASKNOT
+    // All-set is handled by patterns including in XOR -> MASKNOT
+    if (Value == 0xff)
       return;
+
     SDValue MaskValue = CurDAG->getTargetConstant(Value, SDLoc(N), MVT::i64);
     SDValue Zero = CurDAG->getRegister(RISCV::X0, MVT::i64);
     SDNode *NewN = CurDAG->getMachineNode(RISCV::MOV_M_X, SDLoc(N),
