@@ -1040,11 +1040,12 @@ void RISCVDAGToDAGISel::esperantoVECTOR_SHUFFLE(SDNode *N) {
   SDValue Input = SDValue(CurDAG->getMachineNode(TargetOpcode::IMPLICIT_DEF,
                                                  SDLoc(N), N->getVTList(), {}),
                           0);
+  SDValue AllLanes = CurDAG->getConstant(1, SDLoc(N), MVT::v8i1);
   SDNode *NewN = CurDAG->getMachineNode(
       RISCV::FSWIZZ_PS_EX, SDLoc(N), N->getValueType(0),
       {Input, N->getOperand(0),
        CurDAG->getTargetConstant(MaskValue, SDLoc(N), MVT::i32),
-       CurDAG->getTargetConstant(0xff, SDLoc(N), MVT::i32)}); // All Lanes Mask
+       AllLanes}); // All Lanes Mask
   ReplaceNode(N, NewN);
 }
 
