@@ -256,7 +256,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
     // where we have support
     for (MVT VT : MVT::vector_valuetypes())
       for (unsigned Op = ISD::ADD; Op < ISD::BUILTIN_OP_END; Op++)
-        if (Op != ISD::VECTOR_SHUFFLE)
+        if (Op != ISD::VECTOR_SHUFFLE || VT == MVT::v8i1)
           setOperationAction(Op, VT, Expand);
 
     for (MVT MT : {MVT::v8i1, MVT::v8i32, MVT::v8f32}) {
@@ -299,6 +299,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
       setOperationAction(Op, MVT::v8f32, Custom);
     }
     setOperationAction(ISD::BITCAST, MVT::i8, Custom);
+    setOperationAction(ISD::EXTRACT_VECTOR_ELT, MVT::v8i1, Custom);
   }
 #endif
   
@@ -1220,8 +1221,15 @@ SDValue RISCVTargetLowering::LowerVECTOR_SHUFFLE(SDValue Op,
   for (unsigned Idx = 0; Idx < 8; Idx++) {
     int M = Mask[Idx];
     if (M < 0)
-      continue;
-    M &= 3;
+      continue; // undefined
+
+    // The instruction only pemits permutations within
+    // each subrange 0..3 and 4..7
+    if (M > 7 || ((M & 0b100) != (Idx & 0b100)))
+      return SDValue();
+    M &= 0b011;
+    // TODO we need to do a better job with vector shift
+    //   which look like vector_shuffle<7,8,9,10,11,12,13,14> t14, t10
     Optional<int> &MI = Index[Idx & 3];
     if (!MI)
       MI = M;
@@ -1229,19 +1237,20 @@ SDValue RISCVTargetLowering::LowerVECTOR_SHUFFLE(SDValue Op,
       return SDValue(); // give up
   }
 
+  LLVM_DEBUG({
+    dbgs() << "Swizzle ";
+    Op.dump();
+    dbgs() << "Map: ";
+    for (unsigned Idx = 0; Idx < 4; Idx++) {
+      if (Index[Idx])
+        dbgs() << " " << *Index[Idx];
+      else
+        dbgs() << " u";
+    }
+    dbgs() << "\n";
+  });
   // Success, this is a legal swizzle
   return Op;
-
-  unsigned MaskValue = 0;
-  for (unsigned Idx = 0; Idx < 4; Idx++) {
-    Optional<int> &MI = Index[Idx];
-    if (!MI)
-      MI = Idx;
-    MaskValue |= MI.getValue() << (2 * Idx);
-  }
-  return DAG.getNode(RISCVISD::ET_SWIZZLE, SDLoc(Op), Op.getValueType(),
-                     Op.getOperand(0),
-                     DAG.getConstant(MaskValue, SDLoc(Op), MVT::i32));
 }
 
 #endif
@@ -3443,5 +3452,17 @@ RISCVTargetLowering::getRegisterByName(const char *RegName, LLT VT,
 bool RISCVTargetLowering::isFMAFasterThanFMulAndFAdd(const MachineFunction &MF,
                                                      EVT ET) const {
   return Subtarget.hasEsperanto() && ET == MVT::v8f32;
+}
+
+bool RISCVTargetLowering::allowsMisalignedMemoryAccesses(
+    EVT ET, unsigned AddrSpace /*= 0*/, unsigned Align /*= 1*/,
+    MachineMemOperand::Flags Flags /*= MachineMemOperand::MONone*/,
+    bool *Fast /*= nullptr*/) const {
+  if (Subtarget.hasEsperanto()) {
+    if (ET.isVector() && ET.getScalarSizeInBits() <= Align * 8)
+      return true;
+  }
+  return TargetLowering::allowsMisalignedMemoryAccesses(ET, AddrSpace, Align,
+                                                        Flags, Fast);
 }
 #endif

@@ -51,10 +51,23 @@ public:
   // This definition inhibits SLP vectorizer from producing vectorized types
   // that are not currently supported by ISel
   unsigned getNumberOfParts(Type* Tp) {
+#ifndef ESPERANTO
     if (auto* VTy = dyn_cast<FixedVectorType>(Tp))
       return VTy->getNumElements();
+#endif
     return BasicTTIImplBase::getNumberOfParts(Tp);
   }
+
+#ifdef ESPERANTO
+  static const unsigned ETSOC1_VL = 8;
+  static const unsigned ETSOC1_WIDTH = 32;
+
+  unsigned getRegisterBitWidth(bool Vector) const {
+    if (ST->hasEsperanto() && Vector)
+      return ETSOC1_WIDTH * ETSOC1_VL;
+    return BasicTTIImplBase::getRegisterBitWidth(Vector);
+  }
+#endif
 
   unsigned getArithmeticInstrCost(
       unsigned Opcode, Type *Ty,
@@ -65,8 +78,20 @@ public:
       TTI::OperandValueProperties Opd2PropInfo = TTI::OP_None,
       ArrayRef<const Value *> Args = ArrayRef<const Value *>(),
       const Instruction *CxtI = nullptr) {
+#ifdef ESPERANTO
+    if (auto *VTy = dyn_cast<FixedVectorType>(Ty)) {
+      if (!ST->hasEsperanto() || VTy->getNumElements() > ETSOC1_VL)
+        return 10000;
+      Type *ETy = VTy->getElementType();
+      unsigned Bits = ETy->getScalarSizeInBits();
+      if (Bits != ETSOC1_WIDTH)
+        return 10000;
+      Ty = ETy;
+    }
+#else
     if (isa<FixedVectorType>(Ty))
       return 10000;
+#endif
     return BasicTTIImplBase::getArithmeticInstrCost(
         Opcode, Ty, CostKind, Opd1Info, Opd2Info, Opd1PropInfo, Opd2PropInfo,
         Args, CxtI);
@@ -75,8 +100,20 @@ public:
   unsigned getCmpSelInstrCost(unsigned Opcode, Type *ValTy, Type *CondTy,
                               TTI::TargetCostKind CostKind,
                               const Instruction *I = nullptr) {
+
+#ifdef ESPERANTO
+    if (auto *VTy = dyn_cast_or_null<FixedVectorType>(CondTy)) {
+      if (!ST->hasEsperanto() || VTy->getNumElements() > ETSOC1_VL)
+        return 10000;
+      Type *ETy = VTy->getElementType();
+      unsigned Bits = ETy->getScalarSizeInBits();
+      if (Bits != ETSOC1_WIDTH)
+        return 10000;
+    }
+#else
     if (CondTy && isa<FixedVectorType>(CondTy))
       return 10000;
+#endif
     return BasicTTIImplBase::getCmpSelInstrCost(Opcode, ValTy, CondTy, CostKind,
                                                 I);
   }

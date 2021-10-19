@@ -213,6 +213,11 @@ public:
 #ifdef ESPERANTO
   bool isFMAFasterThanFMulAndFAdd(const MachineFunction &MF,
                                   EVT ET) const override;
+  bool allowsMisalignedMemoryAccesses(
+      EVT ET, unsigned AddrSpace = 0, unsigned Align = 1,
+      MachineMemOperand::Flags Flags = MachineMemOperand::MONone,
+      bool *Fast = nullptr) const override;
+
 #endif
 private:
   void analyzeInputArgs(MachineFunction &MF, CCState &CCInfo,

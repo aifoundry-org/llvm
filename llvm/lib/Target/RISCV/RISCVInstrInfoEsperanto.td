@@ -945,7 +945,10 @@ def : EspPat<(setoeq (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
           (v8i1 (FEQM_PS_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes)))>;
 def : EspPat<(v8i32 (sext (v8i1 (setoeq (v8f32 FPR256:$rs1),
       		       	     	    (v8f32 FPR256:$rs2))))),
-          (FEQ_PS_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+             (FEQ_PS_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+def : EspPat<(v8i32 (setoeq (v8f32 FPR256:$rs1),
+      	     	     	    (v8f32 FPR256:$rs2))),
+             (FEQ_PS_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
 
 
 def : EspPat<(setolt (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
@@ -953,11 +956,17 @@ def : EspPat<(setolt (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
 def : EspPat<(v8i32 (sext (v8i1 (setolt (v8f32 FPR256:$rs1),
       		       	     	     (v8f32 FPR256:$rs2))))),
           (FLT_PS_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+def : EspPat<(v8i32 (setolt (v8f32 FPR256:$rs1),
+      		     	    (v8f32 FPR256:$rs2))),
+          (FLT_PS_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
 
 def : EspPat<(setole (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
           (v8i1 (FLEM_PS_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes)))>;
 def : EspPat<(v8i32 (sext (v8i1 (setole (v8f32 FPR256:$rs1),
       		       	     	     (v8f32 FPR256:$rs2))))),
+          (FLE_PS_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+def : EspPat<(v8i32 (setole (v8f32 FPR256:$rs1),
+      		       	    (v8f32 FPR256:$rs2))),
           (FLE_PS_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
 
 
@@ -966,6 +975,9 @@ def : EspPat<(seto (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
 
 def : EspPat<(v8i32 (sext (v8i1 (seto (v8f32 FPR256:$rs1),
       		       	     	    (v8f32 FPR256:$rs2))))),
+          (FEQ_PS_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+def : EspPat<(v8i32 (seto (v8f32 FPR256:$rs1),
+			  (v8f32 FPR256:$rs2))),
           (FEQ_PS_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
 
 
@@ -981,9 +993,17 @@ def : EspPat<(setult (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
 
 def : EspPat<(v8i32 (sext (v8i1 (setult (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2))))),
           (FLTU_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+def : EspPat<(v8i32 (setult (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2))),
+          (FLTU_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
 
 def : EspPat<(v8i32 (sext (v8i1 (setle (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2))))),
           (FLE_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+def : EspPat<(v8i32 (setle (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2))),
+          (FLE_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+def : EspPat<(setle (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
+          (v8i1 (FSETM_PI_EX (IMPLICIT_DEF),
+	               (FLE_PI_EX  (IMPLICIT_DEF), $rs1, $rs2, (allLanes)),
+		       (allLanes)))>;
 
 foreach ty =[v8i32, v8f32] in {
 def : EspPat<(vselect (v8i1 (setle (ty FPR256:$rs1), (ty FPR256:$rs2))),
@@ -996,7 +1016,8 @@ def : EspPat<(vselect (v8i1 (setle (ty FPR256:$rs1), (ty FPR256:$rs2))),
 
 def : EspPat<(v8i32 (sext (v8i1 (setlt (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2))))),
           (FLT_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
-
+def : EspPat<(v8i32 (setlt (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2))),
+          (FLT_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
 def : EspPat<(v8i1 (setlt (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2))),
           (FLTM_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
 
@@ -1005,11 +1026,21 @@ def v8i32_not : OutPatFrag<(ops node:$n),
           (FNOT_PI_EX (IMPLICIT_DEF), $n, (allLanes))>;
 
 // x != y -->  !(x == y)
+def : EspPat<(v8i1 (setne (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2))),
+             (MASKNOT (FSETM_PI_EX (IMPLICIT_DEF),
+	                        (FEQ_PI_EX (IMPLICIT_DEF),
+	  		                   $rs1, $rs2, (allLanes)),
+				(allLanes)))>;
 def : EspPat<(v8i32 (sext (v8i1 (setne (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2))))),
+           (v8i32_not (FEQ_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes)))>;
+def : EspPat<(v8i32 (setne (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2))),
            (v8i32_not (FEQ_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes)))>;
        
 def : EspPat<(v8i32 (sext (v8i1 (seteq (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2))))),
           (v8i32 (FEQ_PI_EX  (IMPLICIT_DEF), $rs1, $rs2, (allLanes)))>;
+def : EspPat<(seteq (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
+             (v8i32 (FEQ_PI_EX  (IMPLICIT_DEF), $rs1, $rs2,
+	     		       		   (allLanes)))>;
 
 def : EspPat<(seteq (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
           (v8i1 (FSETM_PI_EX (IMPLICIT_DEF),
@@ -1029,6 +1060,8 @@ def : EspPat<(vselect (v8i1 (seteq (ty FPR256:$rs1), (ty FPR256:$rs2))),
 
 def : EspPat<(v8i32 (sext (v8i1 (setult (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2))))),
           (FLTU_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
+def : EspPat<(v8i32 (setult (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2))),
+          (FLTU_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes))>;
 
 foreach ty =[v8i32, v8f32] in {
 def : EspPat<(vselect (v8i1 (setult (ty FPR256:$rs1), (ty FPR256:$rs2))),
@@ -1047,7 +1080,8 @@ def : EspPat<(setuge (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
 def : EspPat<(v8i32 (sext (v8i1 (setuge (v8i32 FPR256:$rs1),
       		       	             (v8i32 FPR256:$rs2))))),
           (v8i32_not (FLTU_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes)))>; 
-
+def : EspPat<(v8i32 (setuge (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2))),
+          (v8i32_not (FLTU_PI_EX (IMPLICIT_DEF), $rs1, $rs2, (allLanes)))>; 
 
 
 // x <=u  y =>   x <u y  | x == y
@@ -1059,6 +1093,8 @@ def et_ule : OutPatFrag<(ops node:$rs1, node:$rs2),
 		     
 def : EspPat<(v8i32 (sext (v8i1 (setule (v8i32 FPR256:$rs1),
       		       	             (v8i32 FPR256:$rs2))))),
+          (et_ule $rs1, $rs2)>;
+def : EspPat<(v8i32 (setule (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2))),
           (et_ule $rs1, $rs2)>;
 
 foreach ty =[v8i32, v8f32] in {
@@ -1097,25 +1133,20 @@ def : EspPat<(v8i32 (sext (v8i1 MR:$m))),
           (FBCI_PI_EX (FBCI_PI_EX (IMPLICIT_DEF), 0, (allLanes)),
 	              -1, $m)>;
 
-def : EspPat<(xor (v8i1 MR:$m),
-               (v8i1 (build_vector (i64 1), (i64 1), (i64 1), (i64 1),
-                                   (i64 1), (i64 1), (i64 1), (i64 1)))),
+def : EspPat<(xor (v8i1 MR:$m), (v8i1 (splat8 (i64 1)))),
            (MASKNOT $m)>;
 
-def : EspPat<(xor (v8i1 MR:$m),
-               (v8i1 (build_vector (i1 1), (i1 1), (i1 1), (i1 1),
-                                   (i1 1), (i1 1), (i1 1), (i1 1)))),
+def : EspPat<(xor (v8i1 MR:$m), (v8i1 (splat8 (i1 1)))),
            (MASKNOT $m)>;
 
-def : EspPat<(v8i1 (build_vector (i1 1), (i1 1), (i1 1), (i1 1),
-                              (i1 1), (i1 1), (i1 1), (i1 1))),
-           (v8i1 (allLanes))>;
-def : EspPat<(v8i1 (build_vector (i64 1), (i64 1), (i64 1), (i64 1),
-                              (i64 1), (i64 1), (i64 1), (i64 1))),
-           (v8i1 (allLanes))>;
+def : EspPat<(v8i1 (splat8 (i1 1))), (allLanes)>;
+def : EspPat<(v8i1 (splat8 (i64 1))), (allLanes)>;
+
 foreach ty = [v8f32, v8i32] in {
    def : EspPat<(ty (vselect MR:$cond, FPR256:$true, FPR256:$false)),
           (FCMOVM_PS_EX $true, $false, $cond)>; 
+   def : EspPat<(ty (vselect FPR256:$cond, FPR256:$true, FPR256:$false)),
+          (FCMOV_PS_EX (IMPLICIT_DEF), $true, $false, $cond, (allLanes))>; 
 }
 
 def : EspPat<(v8i32 (splat8 (i64 -1))),

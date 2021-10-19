@@ -633,6 +633,10 @@ void RISCVDAGToDAGISel::doEsperantoRewrites() {
     SDNode &N = *Cur++;
     esperantoRewrite(&N);
   }
+  DEBUG_WITH_TYPE("isel", {
+    dbgs() << "After esperanto rewrite:\n";
+    CurDAG->dump();
+  });
 }
 
 void RISCVDAGToDAGISel::esperantoRewrite(SDNode *N) {
@@ -713,6 +717,12 @@ static SDValue buildComplexIntegerVector(SDNode *N, SelectionDAG *CurDAG) {
     return EltV;
   };
 
+  // Find the smallest immediate
+  int Min = std::numeric_limits<int>::max();
+  for (SDValue Elt : N->ops())
+    if (Optional<int> C = getImmediate(Elt))
+      Min = std::min(Min, *C);
+
   // Split the operands in to Immediate and NonImmediate values
   // each with associated lanes. We use a MapVector so that
   // we output the values in a deterministic order when
@@ -722,17 +732,14 @@ static SDValue buildComplexIntegerVector(SDNode *N, SelectionDAG *CurDAG) {
   for (unsigned Idx = 0; Idx < 8; Idx++) {
     SDValue Elt = N->getOperand(Idx);
     unsigned Lane = 1 << Idx;
-    if (Optional<int> C = getImmediate(Elt))
+    Optional<int> C = getImmediate(Elt);
+    if (C && isIntN(10, *C - Min))
       Immediates[*C] |= Lane;
     else if (!Elt->isUndef())
       NonImmediateLanes[Elt] |= Lane;
   }
 
-  // Find the smallest immediate
-  int Min = std::numeric_limits<int>::max();
-  for (auto Pair : Immediates)
-    Min = std::min(Min, Pair.first);
-  LLVM_DEBUG(dbgs() << "build vector "; N->dump(); dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "build vector "; N->dump(););
   LLVM_DEBUG(dbgs() << "min " << Min << "\n");
 
   // Compute all bit positions which will need to be set in some lane
@@ -786,8 +793,11 @@ static SDValue buildComplexIntegerVector(SDNode *N, SelectionDAG *CurDAG) {
       continue;
     for (unsigned Jdx = Idx + 1; Jdx < Bits2Lanes.size(); Jdx++)
       if (Bits2Lanes[Jdx].Lanes == Lanes) {
-        Bits2Lanes[Idx].Value += Bits2Lanes[Jdx].Value;
-        Bits2Lanes[Jdx].Lanes = 0;
+        unsigned Accum = Bits2Lanes[Idx].Value + Bits2Lanes[Jdx].Value;
+        if (isIntN(10, Accum)) {
+          Bits2Lanes[Idx].Value = Accum;
+          Bits2Lanes[Jdx].Lanes = 0;
+        }
       }
   }
   // Remove the lanes folded into another value which now have no bits to
@@ -817,12 +827,14 @@ static SDValue buildComplexIntegerVector(SDNode *N, SelectionDAG *CurDAG) {
     if (!Immediates.empty()) {
       Immediates.front().second = 0xff;
       // It is cheaper to just poke in each immediate value separately
-      for (auto &Pair : Immediates)
+      for (auto &Pair : Immediates) {
+        assert(isIntN(10, Pair.second));
         Value = SDValue(CurDAG->getMachineNode(
                             RISCV::FBCI_PI_EX, SDLoc(N), VT, Value,
                             CurDAG->getTargetConstant(Pair.first, DL, MVT::i32),
                             mask(Pair.second)),
                         0);
+      }
     } else {
       NonImmediateLanes.front().second = 0xff;
     }
@@ -857,8 +869,7 @@ static SDValue buildComplexIntegerVector(SDNode *N, SelectionDAG *CurDAG) {
 void RISCVDAGToDAGISel::esperantoBUILD_VECTOR(SDNode *N) {
   // Try to implemented using MOV_M_X where
   // the result is a constant-valued bit-vector.
-  auto checkBuildMask = [this](SDNode *N) {
-
+  auto checkBuildMask = [this](SDNode *N) -> bool {
     // Use MOV_M_X to set a mask to a constant
     assert(N->getNumOperands() <= MAX_VECTOR_LANES);
     uint64_t Value = 0;
@@ -866,20 +877,20 @@ void RISCVDAGToDAGISel::esperantoBUILD_VECTOR(SDNode *N) {
       if (auto *C = dyn_cast<ConstantSDNode>(Pair.value())) {
         if (C->getZExtValue())
           Value |= (static_cast<uint64_t>(1) << Pair.index());
-      } else if (!SDValue(Pair.value()).isUndef()) 
-        return;
+      } else if (!SDValue(Pair.value()).isUndef())
+        return false;
     }
 
     // All-set is handled by patterns including in XOR -> MASKNOT
     if (Value == 0xff)
-      return;
+      return true;
 
     SDValue MaskValue = CurDAG->getTargetConstant(Value, SDLoc(N), MVT::i64);
     SDValue Zero = CurDAG->getRegister(RISCV::X0, MVT::i64);
     SDNode *NewN = CurDAG->getMachineNode(RISCV::MOV_M_X, SDLoc(N),
                                           N->getValueType(0), Zero, MaskValue);
     ReplaceNode(N, NewN);
-    return;
+    return true;
   };
 
   // Try to implement using integer immediate broadcast
@@ -919,8 +930,19 @@ void RISCVDAGToDAGISel::esperantoBUILD_VECTOR(SDNode *N) {
     return true;
   };
 
-  if (N->getValueType(0) == MVT::v8i1)
-    return checkBuildMask(N);
+  if (N->getValueType(0) == MVT::v8i1) {
+    if (checkBuildMask(N))
+      return;
+    assert(all_of(N->ops(),
+                  [](SDValue Op) { return Op.getValueType() == MVT::i64; }));
+    SmallVector<SDValue, 8> Operands(N->op_begin(), N->op_end());
+    SDValue NewV = CurDAG->getBuildVector(MVT::v8i32, SDLoc(N), Operands);
+    SDValue NewCC = CurDAG->getSetCC(
+        SDLoc(N), MVT::v8i1, NewV, CurDAG->getConstant(0, SDLoc(N), MVT::v8i32),
+        ISD::CondCode::SETNE);
+    ReplaceNode(N, NewCC.getNode());
+    return;
+  }
 
   SDValue Model = N->getOperand(0);
   bool Splat = true;
@@ -980,11 +1002,21 @@ void RISCVDAGToDAGISel::esperantoEXTRACT_VECTOR_ELT(SDNode *E) {
   EVT VT = E->getSimpleValueType(0);
   if (VT != MVT::i64)
     return;
+
   // This case breaks tblgen's type system because we are
   // extracting an i64 from an v8i32
   SDValue Input = E->getOperand(0);
   SDValue Index = E->getOperand(1);
   auto *C = dyn_cast<ConstantSDNode>(Index.getNode());
+  if (Input.getValueType() == MVT::v8i1) {
+    SDNode *Mask =
+        CurDAG->getMachineNode(RISCV::COPY, SDLoc(E), MVT::i64, Input);
+    SDValue Shr =
+        CurDAG->getNode(ISD::SRL, SDLoc(E), MVT::i64, SDValue(Mask, 0), Index);
+    SDValue Bit = CurDAG->getNode(ISD::AND, SDLoc(E), MVT::i64, Shr,
+                                  CurDAG->getConstant(1, SDLoc(E), MVT::i64));
+    return ReplaceNode(E, Bit.getNode());
+  }
   SDNode *NewN = CurDAG->getMachineNode(
       RISCV::FMVS_X_PS, SDLoc(E), MVT::i64,
       {Input,
@@ -1180,7 +1212,6 @@ void RISCVDAGToDAGISel::esperantoMemop(MemSDNode *M, SDValue Value,
           {Result, CurDAG->getSplatBuildVector(
                        MVT::v8i32, SDLoc(M),
                        CurDAG->getConstant(TruncateMask, SDLoc(M), MVT::i64))});
-    
     }
     ReplaceUses(SDValue(M, 0), Result); // Update the value
     ReplaceUses(SDValue(M, 1), Chain);  // Update the chain
