@@ -686,6 +686,10 @@ void RISCVDAGToDAGISel::esperantoRewrite(SDNode *N) {
     return esperantoINSERT_VECTOR_ELT(N);
   case ISD::VECTOR_SHUFFLE:
     return esperantoVECTOR_SHUFFLE(N);
+  case ISD::SETCC:
+    if (N->getValueType(0) == MVT::v8i1)
+      esperantoVECTOR_SETCC(N);
+    return;
   }
 }
 
@@ -1081,6 +1085,98 @@ void RISCVDAGToDAGISel::esperantoVECTOR_SHUFFLE(SDNode *N) {
   ReplaceNode(N, NewN);
 }
 
+static SDValue LowerSETCC(SDValue Op, SelectionDAG &DAG) {
+  // This is only enabled for Esperanto mask generating operations
+  assert(Op.getValueType() == MVT::v8i1);
+
+  ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(2))->get();
+  SDValue LHS = Op.getOperand(0);
+  SDValue RHS = Op.getOperand(1);
+  bool isFloat = (LHS.getValueType() == MVT::v8f32);
+  SDLoc DL(Op);
+
+  // Helper lambda functions to abstract node constructions
+
+  // Build a condition code node for CC.
+  auto cc = [&DAG, DL](ISD::CondCode CC) { return DAG.getCondCode(CC); };
+
+  // Logical operators
+  auto not_ = [&DAG, DL](SDValue X) {
+    return DAG.getNode(ISD::XOR, DL, MVT::v8i1, X,
+                       DAG.getSplatBuildVector(
+                           MVT::v8i1, DL, DAG.getConstant(1, DL, MVT::i64)));
+  };
+  auto and_ = [&DAG, DL](SDValue X, SDValue Y) {
+    return DAG.getNode(ISD::AND, DL, MVT::v8i1, X, Y);
+  };
+  auto or_ = [&DAG, DL](SDValue X, SDValue Y) {
+    return DAG.getNode(ISD::OR, DL, MVT::v8i1, X, Y);
+  };
+
+  // Build a SELECT with the operand's swapped using CC is the code.
+  auto swapOperands = [&](ISD::CondCode CC) {
+    return DAG.getNode(ISD::SETCC, DL, MVT::v8i1, RHS, LHS, cc(CC),
+                       Op->getFlags());
+  };
+  // Build a new SELECT with CC but other parameters the same
+  auto make = [&](ISD::CondCode CC) {
+    return DAG.getNode(ISD::SETCC, DL, MVT::v8i1, LHS, RHS, cc(CC),
+                       Op->getFlags());
+  };
+  // Compute a mask that is true when both operands are not NaN
+  auto ordered = [&]() {
+    SDValue OLHS =
+        DAG.getNode(ISD::SETCC, DL, MVT::v8i1, LHS, LHS, cc(ISD::SETO));
+    SDValue ORHS =
+        DAG.getNode(ISD::SETCC, DL, MVT::v8i1, RHS, RHS, cc(ISD::SETO));
+    // TOOD -- somewhere we should fold an and by
+    // using the OLHS mask to ORHS
+    return and_(OLHS, ORHS);
+  };
+
+  // Rewrite CC kinds to mostly avoid operations not directly supported
+  // by the hardare. In some cases, we can't fully avoid that because
+  // subsequent combining/simplification will just reverse the action here
+  // or where the rewrite yields much worse code than a code generation
+  // pattern.
+  switch (CC) {
+  default:
+    return Op;
+  case ISD::SETOGT:
+    return swapOperands(ISD::SETOLT);
+  case ISD::SETOGE:
+    return swapOperands(ISD::SETOLE);
+  case ISD::SETONE:
+    return and_(not_(make(ISD::SETOEQ)), ordered());
+  case ISD::SETO:
+    return (LHS == RHS ? Op : ordered());
+  case ISD::SETUO:
+    return not_(ordered());
+  case ISD::SETUEQ:
+    return or_(make(ISD::SETOEQ), not_(ordered()));
+  case ISD::SETULE:
+    return (isFloat ? or_(make(ISD::SETOLE), not_(ordered())) : Op);
+  case ISD::SETULT:
+    return (isFloat ? or_(make(ISD::SETOLT), not_(ordered())) : Op);
+  case ISD::SETUGT:
+    return (isFloat ? or_(swapOperands(ISD::SETOLT), not_(ordered()))
+                    : swapOperands(ISD::SETULT));
+  case ISD::SETUGE:
+    return (isFloat ? or_(swapOperands(ISD::SETOLE), not_(ordered())) : Op);
+  case ISD::SETGT:
+    return swapOperands(ISD::SETLT);
+  case ISD::SETGE:
+    return swapOperands(ISD::SETLE);
+  }
+  return Op;
+}
+
+void RISCVDAGToDAGISel::esperantoVECTOR_SETCC(SDNode *N) {
+  SDValue New = LowerSETCC(SDValue(N, 0), *CurDAG);
+  if (New.getNode() != N)
+    ReplaceNode(N, New.getNode());
+}
+
 static void getLoadParams(MemSDNode *M, ISD::LoadExtType Ext, unsigned *Opcode,
                           unsigned *TruncateMask) {
   unsigned AddrSpace = M->getAddressSpace();
@@ -1243,7 +1339,7 @@ void RISCVDAGToDAGISel::esperantoGather(MemIntrinsicSDNode *M) {
   getLoadParams(M, Ext, &Opcode, &TruncateMask);
 
   SDNode *NewM =
-      CurDAG->getMachineNode(Opcode, SDLoc(M), {MVT::v8i32, MVT::Other},
+      CurDAG->getMachineNode(Opcode, SDLoc(M), M->getVTList(),
                              {PassThru, IndexVec, Addr, Mask, Chain});
   CurDAG->setNodeMemRefs(dyn_cast<MachineSDNode>(NewM), M->getMemOperand());
   ReplaceNode(M, NewM);

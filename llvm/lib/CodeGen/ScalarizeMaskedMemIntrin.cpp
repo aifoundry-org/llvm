@@ -873,6 +873,10 @@ bool ScalarizeMaskedMemIntrin::optimizeCallInst(CallInst *CI,
       scalarizeMaskedStore(CI, ModifiedDT);
       return true;
     case Intrinsic::masked_gather: {
+#ifndef ESPERANTO
+      // TODO -- make this subtarget specific somehow
+      // For esperanto, all remaking gather/scatter operations need
+      // to be serialized.
       unsigned AlignmentInt =
           cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
       Type *LoadTy = CI->getType();
@@ -880,10 +884,12 @@ bool ScalarizeMaskedMemIntrin::optimizeCallInst(CallInst *CI,
           DL->getValueOrABITypeAlignment(MaybeAlign(AlignmentInt), LoadTy);
       if (TTI->isLegalMaskedGather(LoadTy, Alignment))
         return false;
+#endif
       scalarizeMaskedGather(CI, ModifiedDT);
       return true;
     }
     case Intrinsic::masked_scatter: {
+#ifndef ESPERANTO
       unsigned AlignmentInt =
           cast<ConstantInt>(CI->getArgOperand(2))->getZExtValue();
       Type *StoreTy = CI->getArgOperand(0)->getType();
@@ -891,6 +897,7 @@ bool ScalarizeMaskedMemIntrin::optimizeCallInst(CallInst *CI,
           DL->getValueOrABITypeAlignment(MaybeAlign(AlignmentInt), StoreTy);
       if (TTI->isLegalMaskedScatter(StoreTy, Alignment))
         return false;
+#endif
       scalarizeMaskedScatter(CI, ModifiedDT);
       return true;
     }

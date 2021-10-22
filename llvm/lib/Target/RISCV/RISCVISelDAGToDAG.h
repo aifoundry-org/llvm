@@ -87,6 +87,7 @@ private:
   void esperantoINSERT_VECTOR_ELT(SDNode *N);
   // Convert remaining vectors shuffles to FSWIZZ_PS
   void esperantoVECTOR_SHUFFLE(SDNode *N);
+  void esperantoVECTOR_SETCC(SDNode *N);
   // Handles memory operations that are vector or are not address space 0
   void esperantoMemop(MemSDNode *M, SDValue Value, SDValue Addr,
                       SDValue PassThru, SDValue Mask, ISD::LoadExtType Ext);

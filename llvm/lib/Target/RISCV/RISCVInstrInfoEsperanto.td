@@ -1096,6 +1096,8 @@ def : EspPat<(v8i32 (sext (v8i1 (setule (v8i32 FPR256:$rs1),
           (et_ule $rs1, $rs2)>;
 def : EspPat<(v8i32 (setule (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2))),
           (et_ule $rs1, $rs2)>;
+def : EspPat<(v8i1 (setule (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2))),
+          (v8i1 (FSETM_PI_EX (IMPLICIT_DEF), (et_ule $rs1, $rs2), (allLanes)))>;
 
 foreach ty =[v8i32, v8f32] in {
 def : EspPat<(vselect (v8i1 (setule (ty FPR256:$rs1), (ty FPR256:$rs2))),

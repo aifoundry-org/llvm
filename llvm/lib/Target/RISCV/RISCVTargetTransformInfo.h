@@ -67,6 +67,25 @@ public:
       return ETSOC1_WIDTH * ETSOC1_VL;
     return BasicTTIImplBase::getRegisterBitWidth(Vector);
   }
+
+  Type *validEsperantoType(Type *Ty, unsigned *Scale) {
+    auto *VTy = dyn_cast<FixedVectorType>(Ty);
+    *Scale = 1;
+    if (!VTy)
+      return Ty;
+    if (!ST->hasEsperanto() || VTy->getNumElements() > ETSOC1_VL)
+      return nullptr;
+    Type *ETy = VTy->getElementType();
+    unsigned Bits = ETy->getScalarSizeInBits();
+    if (Bits == 64) {
+      *Scale = VTy->getNumElements();
+      return ETy;
+    }
+    return (Bits == ETSOC1_WIDTH || (0 < Bits && Bits < ETSOC1_WIDTH &&
+                                     VTy->getNumElements() == ETSOC1_VL))
+               ? ETy
+               : nullptr;
+  }
 #endif
 
   unsigned getArithmeticInstrCost(
@@ -79,22 +98,20 @@ public:
       ArrayRef<const Value *> Args = ArrayRef<const Value *>(),
       const Instruction *CxtI = nullptr) {
 #ifdef ESPERANTO
-    if (auto *VTy = dyn_cast<FixedVectorType>(Ty)) {
-      if (!ST->hasEsperanto() || VTy->getNumElements() > ETSOC1_VL)
-        return 10000;
-      Type *ETy = VTy->getElementType();
-      unsigned Bits = ETy->getScalarSizeInBits();
-      if (Bits != ETSOC1_WIDTH)
-        return 10000;
-      Ty = ETy;
-    }
+    unsigned Scale = 1;
+    Ty = validEsperantoType(Ty, &Scale);
+    if (!Ty)
+      return 10000;
+    return Scale * BasicTTIImplBase::getArithmeticInstrCost(
+                       Opcode, Ty, CostKind, Opd1Info, Opd2Info, Opd1PropInfo,
+                       Opd2PropInfo, Args, CxtI);
 #else
     if (isa<FixedVectorType>(Ty))
       return 10000;
-#endif
     return BasicTTIImplBase::getArithmeticInstrCost(
         Opcode, Ty, CostKind, Opd1Info, Opd2Info, Opd1PropInfo, Opd2PropInfo,
         Args, CxtI);
+#endif
   }
 
   unsigned getCmpSelInstrCost(unsigned Opcode, Type *ValTy, Type *CondTy,
@@ -102,28 +119,28 @@ public:
                               const Instruction *I = nullptr) {
 
 #ifdef ESPERANTO
-    if (auto *VTy = dyn_cast_or_null<FixedVectorType>(CondTy)) {
-      if (!ST->hasEsperanto() || VTy->getNumElements() > ETSOC1_VL)
-        return 10000;
-      Type *ETy = VTy->getElementType();
-      unsigned Bits = ETy->getScalarSizeInBits();
-      if (Bits != ETSOC1_WIDTH)
-        return 10000;
-    }
+    unsigned Scale = 1;
+    if (CondTy && !validEsperantoType(CondTy, &Scale))
+      return 10000;
+    return Scale * BasicTTIImplBase::getCmpSelInstrCost(Opcode, ValTy, CondTy,
+                                                        CostKind,
 #else
     if (CondTy && isa<FixedVectorType>(CondTy))
       return 10000;
-#endif
     return BasicTTIImplBase::getCmpSelInstrCost(Opcode, ValTy, CondTy, CostKind,
-                                                I);
+#endif
+                                                        I);
   }
 
   /// Return true if the target supports masked store.
   bool isLegalMaskedStore(Type *DataType, Align Alignment) const {
-    if (Alignment != 4 || !DataType->isVectorTy())
+    unsigned Width = DataType->getScalarSizeInBits();
+    if (Width <= 1 || Alignment.value() * 8 < Width)
       return false;
-    auto *VT = dyn_cast<FixedVectorType>(DataType);
-    return (VT->getScalarSizeInBits() == 32 && VT->getNumElements() == 8);
+    if (auto *VT = dyn_cast<FixedVectorType>(DataType))
+      if (VT->getScalarSizeInBits() != 32 && VT->getNumElements() != 8)
+        return false;
+    return true;
   }
 
   bool isLegalMaskedLoad(Type *DataType, Align Alignment) const {
@@ -131,6 +148,9 @@ public:
   }
 
   bool isLegalMaskedGather(Type *DataType, Align Alignment) const {
+    return isLegalMaskedStore(DataType, Alignment);
+  }
+  bool isLegalMaskedScatter(Type *DataType, Align Alignment) const {
     return isLegalMaskedStore(DataType, Alignment);
   }
 };

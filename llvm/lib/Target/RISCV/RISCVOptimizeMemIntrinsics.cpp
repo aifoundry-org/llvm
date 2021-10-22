@@ -27,6 +27,7 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
+#include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IntrinsicsRISCV.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
@@ -70,6 +71,7 @@ public:
 private:
   RISCVTargetMachine *TM = nullptr;
   AliasAnalysis *AA = nullptr;
+  Function *CurrentFunction = nullptr;
 
   bool MadeChange;
 
@@ -99,6 +101,7 @@ private:
 
   void rewriteGather(Instruction &I);
   void rewriteScatter(Instruction &I);
+  bool isUniform(Value *Addr, Value **Base, Value **Index_, unsigned *Scale);
 };
 
 } // end anonymous namespace
@@ -117,7 +120,7 @@ llvm::createRISCVOptimizeMemIntrinsicsPass(RISCVTargetMachine &TM) {
 
 
 bool RISCVOptimizeMemIntrinsics::runOnFunction(Function &F) {
-
+  CurrentFunction = &F;
   rewriteGatherScatters(F);
 
 
@@ -754,52 +757,104 @@ void RISCVOptimizeMemIntrinsics::rewriteGatherScatters(Function &F) {
 
 // Decompose an address vector into a common base pointer
 // and a vector of offsets.
-static bool isUniform(Value *Addr, Value **Base, Value **Index) {
+bool RISCVOptimizeMemIntrinsics::isUniform(Value *Addr, Value **Base_,
+                                           Value **Index_, unsigned *Scale) {
+  auto *VTy = dyn_cast<FixedVectorType>(Addr->getType());
+  if (!VTy || VTy->getNumElements() != 8)
+    return false;
   auto *GEP = dyn_cast<GetElementPtrInst>(Addr);
   if (!GEP)
     return false;
-  // We need a uniform
-  *Base = GEP->getOperand(0);
-  if ((*Base)->getType()->isVectorTy())
+  // We need a scalar base
+  Value *Base = GEP->getOperand(0);
+  if (Base->getType()->isVectorTy())
     return false;
-  *Index = GEP->getOperand(1);
-  auto *VT = dyn_cast<FixedVectorType>((*Index)->getType());
-  return (VT && VT->getNumElements() == 8 && VT->getScalarSizeInBits() == 32);
+  // Find the unique vector index...
+  DataLayout DL = CurrentFunction->getParent()->getDataLayout();
+  gep_type_iterator Cur = gep_type_begin(GEP);
+  gep_type_iterator End = gep_type_end(GEP);
+  Value *Index = nullptr;
+  IRBuilder<> B(GEP);
+  SmallVector<Value *, 8> Indices;
+  for (; Cur != End; ++Cur) {
+    Value *Operand = Cur.getOperand();
+    auto *Ty = dyn_cast<FixedVectorType>(Operand->getType());
+    if (!Ty) {
+      Indices.push_back(Operand);
+      continue;
+    }
+    if (Index)
+      // TODO -- change to scale the index and the sum the
+      //   multiple instances
+      return false; // multiple vector operands should never happen...
+
+    Indices.push_back(B.getInt64(0));
+    TypeSize ElementSize = DL.getTypeAllocSize(Cur.getIndexedType());
+    if (ElementSize.isScalable())
+      return false;
+    *Scale = ElementSize.getFixedSize();
+    Index = Operand;
+    if (Ty->getScalarSizeInBits() == 64) {
+      auto *Cast = dyn_cast<CastInst>(Index);
+      if (!Cast)
+        return false;
+      Index = Cast->getOperand(0);
+    }
+  }
+  assert(Index && "Failed to find vector operand to vector GEP");
+  // Found a suitable GEP, so we know
+  // lower that to a scalar GEP by replacing the
+  // vector index with 0 and returning the index value ant
+  // its scaling factor to the parent.
+  *Base_ = B.CreateGEP(nullptr, Base, Indices);
+  *Index_ = Index;
+  return true;
 }
 
 void RISCVOptimizeMemIntrinsics::rewriteGather(Instruction &I) {
   Value *Base, *Index;
-  if (!isUniform(I.getOperand(0), &Base, &Index))
+  unsigned Scale;
+  if (!isUniform(I.getOperand(0), &Base, &Index, &Scale))
     return;
-
+  assert(isa<UndefValue>(I.getOperand(3)) &&
+         "Expected undefined Pass through in gather");
   IRBuilder<> B(&I);
-  Value *ByteIndex = B.CreateMul(Index, B.CreateVectorSplat(8, B.getInt32(4)));
+  Value *ByteIndex =
+      B.CreateMul(Index, B.CreateVectorSplat(8, B.getInt32(Scale)));
   // Convert to "et_masked_gather"
 
-  CallInst *G = B.CreateIntrinsic(
-      Intrinsic::riscv_et_gather, {I.getType(), Base->getType()},
-      {/*Ptr*/ Base, ByteIndex,
-       /*PassThru*/ I.getOperand(3),
-       /*Load Ext*/ B.getInt32(ISD::LoadExtType::NON_EXTLOAD),
-       /*Mask*/ I.getOperand(2)});
+  Type *Ret = I.getType();
+  unsigned MemoryWidth = Ret->getScalarSizeInBits();
+  if (MemoryWidth < 32)
+    Ret = FixedVectorType::get(B.getInt32Ty(), 8);
+  Value *G =
+      B.CreateIntrinsic(Intrinsic::riscv_et_gather, {Ret, Base->getType()},
+                        {/*Ptr*/ Base, ByteIndex,
+                         /*PassThru*/ UndefValue::get(Ret),
+                         /*Load Ext*/ B.getInt32(ISD::LoadExtType::NON_EXTLOAD),
+                         /*Mask*/ I.getOperand(2)});
+  if (Ret != I.getType())
+    G = B.CreateTrunc(G, I.getType());
   I.replaceAllUsesWith(G);
   I.eraseFromParent();
 }
 
 void RISCVOptimizeMemIntrinsics::rewriteScatter(Instruction &I) {
   Value *Base, *Index;
-  if (!isUniform(I.getOperand(1), &Base, &Index))
+  unsigned Scale;
+  if (!isUniform(I.getOperand(1), &Base, &Index, &Scale))
     return;
 
   IRBuilder<> B(&I);
-  Value *ByteIndex = B.CreateMul(Index, B.CreateVectorSplat(8, B.getInt32(4)));
+  Value *ByteIndex =
+      B.CreateMul(Index, B.CreateVectorSplat(8, B.getInt32(Scale)));
 
   // Convert to "et_masked_gather"
-  CallInst *S = B.CreateIntrinsic(
-      Intrinsic::riscv_et_scatter, {I.getOperand(0)->getType(), Base->getType()},
-      {/*Value*/ I.getOperand(0),
-        /*Ptr*/ Base, ByteIndex,
-       /*Mask*/ I.getOperand(3)});
+  CallInst *S = B.CreateIntrinsic(Intrinsic::riscv_et_scatter,
+                                  {I.getOperand(0)->getType(), Base->getType()},
+                                  {/*Value*/ I.getOperand(0),
+                                   /*Ptr*/ Base, ByteIndex,
+                                   /*Mask*/ I.getOperand(3)});
   I.replaceAllUsesWith(S);
   I.eraseFromParent();
 }

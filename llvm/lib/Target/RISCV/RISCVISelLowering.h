@@ -217,7 +217,9 @@ public:
       EVT ET, unsigned AddrSpace = 0, unsigned Align = 1,
       MachineMemOperand::Flags Flags = MachineMemOperand::MONone,
       bool *Fast = nullptr) const override;
-
+  bool isShuffleMaskLegal(ArrayRef<int> /*Mask*/, EVT /*VT*/) const override {
+    return false;
+  }
 #endif
 private:
   void analyzeInputArgs(MachineFunction &MF, CCState &CCInfo,
@@ -246,9 +248,7 @@ private:
   SDValue lowerShiftRightParts(SDValue Op, SelectionDAG &DAG, bool IsSRA) const;
   SDValue LowerINTRINSIC_WO_CHAIN(SDValue Op, SelectionDAG &DAG) const;
 
-
 #ifdef ESPERANTO
-  SDValue LowerSETCC(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerVSELECT(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerVECTOR_SHUFFLE(SDValue Op, SelectionDAG &DAG) const;
 #endif

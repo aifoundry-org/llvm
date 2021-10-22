@@ -270,7 +270,6 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
       setOperationAction(ISD::INTRINSIC_W_CHAIN, MT, Custom); // gather
       setOperationAction(ISD::INTRINSIC_VOID, MT, Custom);    // scatter
     }
-
     for (unsigned Op : {
              ISD::ADD,        ISD::AND,         ISD::BUILD_VECTOR,
              ISD::MUL,        ISD::OR,          ISD::SDIV,
@@ -280,19 +279,20 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
              ISD::UDIV,       ISD::UMAX,        ISD::UMIN,
              ISD::UREM,       ISD::XOR,         ISD::SINT_TO_FP,
              ISD::UINT_TO_FP, ISD::FP_TO_SINT,  ISD::FP_TO_UINT,
-             ISD::MSTORE,     ISD::MGATHER, ISD::BITCAST,
+             ISD::MSTORE,     ISD::BITCAST,
          })
       setOperationAction(Op, MVT::v8i32, Legal);
-    // TODO -- add library support for emulated fdiv.s fdiv.ps
-    for (unsigned Op :
-         {ISD::FADD, ISD::FSUB, ISD::FMUL, ISD::SETCC, ISD::FDIV, ISD::FABS,
-          ISD::FSIN, ISD::FLOG2, ISD::FEXP2, ISD::FSQRT, ISD::FMINIMUM,
-          ISD::FMAXIMUM, ISD::FMA, ISD::FMAD, ISD::FNEG, ISD::BUILD_VECTOR, ISD::BITCAST,
-          ISD::FREM, ISD::FCOPYSIGN})
+    for (unsigned Op : {
+             ISD::FADD,    ISD::FSUB,  ISD::FMUL,      ISD::SETCC,
+             ISD::FDIV,    ISD::FABS,  ISD::FSIN,      ISD::FLOG2,
+             ISD::FEXP2,   ISD::FSQRT, ISD::FMINIMUM,  ISD::FMAXIMUM,
+             ISD::FMA,     ISD::FMAD,  ISD::FNEG,      ISD::BUILD_VECTOR,
+             ISD::BITCAST, ISD::FREM,  ISD::FCOPYSIGN, ISD::MLOAD,
+             ISD::MSTORE,
+         })
       setOperationAction(Op, MVT::v8f32, Legal);
     for (unsigned Op : {ISD::BUILD_VECTOR, ISD::AND, ISD::OR, ISD::XOR})
       setOperationAction(Op, MVT::v8i1, Legal);
-    setOperationAction(ISD::SETCC, MVT::v8i1, Custom);
     for (unsigned Op : {ISD::VSELECT, ISD::VECTOR_SHUFFLE,
                         ISD::EXTRACT_VECTOR_ELT, ISD::INSERT_VECTOR_ELT}) {
       setOperationAction(Op, MVT::v8i32, Custom);
@@ -559,8 +559,6 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
         Mem->getMemoryVT(), Mem->getMemOperand());
     return Scatter;
   }
-  case ISD::SETCC:
-    return LowerSETCC(Op, DAG);
   case ISD::VSELECT:
     return LowerVSELECT(Op, DAG);
   case ISD::EXTRACT_VECTOR_ELT:
@@ -988,92 +986,6 @@ SDValue RISCVTargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
 }
 
 #ifdef ESPERANTO
-SDValue RISCVTargetLowering::LowerSETCC(SDValue Op, SelectionDAG &DAG) const {
-  // This is only enabled for Esperanto mask generating operations
-  assert(Op.getValueType() == MVT::v8i1);
-
-  ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(2))->get();
-  SDValue LHS = Op.getOperand(0);
-  SDValue RHS = Op.getOperand(1);
-  bool isFloat = (LHS.getValueType() == MVT::v8f32);
-  SDLoc DL(Op);
-
-  // Helper lambda functions to abstract node constructions
-
-  // Build a condition code node for CC.
-  auto cc = [&DAG, DL](ISD::CondCode CC) { return DAG.getCondCode(CC); };
-
-  // Logical operatros
-  auto not_ = [&DAG, DL](SDValue X) {
-    return DAG.getNode(ISD::XOR, DL, MVT::v8i1, X,
-                       DAG.getSplatBuildVector(
-                           MVT::v8i1, DL, DAG.getConstant(1, DL, MVT::i1)));
-  };
-  auto and_ = [&DAG, DL](SDValue X, SDValue Y) {
-    return DAG.getNode(ISD::AND, DL, MVT::v8i1, X, Y);
-  };
-  auto or_ = [&DAG, DL](SDValue X, SDValue Y) {
-    return DAG.getNode(ISD::OR, DL, MVT::v8i1, X, Y);
-  };
-
-  // Build a SELECT with the operand's swapped using CC is the code.
-  auto swapOperands = [&](ISD::CondCode CC) {
-    return DAG.getNode(ISD::SETCC, DL, MVT::v8i1, RHS, LHS, cc(CC),
-                       Op->getFlags());
-  };
-  // Build a new SELECT with CC but other parameters the same
-  auto make = [&](ISD::CondCode CC) {
-    return DAG.getNode(ISD::SETCC, DL, MVT::v8i1, LHS, RHS, cc(CC),
-                       Op->getFlags());
-  };
-  // Compute a mask that is true when both operands are not NaN
-  auto ordered = [&]() {
-    SDValue OLHS =
-        DAG.getNode(ISD::SETCC, DL, MVT::v8i1, LHS, LHS, cc(ISD::SETO));
-    SDValue ORHS =
-        DAG.getNode(ISD::SETCC, DL, MVT::v8i1, RHS, RHS, cc(ISD::SETO));
-    // TOOD -- somewhere we should fold an and by
-    // using the OLHS mask to ORHS
-    return and_(OLHS, ORHS);
-  };
-
-  // Rewrite CC kinds to mostly avoid operations not directly supported
-  // by the hardare. In some cases, we can't fully avoid that because
-  // subsequent combining/simplification will just reverse the action here
-  // or where the rewrite yields much worse code than a code generation
-  // pattern.
-  switch (CC) {
-  default:
-    return Op;
-  case ISD::SETOGT:
-    return swapOperands(ISD::SETOLT);
-  case ISD::SETOGE:
-    return swapOperands(ISD::SETOLE);
-  case ISD::SETONE:
-    return and_(not_(make(ISD::SETOEQ)), ordered());
-  case ISD::SETO:
-    return (LHS == RHS ? Op : ordered());
-  case ISD::SETUO:
-    return not_(ordered());
-  case ISD::SETUEQ:
-    return or_(make(ISD::SETOEQ), not_(ordered()));
-  case ISD::SETULE:
-    return (isFloat ? or_(make(ISD::SETOLE), not_(ordered())) : Op);
-  case ISD::SETULT:
-    return (isFloat ? or_(make(ISD::SETOLT), not_(ordered())) : Op);
-  case ISD::SETUGT:
-    return (isFloat ? or_(swapOperands(ISD::SETOLT), not_(ordered()))
-                    : swapOperands(ISD::SETULT));
-  case ISD::SETUGE:
-    return (isFloat ? or_(swapOperands(ISD::SETOLE), not_(ordered())) : Op);
-  case ISD::SETGT:
-    return swapOperands(ISD::SETLT);
-  case ISD::SETGE:
-    return swapOperands(ISD::SETLE);
-  }
-  return Op;
-}
-
 // Return the appropriate opcode if we convert MIN to MAX or the reverse.
 static ISD::NodeType swapMinMax(ISD::NodeType OpCode) { // x < y ? y : x
   switch (OpCode) {

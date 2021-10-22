@@ -581,6 +581,14 @@ static void visitIVCast(CastInst *Cast, WideIVInfo &WI, ScalarEvolution *SE,
   if (!Cast->getModule()->getDataLayout().isLegalInteger(Width))
     return;
 
+#ifdef ESPERANTO
+  // promoting 32-bit induction variables to 64 prevents use of 32-bit gathers
+  // TODO -- avoid this hack as it seems to lead to poor code quality for
+  //  addressing
+  if (Width > 32)
+    return;
+#endif
+
   // Check that `Cast` actually extends the induction variable (we rely on this
   // later).  This takes care of cases where `Cast` is extending a truncation of
   // the narrow induction variable, and thus can end up being narrower than the
