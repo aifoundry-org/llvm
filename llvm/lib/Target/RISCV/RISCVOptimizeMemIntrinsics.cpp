@@ -819,6 +819,8 @@ void RISCVOptimizeMemIntrinsics::rewriteGather(Instruction &I) {
   assert(isa<UndefValue>(I.getOperand(3)) &&
          "Expected undefined Pass through in gather");
   IRBuilder<> B(&I);
+  if (Index->getType()->getScalarSizeInBits() < 32)
+    Index = B.CreateSExt(Index, FixedVectorType::get(B.getInt32Ty(), 8));
   Value *ByteIndex =
       B.CreateMul(Index, B.CreateVectorSplat(8, B.getInt32(Scale)));
   // Convert to "et_masked_gather"
@@ -846,6 +848,8 @@ void RISCVOptimizeMemIntrinsics::rewriteScatter(Instruction &I) {
     return;
 
   IRBuilder<> B(&I);
+  if (Index->getType()->getScalarSizeInBits() < 32)
+    Index = B.CreateSExt(Index, FixedVectorType::get(B.getInt32Ty(), 8));
   Value *ByteIndex =
       B.CreateMul(Index, B.CreateVectorSplat(8, B.getInt32(Scale)));
 
