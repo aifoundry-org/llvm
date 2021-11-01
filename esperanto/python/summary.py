@@ -7,7 +7,7 @@ from tblgen import getRecords
 import re
 
 DESCRIPTION="""Print summary of information in tablegen files.
-This includes opcode names, with whether they may load or store and 
+This includes opcode names, with whether they may load or store and
 the encoding pattern"""
 
 
@@ -19,7 +19,7 @@ def main():
             continue
         if r.name.endswith("_EX") or r.name.startswith("Stack"):
             continue;
-            
+
         summary[r.name] = r
         asm = r.getValue("AsmString")
         opcode,_ = asm.split("\t")
@@ -32,7 +32,7 @@ def main():
             continue
         if e.minion == "0":
             continue
-        print("unsupported",e.opcode,f"minion={e.minion}") 
+        print("unsupported",e.opcode,f"minion={e.minion}")
 
     # print informat in the same order it is listed in the .td
     # file which matches the draft PRM
@@ -53,7 +53,7 @@ def main():
               packInst(Inst), " ", trimOps(Outs+Ins))
 
 
-            
+
 def packInst(Inst):
     """Convert the description of instruction bits to a format
     which match the PRM more or less"""
@@ -70,8 +70,8 @@ def packInst(Inst):
         # print('e',e)
         name,width = e.split("{",1)
         # print(name, width, Idx)
-        width = int(width[:-1])+1 
-        Idx += width -1 
+        width = int(width[:-1])+1
+        Idx += width -1
         Result += name.center(width)
     if Count != 32:
         Result += f" {Count}?"

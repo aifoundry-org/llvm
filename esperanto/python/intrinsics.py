@@ -5,7 +5,7 @@ from tblgen import getRecords
 import re
 
 DESCRIPTION="""
-This script takes information from RISCV.td and 
+This script takes information from RISCV.td and
 generates three files
 
   BuiltinsRISCVET.def -- the set of builtin functions
@@ -17,7 +17,7 @@ generates three files
 
 Note where an "explicit" form of an instruction exists,
 that is used for builtins and intrinsics rather than
-the one with implicit register inputs. 
+the one with implicit register inputs.
 """
 
 def main():
@@ -35,7 +35,7 @@ def main():
     intrinsics = initOutput("IntrinsicsRISCVET.td")
     print(f'''\
 let TargetPrefix = "{target_prefix}" in {{
-def int_riscv_et_gather: Intrinsic<[llvm_anyvector_ty],        
+def int_riscv_et_gather: Intrinsic<[llvm_anyvector_ty],
                                  [LLVMAnyPointerType<LLVMMatchType<0>>,
                                   llvm_v8i32_ty,  // 2 Index vector
                                   LLVMMatchType<0>, // 3  PassThrou
@@ -44,31 +44,38 @@ def int_riscv_et_gather: Intrinsic<[llvm_anyvector_ty],
                                  [IntrReadMem, IntrArgMemOnly,
                                   IntrWillReturn, ImmArg<ArgIndex<3>>]>;
 
-def int_riscv_et_scatter: Intrinsic<[],        
+def int_riscv_et_scatter: Intrinsic<[],
                                  [llvm_anyvector_ty,
-				  LLVMAnyPointerType<LLVMMatchType<0>>,
+                                  LLVMAnyPointerType<LLVMMatchType<0>>,
                                   llvm_v8i32_ty, // 2 Index vector
                                   llvm_v8i1_ty], // 3 Mask
                                  [IntrWriteMem, IntrArgMemOnly,
-				  IntrWillReturn]>;
+                                  IntrWillReturn]>;
 // Generate iota vector of length 8
-def int_riscv_iota : 
+def int_riscv_iota :
   GCCBuiltin<"__builtin_{target_prefix}_iota">,
   Intrinsic<[llvm_v8i32_ty],[], [IntrNoMem]>;
-def int_riscv_hartid :  
+def int_riscv_hartid :
   GCCBuiltin<"__builtin_{target_prefix}_hartid">,
-  Intrinsic<[llvm_i64_ty],[], [IntrNoMem]>;''',
-          file=intrinsics)
+  Intrinsic<[llvm_i64_ty],[], [IntrNoMem]>;
+''', file=intrinsics)
     builtins = initOutput("BuiltinsRISCVET.def")
     print(f'''\
+
+// The format of this database matches clang/Basic/Builtins.def.
+
+#if defined(BUILTIN) && !defined(TARGET_BUILTIN)
+#   define TARGET_BUILTIN(ID, TYPE, ATTRS, FEATURE) BUILTIN(ID, TYPE, ATTRS)
+#endif
+
 BUILTIN(__builtin_riscv_iota,"v8i", "")
 BUILTIN(__builtin_riscv_hartid,"Li", "")''', file=builtins)
     patterns = initOutput("RISCVInstrInfoEsperantoPatterns.td")
-    
+
 
     records = getRecords();
-    recordNames = { r.name for r in records } 
-    
+    recordNames = { r.name for r in records }
+
     for r in records:
         if "HasEsperanto" not in r.getValue("Predicates"):
             continue
@@ -106,13 +113,13 @@ BUILTIN(__builtin_riscv_hartid,"Li", "")''', file=builtins)
             else:
                 attrs.append("IntrNoMem")
             return attrs
-        
+
         attrs = getAttributes()
         attrs = ",".join(attrs)
         result = ",".join(result)
         args = ",".join(args)
         print(f"""\
-def int_{target_prefix}_{builtinName} : 
+def int_{target_prefix}_{builtinName} :
   GCCBuiltin<"__builtin_{target_prefix}_{builtinName}">,
   Intrinsic<[{result}],
             [{args}],
@@ -129,11 +136,11 @@ def int_{target_prefix}_{builtinName} :
             result = ",".join(result)
             args = ",".join(args)
             print(f"""\
-def int_{target_prefix}_{builtinName}_m : 
+def int_{target_prefix}_{builtinName}_m :
   Intrinsic<[{result}],
             [{args}],
             [{attrs}]>;""", file=intrinsics);
-        
+
         if result:
             builtinTypes = getBuiltinTypes(name, out_ops, isFloat)
         else:
@@ -149,7 +156,7 @@ def int_{target_prefix}_{builtinName}_m :
             else:
                 assert builtinTypes.endswith("Li"), f"bad types {builtinTypes} for {r.name}"
                 builtinTypes = builtinTypes[:-2] + "i*"
-            
+
         print(f'BUILTIN(__builtin_{target_prefix}_{builtinName},'
               f'"{builtinTypes}", "")',
               file=builtins)
@@ -160,7 +167,7 @@ def int_{target_prefix}_{builtinName}_m :
                 return "timm:" + n
             assert not "imm" in ty, f"Missed TX for {ty}"
             if ty != "FPR256":
-                return op            
+                return op
             ty = "v8f32" if isFloat else "v8i32"
             return f"({ty} {op})"
         def addTX(op):
@@ -182,8 +189,13 @@ def int_{target_prefix}_{builtinName}_m :
         if hasMask:
             print(f'def : EspPat<(int_{target_prefix}_{builtinName}_m {intr_args}),',
                   f'({r.name} {intr_out})>;', file=patterns)
-        
+
     print(f'}} // TargetPrefix = "{target_prefix}"',file=intrinsics)
+
+    print(f'''\
+
+#undef BUILTIN
+#undef TARGET_BUILTIN''', file=builtins)
 
 
 intTypeMap = { "GPR" : "llvm_i64_ty" ,
@@ -202,7 +214,7 @@ floatTypeMap["FPR256"] = "llvm_v8f32_ty"
 TXMap = {  "frmarg" : "LO3",
            "ofrmarg" : "LO3",
            "uimm3" : "LO3",
-           "uimm4" : "LO3",
+           "uimm4" : "LO4",
            "uimm5" : "LO5",
            "uimm8" : "LO8",
            "simm10" : "LO10s",
@@ -230,13 +242,13 @@ def getTypes(iname, ops, isFloat, maskType):
     if len(typeList) == 1:   # outputs?
         if iname.startswith("fcvt_pw"):
             typeList = ["llvm_v8i32_ty"]
-    else: # inputs 
+    else: # inputs
         if iname.startswith("fcvt_ps_pw"):
             typeList[1] = "llvm_v8i32_ty"
         elif iname.startswith("fcvt_pw"):
             typeList[0] = "llvm_v8i32_ty"
     return typeList
-        
+
 
 def getImmediates(ops):
     imms = []
@@ -268,7 +280,7 @@ def getBuiltinTypes(iname, ops, isFloat):
     for op in ops:
         ty,name = op.split(":")
         if name.startswith("$imm"):
-            rty = "Ii"        
+            rty = "Ii"
         else:
             rty = typeMap.get(ty,None)
             if rty is None:
@@ -279,7 +291,7 @@ def getBuiltinTypes(iname, ops, isFloat):
     if len(typeList) == 1:   # outputs?
         if iname.startswith("fcvt_pw"):
             typeList = ["V8i"]
-    else: # inputs 
+    else: # inputs
         if iname.startswith("fcvt_ps_pw"):
             typeList[1] = "V8i"
         elif iname.startswith("fcvt_pw"):
