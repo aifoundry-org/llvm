@@ -236,10 +236,17 @@ def : ProcessorModel<"sifive-u54", Rocket64Model, [Feature64Bit,
                                                    FeatureStdExtC]>;
 
 def : ProcessorModel<"et-soc1-min", NoSchedModel, [Feature64Bit,
-                                                FeatureStdExtM,
-                                                FeatureStdExtF,
-                                                FeatureStdExtC,
-                                                FeatureEsperanto]>;
+                                                   FeatureStdExtM,
+                                                   FeatureStdExtF,
+                                                   FeatureStdExtC,
+                                                   FeatureEsperanto]>;
+
+def : ProcessorModel<"et-soc1-max", NoSchedModel, [Feature64Bit,
+                                                   FeatureStdExtM,
+                                                   FeatureStdExtA,
+                                                   FeatureStdExtF,
+                                                   FeatureStdExtD,
+                                                   FeatureStdExtC]>;
 
 //===----------------------------------------------------------------------===//
 // Define the RISC-V target.
