@@ -102,6 +102,12 @@ private:
   void rewriteGather(Instruction &I);
   void rewriteScatter(Instruction &I);
   bool isUniform(Value *Addr, Value **Base, Value **Index_, unsigned *Scale);
+
+  DenseMap<Instruction *, unsigned> Index; // Debugging only
+  unsigned getIndex(Instruction &I) {
+    auto Iter = Index.find(&I);
+    return (Iter == Index.end() ? 0 : Iter->second);
+  }
 };
 
 } // end anonymous namespace
@@ -341,6 +347,8 @@ void RISCVOptimizeMemIntrinsics::analyzeLoop(Loop &LI) {
   if (!Succ)
     return;
 
+  LLVM_DEBUG(Index.clear());
+
   // Find all of the stores and the address terms
   // when those address are loop invariant.
   // Panic if we see inline asm.
@@ -348,6 +356,10 @@ void RISCVOptimizeMemIntrinsics::analyzeLoop(Loop &LI) {
   SmallVector<StoreElt, 8> Stores;
   BasicBlock &BB = **LI.block_begin();
   for (Instruction &I : BB) {
+    LLVM_DEBUG({
+      Index.try_emplace(&I, Index.size() + 1);
+      dbgs() << getIndex(I) << ": " << I << "\n";
+    });
     if (I.mayWriteToMemory())
       Stores.emplace_back(&I, getInvariantVectorAddress(I, LI));
     if (isa<InlineAsm>(I))
@@ -364,6 +376,7 @@ void RISCVOptimizeMemIntrinsics::analyzeLoop(Loop &LI) {
           continue;
         if (AA->alias(S.first, &I) == NoAlias)
           continue;
+        LLVM_DEBUG(dbgs() << "Has alias " << getIndex(I) << " " << I << "\n");
         // S and I alias but don't both have the same invariant address
         // so we clear the address field on the store which will prevent
         // anything aliased to it from being rewriten to scalars 
@@ -384,7 +397,6 @@ void RISCVOptimizeMemIntrinsics::analyzeLoop(Loop &LI) {
   DefMapT DefMap;
 
   SmallVector<Instruction *, 16> VectorOps;
-  LLVM_DEBUG(dbgs() << "before "; BB.dump());
   CodeHoister Hoister(LI);
   BasicBlock::iterator Cur = BB.begin();
   BasicBlock::iterator End = BB.end();
@@ -402,7 +414,7 @@ void RISCVOptimizeMemIntrinsics::analyzeLoop(Loop &LI) {
     llvm::Value *Addr = getVectorAddress(I);
     if (!Addr)
       continue;
-
+    LLVM_DEBUG(dbgs() << "Checking " << getIndex(I) << " " << I << "\n");
     if (!isInvariantVector(I, LI)) {
       // CSE redundant vector loads or remember
       // them in execution order
@@ -426,8 +438,11 @@ void RISCVOptimizeMemIntrinsics::analyzeLoop(Loop &LI) {
       LastRef &Last = DefMap[Addr];
       Last.CurrentValue = Value;
       // If there was a preceding store, it is now dead and can be removed
-      if (Last.LastStore)
+      if (Last.LastStore) {
+        LLVM_DEBUG(dbgs() << "Remove dead store " << getIndex(*Last.LastStore)
+                          << " " << *Last.LastStore << "\n");
         Last.LastStore->eraseFromParent();
+      }
       Last.LastStore = &I;
       continue;
     }
@@ -435,6 +450,10 @@ void RISCVOptimizeMemIntrinsics::analyzeLoop(Loop &LI) {
     if (Iter != DefMap.end()) {
       // We have a preceding definition in the loop which we can
       // forward substituted to uses of this load.
+      LLVM_DEBUG(dbgs() << "Remove redundant load " << getIndex(I) << " " << I
+                        << "\n");
+      LLVM_DEBUG(dbgs() << " with " << *Iter->getSecond().CurrentValue << "\n");
+
       I.replaceAllUsesWith(Iter->getSecond().CurrentValue);
       I.eraseFromParent();
       continue;
@@ -447,6 +466,8 @@ void RISCVOptimizeMemIntrinsics::analyzeLoop(Loop &LI) {
     // There is a subsequent store in the loop so here we
     // need to hoist the upwards exposed load "I" into the loop header
     // and build a phi node.
+    LLVM_DEBUG(dbgs() << "Hoist to loop header " << getIndex(I) << " " << I
+                      << "\n");
     auto *Phi = PHINode::Create(I.getType(), 2, "etvec", &*BB.begin());
     DefMap[Addr].CurrentValue = Phi;
     I.replaceAllUsesWith(Phi);
@@ -476,8 +497,9 @@ void RISCVOptimizeMemIntrinsics::analyzeLoop(Loop &LI) {
     Succ = SplitBlockPredecessors(Succ, {&BB}, "etvec");
   for (auto &Pair : DefMap) {
     Instruction *S = Pair.getSecond().LastStore;
+    LLVM_DEBUG(dbgs() << "Sink store " << getIndex(*S) << " " << *S << "\n");
     S->removeFromParent();
-    S->insertBefore(Succ->getTerminator());
+    S->insertBefore(Succ->getFirstNonPHI());
   }
   return;
 }
@@ -543,7 +565,7 @@ bool RISCVOptimizeMemIntrinsics::combinePriorMemOp(
 
   // return true if I and Prior refer to the
   // same set of memory locations. Prior might be a store.
-  auto sameVector = [&I, &LI](Instruction *Prior) {
+  auto sameVector = [&I, &LI, this](Instruction *Prior) {
     bool isStore = Prior->mayWriteToMemory();
     // Verify non-store parameters are the same, ignoring the last
     // operand which is the function and special casing the masks.
@@ -567,6 +589,8 @@ bool RISCVOptimizeMemIntrinsics::combinePriorMemOp(
     // Separately loading both sides of a vector,
     // replace the first load's mask to load the whole
     // vector and pretend then they are the same
+    LLVM_DEBUG(dbgs() << "Promoting mask to all " << getIndex(*Prior) << " "
+                      << *Prior << "\n");
     IRBuilder<> B(LI.getLoopPredecessor()->getTerminator());
     Value *AllTrue = B.CreateIntrinsic(llvm::Intrinsic::riscv_mov_m_x_m, {},
                                        {B.getInt64(0), B.getInt32(0xff)},
@@ -587,17 +611,22 @@ bool RISCVOptimizeMemIntrinsics::combinePriorMemOp(
         continue;
       if (PID != getStoreForm(IID) || !sameVector(Prior))
         return false;
+      LLVM_DEBUG(dbgs() << "Replace from " << getIndex(*Prior) << " " << *Prior
+                        << "\n");
       ReplaceWith = Prior->getOperand(0);
       break;
     }
     // Load/load
     if (!sameVector(Prior))
       continue;
+    LLVM_DEBUG(dbgs() << "Replace from " << getIndex(*Prior) << " " << *Prior
+                      << "\n");
     ReplaceWith = Prior;
     break;
   }
   if (!ReplaceWith)
     return false;
+  LLVM_DEBUG(dbgs() << "Replace " << getIndex(I) << " " << I << "\n");
   I.replaceAllUsesWith(ReplaceWith);
   I.eraseFromParent();
   return true;
