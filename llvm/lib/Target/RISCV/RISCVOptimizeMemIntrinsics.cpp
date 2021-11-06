@@ -19,7 +19,7 @@
 // We also look for vector select operations where we can fold the
 // selected into a preceding definiton by adding the other operand
 // of the selected as the pass-through input.
-// 
+//
 //===----------------------------------------------------------------------===//
 #ifdef ESPERANTO
 #include "RISCV.h"
@@ -31,18 +31,63 @@
 #include "llvm/IR/IntrinsicsRISCV.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include <type_traits>
 
 using namespace llvm;
 
 #define DEBUG_TYPE "opt-mem"
 
 static cl::opt<bool>
-    EnableOptMem(DEBUG_TYPE, cl::init(false),
+    EnableOptMem(DEBUG_TYPE, cl::init(true),
                  cl::desc("Enable vector->register optimization"));
 
 static cl::opt<bool> HoistInvariants(
     DEBUG_TYPE "-hoist", cl::init(false),
     cl::desc("Hoist invariant vector operations out of inner loops"));
+
+#ifndef NDEBUG
+static cl::opt<unsigned>
+    OptLimit(DEBUG_TYPE "-limit",
+             cl::init(std::numeric_limits<unsigned>::max()));
+#endif
+
+
+static Intrinsic::ID getStoreForm(Intrinsic::ID ID);
+
+namespace {
+// This structure represent all information in an ET vector intrinsic memory access
+// We may the ID for loads to the corresponding stores so those are treated as equal
+struct Access {
+  using TupleTy = std::tuple<Value *, Value *, Value *, Intrinsic::ID>;
+  TupleTy Tuple;
+  Value *getAddr() const { return std::get<0>(Tuple); }
+  Value *getVectorAddr() const { return (getStoreID() ? getAddr() : nullptr); }
+  Value *getIndex() const { return std::get<1>(Tuple); }
+  Value *getMask() const { return std::get<2>(Tuple); }
+  Intrinsic::ID getStoreID() const { return std::get<3>(Tuple); }
+  Access(Value *Addr, Value *Index, Value *Mask, Intrinsic::ID ID)
+      : Tuple(Addr, Index, Mask, getStoreForm(ID)) {}
+  bool operator==(const Access &Other) const{ return Tuple == Other.Tuple; }
+};
+} // namespace
+namespace llvm {
+ template <> struct DenseMapInfo<Access> {
+  static inline Access getEmptyKey() { return Access(nullptr, nullptr, nullptr, 0); }
+  static inline Access getTombstoneKey() { return Access(nullptr, nullptr, nullptr, 1); }
+  static unsigned getHashValue(const Access &Val) {
+    size_t H = reinterpret_cast<size_t>(Val.getAddr());
+    H ^= reinterpret_cast<size_t>(Val.getIndex());
+    H ^= reinterpret_cast<size_t>(Val.getMask());
+    H ^= static_cast<unsigned>(Val.getStoreID());
+    return (H >> 32) ^ H;
+  }
+  static bool isEqual(const Access &LHS, const Access &RHS) {
+    return LHS == RHS;
+  }
+  // static unsigned getHashValue(const T &Val);
+  // static bool isEqual(const T &LHS, const T &RHS);
+};
+}
 
 namespace {
 class RISCVOptimizeMemIntrinsics : public FunctionPass {
@@ -65,7 +110,6 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<AAResultsWrapperPass>();
     AU.addRequired<LoopInfoWrapperPass>();
-    AU.addPreserved<LoopInfoWrapperPass>();
   }
 
 private:
@@ -86,14 +130,23 @@ private:
   // Return the operand that is the value to be stored
   Value *getVectorStoreInput(Instruction &I);
 
-  // I is a memory operand where the address and gather index is invariant
-  // with respect to loop LI.
-  Value *getInvariantVectorAddress(Instruction &I, Loop &LI);
+  // Return the memory access information for ET intrinsic operation I
+  Access getMemoryAccess(Instruction &I);
+
+  // True if two instructions that are vector memory operations 
+  // are not aliased
+  bool noAlias(Instruction& I, Instruction& J) {
+    Value *IA = getMemoryAccess(I).getAddr();
+    Value *JA = getMemoryAccess(J).getAddr();
+    return AA->isNoAlias(IA,JA);
+  }
 
   // Look for a vector load which can be matched with a preceding
-  // identical load or corresponding store.
+  // identical load or corresponding store. Also look for 
+  // preceding dead store covered by Iq
   bool combinePriorMemOp(Instruction &I,
-                         const SmallVector<Instruction *, 16> &VectorOps,
+                         const SmallVectorImpl<Instruction *> &VectorOps,
+                         SmallVectorImpl<Instruction*> *DeadOps,
                          Loop &LI);
 
   // Try to fold a vector select into previous instructions
@@ -124,11 +177,9 @@ llvm::createRISCVOptimizeMemIntrinsicsPass(RISCVTargetMachine &TM) {
   return new RISCVOptimizeMemIntrinsics(TM);
 }
 
-
 bool RISCVOptimizeMemIntrinsics::runOnFunction(Function &F) {
   CurrentFunction = &F;
   rewriteGatherScatters(F);
-
 
   if (!EnableOptMem)
     return false;
@@ -140,6 +191,12 @@ bool RISCVOptimizeMemIntrinsics::runOnFunction(Function &F) {
   MadeChange = false;
   for (Loop *L : LI.getTopLevelLoops())
     analyzeLoop(*L);
+  LLVM_DEBUG({
+    if (MadeChange) {
+      dbgs() << "After optmem\n";
+      F.dump();
+    }
+  });
   return MadeChange;
 }
 
@@ -222,7 +279,6 @@ public:
   }
 
 private:
-
   // An estimate of the number of vector registers needed for the loop
   unsigned RegPressure;
   // A limited on the above value
@@ -260,7 +316,7 @@ private:
     I.setOperand(Idx, allOnes);
   }
 
- // True if I1 and I2 compute the same value
+  // True if I1 and I2 compute the same value
   bool matches(Instruction &I1, Instruction &I2) {
     if (I1.getNumOperands() != I2.getNumOperands())
       return false;
@@ -274,60 +330,6 @@ private:
   }
 };
 } // namespace
-
-// Return the address valuel for vector load or store
-static llvm::Value *getAddress(CallInst *C) {
-  Value *Addr;
-  unsigned N = C->getNumOperands();
-  switch (C->getIntrinsicID()) {
-  default:
-    return nullptr;
-  case Intrinsic::riscv_flw_ps_m:
-  case Intrinsic::riscv_flwg_ps_m:
-  case Intrinsic::riscv_flwl_ps_m:
-  case Intrinsic::riscv_fgb_ps_m:
-  case Intrinsic::riscv_fgbg_ps_m:
-  case Intrinsic::riscv_fgbl_ps_m:
-  case Intrinsic::riscv_fgh_ps_m:
-  case Intrinsic::riscv_fghg_ps_m:
-  case Intrinsic::riscv_fghl_ps_m:
-  case Intrinsic::riscv_fgw_ps_m:
-  case Intrinsic::riscv_fgwg_ps_m:
-  case Intrinsic::riscv_fgwl_ps_m:
-    Addr = C->getOperand(N - 3);
-    break;
-
-  case Intrinsic::riscv_fsw_ps_m:
-  case Intrinsic::riscv_fswg_ps_m:
-  case Intrinsic::riscv_fswl_ps_m:
-  case Intrinsic::riscv_fscb_ps_m:
-  case Intrinsic::riscv_fscbg_ps_m:
-  case Intrinsic::riscv_fscbl_ps_m:
-  case Intrinsic::riscv_fsch_ps_m:
-  case Intrinsic::riscv_fschg_ps_m:
-  case Intrinsic::riscv_fschl_ps_m:
-  case Intrinsic::riscv_fscw_ps_m:
-  case Intrinsic::riscv_fscwg_ps_m:
-  case Intrinsic::riscv_fscwl_ps_m:
-    Addr = C->getOperand(N - 3);
-    break;
-  case Intrinsic::riscv_flq2:
-    Addr = C->getOperand(N - 2);
-    break;
-  case Intrinsic::riscv_fsq2:
-    Addr = C->getOperand(N - 2);
-    break;
-  }
-  return Addr;
-}
-
-// Return a vector address if I is a vector load or store
-static Value *getVectorAddress(Instruction &I) {
-  if (auto *C = dyn_cast<CallInst>(&I))
-    return getAddress(C);
-  return nullptr;
-}
-
 
 void RISCVOptimizeMemIntrinsics::analyzeLoop(Loop &LI) {
   if (!LI.getSubLoops().empty()) {
@@ -347,21 +349,31 @@ void RISCVOptimizeMemIntrinsics::analyzeLoop(Loop &LI) {
   if (!Succ)
     return;
 
+#ifndef NDEBUG
+  static unsigned Count = 0;
+  Count += 1;
+  if (Count > OptLimit) {
+    LLVM_DEBUG(dbgs() << "Reached limit " << OptLimit << "\n");
+    return;
+  }
+#endif
+
   LLVM_DEBUG(Index.clear());
 
   // Find all of the stores and the address terms
   // when those address are loop invariant.
   // Panic if we see inline asm.
-  using StoreElt = std::pair<Instruction *, Value *>;
+  using StoreElt = std::pair<Instruction *, Access>;
   SmallVector<StoreElt, 8> Stores;
   BasicBlock &BB = **LI.block_begin();
+  LLVM_DEBUG(dbgs() << "analyzing loop " << BB.getName() << "\n");
   for (Instruction &I : BB) {
     LLVM_DEBUG({
       Index.try_emplace(&I, Index.size() + 1);
       dbgs() << getIndex(I) << ": " << I << "\n";
     });
     if (I.mayWriteToMemory())
-      Stores.emplace_back(&I, getInvariantVectorAddress(I, LI));
+      Stores.emplace_back(&I, getMemoryAccess(I));
     if (isa<InlineAsm>(I))
       return;
   }
@@ -370,22 +382,21 @@ void RISCVOptimizeMemIntrinsics::analyzeLoop(Loop &LI) {
   // is any dangerous aliasing.
   for (Instruction &I : BB)
     if (I.mayReadOrWriteMemory()) {
-      Value *Addr = getInvariantVectorAddress(I, LI);
+      Access A = getMemoryAccess(I);
       for (StoreElt &S : Stores) {
-        if (S.second == Addr)
-          continue;
-        if (AA->alias(S.first, &I) == NoAlias)
+        if (S.second == A || noAlias(*S.first, I))
           continue;
         LLVM_DEBUG(dbgs() << "Has alias " << getIndex(I) << " " << I << "\n");
+        LLVM_DEBUG(dbgs() << "    with  " << getIndex(*S.first) << " " << *S.first << "\n");
         // S and I alias but don't both have the same invariant address
         // so we clear the address field on the store which will prevent
-        // anything aliased to it from being rewriten to scalars 
-        S.second = nullptr;
+        // anything aliased to it from being rewriten to scalars
+        S.second = Access(0, 0, 0, 0);
       }
     }
 
   // A list of phi nodes created and their associated memory address
-  SmallVector<std::pair<PHINode *, Value *>, 4> NewPhiNodes;
+  SmallVector<std::pair<PHINode *, Access>, 4> NewPhiNodes;
   // mapping of memory address to current value "in" the memory at
   // that address and the last store (which will be moved out of the
   // loop)
@@ -393,14 +404,18 @@ void RISCVOptimizeMemIntrinsics::analyzeLoop(Loop &LI) {
     Instruction *LastStore = nullptr;
     Value *CurrentValue = nullptr;
   };
-  using DefMapT = SmallDenseMap<Value *, LastRef>;
+  using DefMapT = SmallDenseMap<Access, LastRef>;
   DefMapT DefMap;
 
+  // List of vector operations in execution order
   SmallVector<Instruction *, 16> VectorOps;
+  // List of stores which have been shown to be dead.
+  SmallVector<Instruction *, 8> DeadOps;
+
   CodeHoister Hoister(LI);
+
   BasicBlock::iterator Cur = BB.begin();
   BasicBlock::iterator End = BB.end();
-
   while (Cur != End) {
     Instruction &I = *Cur++;
 
@@ -411,42 +426,52 @@ void RISCVOptimizeMemIntrinsics::analyzeLoop(Loop &LI) {
     if (foldSelect(I))
       continue;
 
-    llvm::Value *Addr = getVectorAddress(I);
+    if (!I.mayReadOrWriteMemory())
+      continue;
+
+    Access I_Access = getMemoryAccess(I);
+    llvm::Value *Addr = I_Access.getVectorAddr();
     if (!Addr)
       continue;
-    LLVM_DEBUG(dbgs() << "Checking " << getIndex(I) << " " << I << "\n");
-    if (!isInvariantVector(I, LI)) {
+#ifndef NDEBUG
+    unsigned OpIndex = getIndex(I);
+    LLVM_DEBUG(dbgs() << "Checking " << OpIndex << " " << I << "\n");
+#endif
+
+    // True if I has some store that is aliased with it that
+    // is not the same set of memory locations
+    auto hasConflictingStore = [&Stores, I_Access, &I, this]() {
+      return !all_of(Stores, [&I, I_Access, this](StoreElt S) {
+        return (S.second == I_Access || noAlias(I, *S.first));
+      });
+    };
+
+    // For non-inviariant operations, we look to combine with
+    // an earlier operations
+    if (!isInvariantVector(I, LI) || hasConflictingStore()) {
       // CSE redundant vector loads or remember
       // them in execution order
-      if (!combinePriorMemOp(I, VectorOps, LI))
+      if (!combinePriorMemOp(I, VectorOps, &DeadOps, LI))
         VectorOps.push_back(&I);
       continue;
     }
 
-    // A memory operation is safe if it has the same invariant address
-    // or is not aliased to any store. Note if the store has a dangerous
-    // alias and so can't be eliminated we don't eliminate the loads
-    // either (that store's addr field is reset to nullptr above).
-    if (!all_of(Stores, [&I, Addr, this](StoreElt S) {
-          return (S.second == Addr || AA->alias(&I, S.first) == NoAlias);
-        }))
-      continue;
-
     if (I.mayWriteToMemory()) {
       // For stores, record the value stored to memory for subsequent loads
       Value *Value = getVectorStoreInput(I);
-      LastRef &Last = DefMap[Addr];
+      LastRef &Last = DefMap[I_Access];
       Last.CurrentValue = Value;
       // If there was a preceding store, it is now dead and can be removed
       if (Last.LastStore) {
         LLVM_DEBUG(dbgs() << "Remove dead store " << getIndex(*Last.LastStore)
                           << " " << *Last.LastStore << "\n");
-        Last.LastStore->eraseFromParent();
+        DeadOps.push_back(Last.LastStore);
       }
       Last.LastStore = &I;
       continue;
     }
-    auto Iter = DefMap.find(Addr);
+
+    auto Iter = DefMap.find(I_Access);
     if (Iter != DefMap.end()) {
       // We have a preceding definition in the loop which we can
       // forward substituted to uses of this load.
@@ -455,10 +480,12 @@ void RISCVOptimizeMemIntrinsics::analyzeLoop(Loop &LI) {
       LLVM_DEBUG(dbgs() << " with " << *Iter->getSecond().CurrentValue << "\n");
 
       I.replaceAllUsesWith(Iter->getSecond().CurrentValue);
-      I.eraseFromParent();
+      DeadOps.push_back(&I);
       continue;
     }
-    if (!any_of(Stores, [Addr](StoreElt S) { return S.second == Addr; })) {
+    if (!any_of(Stores, [I_Access, this](StoreElt S) {
+          return S.second == I_Access;
+        })) {
       // This load has no store so we can just hoist it out of the loop.
       // this should already have been done so do nothing for this edge case
       continue;
@@ -469,21 +496,28 @@ void RISCVOptimizeMemIntrinsics::analyzeLoop(Loop &LI) {
     LLVM_DEBUG(dbgs() << "Hoist to loop header " << getIndex(I) << " " << I
                       << "\n");
     auto *Phi = PHINode::Create(I.getType(), 2, "etvec", &*BB.begin());
-    DefMap[Addr].CurrentValue = Phi;
+    DefMap[I_Access].CurrentValue = Phi;
     I.replaceAllUsesWith(Phi);
     BasicBlock *Pred = LI.getLoopPredecessor();
     I.removeFromParent();
     I.insertBefore(Pred->getTerminator());
     Phi->addIncoming(&I, Pred);
-    NewPhiNodes.emplace_back(Phi, Addr);
+    NewPhiNodes.emplace_back(Phi, I_Access);
+    MadeChange = true;
   }
+  if (!DeadOps.empty()) {
+    MadeChange = true;
+    for (Instruction *Def : DeadOps)
+      Def->eraseFromParent();
+  }
+
   if (DefMap.empty())
     return;
   MadeChange = true;
 
   // Build back edgse to new phi nodes from final definitions
   // The second component is the address of the to be deleted store
-  for (std::pair<PHINode *, Value *> P : NewPhiNodes)
+  for (std::pair<PHINode *, Access> P : NewPhiNodes)
     P.first->addIncoming(DefMap[P.second].CurrentValue, &BB);
 
   // Any stores to sinK?
@@ -506,6 +540,8 @@ void RISCVOptimizeMemIntrinsics::analyzeLoop(Loop &LI) {
 
 bool RISCVOptimizeMemIntrinsics::isInvariantVector(Instruction &I, Loop &LI) {
   auto *C = dyn_cast<CallInst>(&I);
+  if (!C || C->getNumArgOperands() == 0 || C->getIntrinsicID() < Intrinsic::riscv_amoaddg_d)
+    return false;
   // Verify all operands except a value to be stored are invariant.
   return all_of(make_range(C->data_operands_begin() + C->mayWriteToMemory(),
                            C->data_operands_end()),
@@ -516,14 +552,49 @@ Value *RISCVOptimizeMemIntrinsics::getVectorStoreInput(Instruction &I) {
   return I.getOperand(0);
 }
 
-// If I is a vector memory operand whose address is loop invariant,
-// return that address, else null.
-Value *RISCVOptimizeMemIntrinsics::getInvariantVectorAddress(Instruction &I,
-                                                             Loop &LI) {
-  if (Value *Address = getVectorAddress(I))
-    if (isInvariant(Address, LI))
-      return Address;
-  return nullptr;
+Access RISCVOptimizeMemIntrinsics::getMemoryAccess(Instruction &I) {
+
+  auto *CI = dyn_cast<CallInst>(&I);
+  if (!CI)
+    return {&I, nullptr, nullptr, 0};
+  switch (CI->getIntrinsicID()) {
+  default:
+    return Access(&I, nullptr, nullptr, CI->getIntrinsicID());
+  case Intrinsic::riscv_flq2:
+    return Access(I.getOperand(1), I.getOperand(0), nullptr, CI->getIntrinsicID());
+  case Intrinsic::riscv_fsq2:
+    return Access(I.getOperand(2), I.getOperand(1), nullptr, CI->getIntrinsicID());
+
+  case Intrinsic::riscv_flw_ps_m:
+  case Intrinsic::riscv_fsw_ps_m:
+  case Intrinsic::riscv_flwg_ps_m:
+  case Intrinsic::riscv_flwl_ps_m:
+  case Intrinsic::riscv_fswg_ps_m:
+  case Intrinsic::riscv_fswl_ps_m:
+    return Access(I.getOperand(2), I.getOperand(1), I.getOperand(3),
+                  CI->getIntrinsicID());
+
+  case Intrinsic::riscv_fgb_ps_m:
+  case Intrinsic::riscv_fgh_ps_m:
+  case Intrinsic::riscv_fgw_ps_m:
+  case Intrinsic::riscv_fgbg_ps_m:
+  case Intrinsic::riscv_fghg_ps_m:
+  case Intrinsic::riscv_fgwg_ps_m:
+  case Intrinsic::riscv_fgbl_ps_m:
+  case Intrinsic::riscv_fghl_ps_m:
+  case Intrinsic::riscv_fgwl_ps_m:
+  case Intrinsic::riscv_fscb_ps_m:
+  case Intrinsic::riscv_fsch_ps_m:
+  case Intrinsic::riscv_fscw_ps_m:
+  case Intrinsic::riscv_fscbg_ps_m:
+  case Intrinsic::riscv_fschg_ps_m:
+  case Intrinsic::riscv_fscwg_ps_m:
+  case Intrinsic::riscv_fscbl_ps_m:
+  case Intrinsic::riscv_fschl_ps_m:
+  case Intrinsic::riscv_fscwl_ps_m:
+    return Access(I.getOperand(1), I.getOperand(2), I.getOperand(3),
+                  CI->getIntrinsicID());
+  }
 }
 
 // Map load memory operations to their corresponding store
@@ -532,7 +603,9 @@ Value *RISCVOptimizeMemIntrinsics::getInvariantVectorAddress(Instruction &I,
 static Intrinsic::ID getStoreForm(Intrinsic::ID ID) {
   switch (ID) {
   default:
-    llvm_unreachable("invalid vector load intrinsic");
+    return ID;
+  case Intrinsic::riscv_flq2:
+    return Intrinsic::riscv_fsq2;
 #define CASE(L, S)                                                             \
   case Intrinsic::riscv_##L##_ps_m:                                            \
     return Intrinsic::riscv_##S##_ps_m
@@ -561,31 +634,35 @@ static Value *isMaskNot(Value *V) {
 }
 
 bool RISCVOptimizeMemIntrinsics::combinePriorMemOp(
-    Instruction &I, const SmallVector<Instruction *, 16> &VectorOps, Loop &LI) {
+    Instruction &I, const SmallVectorImpl<Instruction *> &VectorOps, SmallVectorImpl<Instruction*> *DeadOps, Loop &LI) {
 
   // return true if I and Prior refer to the
   // same set of memory locations. Prior might be a store.
   auto sameVector = [&I, &LI, this](Instruction *Prior) {
+
     bool isStore = Prior->mayWriteToMemory();
     // Verify non-store parameters are the same, ignoring the last
     // operand which is the function and special casing the masks.
-    unsigned MaskIdx = I.getNumOperands() - 2;
-    for (unsigned Idx = 0; Idx < MaskIdx; Idx++)
-      if (I.getOperand(Idx) != Prior->getOperand(Idx + isStore))
-        return false;
-
-    if (I.getOperand(MaskIdx) == Prior->getOperand(MaskIdx + isStore))
+    Access P_Access = getMemoryAccess(*Prior);
+    Access I_Access = getMemoryAccess(I);
+    if (P_Access.getAddr() != I_Access.getAddr() ||
+        P_Access.getIndex() != I_Access.getIndex() ||
+        P_Access.getStoreID() != I_Access.getStoreID())
+      return false;
+    if (P_Access.getMask() == I_Access.getMask())
       return true;
+
     // Different masks store to load, give up
     if (Prior->mayWriteToMemory())
       return false;
 
     // Look for loads with complementary masks.
     // TODO -- we might need to hand  (m & x) v. (~m & x)
-    // to reduce the mask to "x". 
-    Value *M = isMaskNot(I.getOperand(MaskIdx));
-    if (!M || M != Prior->getOperand(MaskIdx + isStore))
+    // to reduce the mask to "x".
+    Value *M = isMaskNot(I_Access.getMask());
+    if (!M || M != P_Access.getMask())
       return false;
+
     // Separately loading both sides of a vector,
     // replace the first load's mask to load the whole
     // vector and pretend then they are the same
@@ -595,27 +672,36 @@ bool RISCVOptimizeMemIntrinsics::combinePriorMemOp(
     Value *AllTrue = B.CreateIntrinsic(llvm::Intrinsic::riscv_mov_m_x_m, {},
                                        {B.getInt64(0), B.getInt32(0xff)},
                                        nullptr, "alltrue");
+    unsigned MaskIdx = I.getNumOperands() - 2;
     Prior->setOperand(MaskIdx + isStore, AllTrue);
+    MadeChange = true;
     return true;
   };
 
-  Intrinsic::ID IID = dyn_cast<CallInst>(&I)->getIntrinsicID();
   Value *ReplaceWith = nullptr;
   // Look backwards through preceding memory ops
   // until we find an alias or matching load.
   for (Instruction *Prior : reverse(VectorOps)) {
+    if (noAlias(I, *Prior))
+      continue;
     bool isStore = Prior->mayWriteToMemory();
-    Intrinsic::ID PID = dyn_cast<CallInst>(&I)->getIntrinsicID();
     if (isStore) {
-      if (AA->alias(&I, Prior) == AliasResult::NoAlias)
-        continue;
-      if (PID != getStoreForm(IID) || !sameVector(Prior))
+      if (!sameVector(Prior))
         return false;
+      if (I.mayWriteToMemory()) {
+          // Prior is dead .. 
+          LLVM_DEBUG(dbgs()
+                     << "Remove dead " << getIndex(*Prior) << " " << *Prior);
+          DeadOps->push_back(Prior);
+          return false;
+      }
       LLVM_DEBUG(dbgs() << "Replace from " << getIndex(*Prior) << " " << *Prior
                         << "\n");
       ReplaceWith = Prior->getOperand(0);
       break;
     }
+    if (I.mayWriteToMemory())
+      return false;
     // Load/load
     if (!sameVector(Prior))
       continue;
@@ -626,9 +712,10 @@ bool RISCVOptimizeMemIntrinsics::combinePriorMemOp(
   }
   if (!ReplaceWith)
     return false;
+  MadeChange = true;
   LLVM_DEBUG(dbgs() << "Replace " << getIndex(I) << " " << I << "\n");
   I.replaceAllUsesWith(ReplaceWith);
-  I.eraseFromParent();
+  DeadOps->push_back(&I);
   return true;
 }
 
@@ -683,7 +770,7 @@ bool RISCVOptimizeMemIntrinsics::foldSelect(Instruction &I) {
       return nullptr;
     return VI;
   };
-  
+
   // add a bit cast if needed so V ias type Ty.
   auto addCast = [](Instruction *V, Type *Ty) -> Value * {
     if (V->getType() == Ty)
@@ -712,7 +799,8 @@ bool RISCVOptimizeMemIntrinsics::foldSelect(Instruction &I) {
     return false;
   LLVM_DEBUG(dbgs() << "fold " << I << "\n");
   const unsigned PASS_THROUGH = 0;
-  T->setOperand(PASS_THROUGH, addCast(F, T->getOperand(PASS_THROUGH)->getType()));
+  T->setOperand(PASS_THROUGH,
+                addCast(F, T->getOperand(PASS_THROUGH)->getType()));
   I.replaceAllUsesWith(addCast(T, I.getType()));
   I.eraseFromParent();
   return true;
@@ -726,7 +814,7 @@ unsigned CodeHoister::estimateVectorUsage(BasicBlock &BB) {
 
   // NumLive will be the number of vector values
   // defined in the loop and live at the current
-  // point. 
+  // point.
   unsigned NumLive = 0;
   // The maximum of NumLive at any point in the loop
   unsigned MaxLive = 0;
@@ -736,15 +824,15 @@ unsigned CodeHoister::estimateVectorUsage(BasicBlock &BB) {
   SmallDenseMap<Instruction *, int> LiveCount;
   for (Instruction &I : BB) {
     if (!isa<PHINode>(I)) {
-      for (llvm::Value* Op : I.operands()) {
+      for (llvm::Value *Op : I.operands()) {
         if (!isa<FixedVectorType>(Op->getType()))
           continue;
-        auto* Def = dyn_cast<Instruction>(Op);
+        auto *Def = dyn_cast<Instruction>(Op);
         if (!Def || !L.contains(Def)) {
           Invariants.insert(Op);
           continue;
         }
-        int& C = LiveCount[Def];
+        int &C = LiveCount[Def];
 #ifndef NDEBUG
         if (C < 1) {
           BB.dump();
