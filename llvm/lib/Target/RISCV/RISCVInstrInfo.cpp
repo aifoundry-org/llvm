@@ -31,6 +31,7 @@ using namespace llvm;
 
 #define GET_INSTRINFO_CTOR_DTOR
 #include "RISCVGenInstrInfo.inc"
+#include "RISCVMachineFunctionInfo.h"
 
 RISCVInstrInfo::RISCVInstrInfo(RISCVSubtarget &STI)
     : RISCVGenInstrInfo(RISCV::ADJCALLSTACKDOWN, RISCV::ADJCALLSTACKUP),
@@ -173,6 +174,7 @@ void RISCVInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
     Opcode = RISCV::StackFSQ2;
   else if (RISCV::MRRegClass.hasSubClassEq(RC)) {
     Opcode = RISCV::StackMS;
+    MBB.getParent()->getInfo<RISCVMachineFunctionInfo>()->setSpillsMask();
   } else {
 #ifndef NDEBUG
     dbgs() << "SrcReg = " << printReg(SrcReg, TRI)

@@ -572,7 +572,12 @@ void RISCVFrameLowering::processFunctionBeforeFrameFinalized(
   // FIXME: It may be possible to craft a function with a small stack that
   // still needs an emergency spill slot for branch relaxation. This case
   // would currently be missed.
+#ifdef ESPERANTO
+  bool SpillsMask = MF.getInfo<RISCVMachineFunctionInfo>()->isMaskSpilled();
+  if (!isInt<11>(MFI.estimateStackSize(MF)) || SpillsMask) {
+#else
   if (!isInt<11>(MFI.estimateStackSize(MF))) {
+#endif
     int RegScavFI = MFI.CreateStackObject(RegInfo->getSpillSize(*RC),
                                           RegInfo->getSpillAlign(*RC), false);
     RS->addScavengingFrameIndex(RegScavFI);

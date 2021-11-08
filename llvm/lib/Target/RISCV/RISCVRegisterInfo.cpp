@@ -139,6 +139,35 @@ bool RISCVRegisterInfo::hasReservedSpillSlot(const MachineFunction &MF,
   return true;
 }
 
+#ifdef ESPERANTO
+static void lowerMaskSpill(MachineBasicBlock::iterator II, int SPAdj,
+                           llvm::RegScavenger *RS, const RISCVInstrInfo *TII) {
+  // Register Scratch = RS.scavengeRegisterBackwards(&RISCV::GPRRegClass, 0,
+  // true);
+  Register Scratch =
+      RS->scavengeRegister(&RISCV::GPRRegClass, II, SPAdj, true);
+  assert(Scratch && "Failed to find scratch register");
+  Register M = II->getOperand(0).getReg();
+  DebugLoc DL = II->getDebugLoc();
+  MachineBasicBlock &MBB = *II->getParent();
+  if (II->getOpcode() == RISCV::StackML) {
+    BuildMI(MBB, II, DL, TII->get(RISCV::LB), Scratch)
+        .add(II->getOperand(1))
+        .add(II->getOperand(2))
+        .cloneMemRefs(*II);
+    TII->copyPhysReg(MBB, II, DL, M, Scratch, /*kill*/ true);
+  } else {
+    TII->copyPhysReg(MBB, II, DL, Scratch, M, II->getOperand(0).isKill());
+    BuildMI(MBB, II, DL, TII->get(RISCV::SB))
+        .addReg(Scratch, getKillRegState(true))
+        .add(II->getOperand(1))
+        .add(II->getOperand(2))
+        .cloneMemRefs(*II);
+  }
+  II->eraseFromParent();
+}
+#endif
+
 void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
                                             int SPAdj, unsigned FIOperandNum,
                                             RegScavenger *RS) const {
@@ -181,6 +210,10 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   MI.getOperand(FIOperandNum)
       .ChangeToRegister(FrameReg, false, false, FrameRegIsKill);
   MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
+#ifdef ESPERANTO
+  if (MI.getOpcode() == RISCV::StackML || MI.getOpcode() == RISCV::StackMS)
+     lowerMaskSpill(II, SPAdj, RS, TII);
+#endif
 }
 
 Register RISCVRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
@@ -207,3 +240,10 @@ RISCVRegisterInfo::getCallPreservedMask(const MachineFunction & MF,
     return CSR_ILP32D_LP64D_RegMask;
   }
 }
+
+#ifdef ESPERANTO
+bool RISCVRegisterInfo::requiresFrameIndexReplacementScavenging(
+    const MachineFunction &MF) const {
+  return MF.getInfo<RISCVMachineFunctionInfo>()->isMaskSpilled();
+}
+#endif

@@ -19,7 +19,6 @@
 #include "llvm/CodeGen/LivePhysRegs.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/RegisterScavenging.h"
 
 using namespace llvm;
 
@@ -72,7 +71,6 @@ private:
                   MachineBasicBlock::iterator &NextMBBI);
   bool expandHARTID(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
                   MachineBasicBlock::iterator &NextMBBI);
-  RegScavenger RS;
 };
 
 char RISCVExpandPseudo::ID = 0;
@@ -88,11 +86,9 @@ bool RISCVExpandPseudo::runOnMachineFunction(MachineFunction &MF) {
 bool RISCVExpandPseudo::expandMBB(MachineBasicBlock &MBB) {
   bool Modified = false;
 
-  RS.enterBasicBlock(MBB);
   MachineBasicBlock::iterator MBBI = MBB.begin(), E = MBB.end();
   while (MBBI != E) {
     MachineBasicBlock::iterator NMBBI = std::next(MBBI);
-    if (NMBBI != E) RS.forward(NMBBI);
     Modified |= expandMI(MBB, MBBI, NMBBI);
     MBBI = NMBBI;
   }
@@ -431,9 +427,6 @@ bool RISCVExpandPseudo::expandMI(MachineBasicBlock &MBB,
   case RISCV::StackFLQ2:
   case RISCV::StackFSQ2:
     return expandStackOps(MBB, MBBI, NextMBBI);
-  case RISCV::StackML:
-  case RISCV::StackMS:
-    return expandMaskLS(MBB, MBBI, NextMBBI);
   case RISCV::IOTA:
     return expandIOTA(MBB, MBBI, NextMBBI);
   case RISCV::HARTID:
@@ -565,32 +558,6 @@ bool RISCVExpandPseudo::expandStackOps(MachineBasicBlock &MBB,
       .add(MBBI->getOperand(2))
       .add(MBBI->getOperand(1))
       .cloneMemRefs(*MBBI);
-  MBBI->eraseFromParent();
-  return true;
-}
-
-bool RISCVExpandPseudo::expandMaskLS(MachineBasicBlock& MBB,
-  MachineBasicBlock::iterator MBBI,
-  MachineBasicBlock::iterator& NextMBBI) {
-  Register Scratch = RS.scavengeRegister(&RISCV::GPRRegClass, 0, false);
-  assert(Scratch && "Failed to find scratch register");
-  Register M = MBBI->getOperand(0).getReg();
-  DebugLoc DL = MBBI->getDebugLoc();
-  if (MBBI->getOpcode() == RISCV::StackML) {
-    BuildMI(MBB, MBBI, DL, TII->get(RISCV::LB), Scratch)
-      .add(MBBI->getOperand(1)) 
-      .add(MBBI->getOperand(2)) 
-      .cloneMemRefs(*MBBI);
-    TII->copyPhysReg(MBB, MBBI, DL, M, Scratch, /*kill*/true);
-  }
-  else {
-    TII->copyPhysReg(MBB, MBBI, DL, Scratch, M, MBBI->getOperand(0).isKill());
-    BuildMI(MBB, MBBI, DL, TII->get(RISCV::SB))
-      .addReg(Scratch, getKillRegState(true))
-      .add(MBBI->getOperand(1)) 
-      .add(MBBI->getOperand(2)) 
-      .cloneMemRefs(*MBBI);
-  }
   MBBI->eraseFromParent();
   return true;
 }

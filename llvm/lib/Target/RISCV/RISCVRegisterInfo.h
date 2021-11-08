@@ -54,6 +54,11 @@ struct RISCVRegisterInfo : public RISCVGenRegisterInfo {
     return true;
   }
 
+#ifdef ESPERANTO
+  bool requiresFrameIndexReplacementScavenging(
+      const MachineFunction &MF) const override;
+#endif
+
   const TargetRegisterClass *
   getPointerRegClass(const MachineFunction &MF,
                      unsigned Kind = 0) const override {

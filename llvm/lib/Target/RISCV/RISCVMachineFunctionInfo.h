@@ -33,6 +33,12 @@ private:
   /// Size of any opaque stack adjustment due to save/restore libcalls.
   unsigned LibCallStackSize = 0;
 
+#ifdef ESPERANTO
+  // True if a mask is spilled, in which case we will
+  // reserve stack location for emergency spills
+  bool SpillsMask = false;
+#endif
+
 public:
   RISCVMachineFunctionInfo(const MachineFunction &MF) {}
 
@@ -58,6 +64,12 @@ public:
     return MF.getSubtarget<RISCVSubtarget>().enableSaveRestore() &&
            VarArgsSaveSize == 0 && !MF.getFrameInfo().hasTailCall();
   }
+
+#ifdef ESPERANTO
+  void setSpillsMask() { SpillsMask = true;  }
+  bool isMaskSpilled() const { return SpillsMask;  }
+#endif
+
 };
 
 } // end namespace llvm
