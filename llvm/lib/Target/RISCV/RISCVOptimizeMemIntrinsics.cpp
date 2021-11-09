@@ -42,7 +42,7 @@ static cl::opt<bool>
                  cl::desc("Enable vector->register optimization"));
 
 static cl::opt<bool> HoistInvariants(
-    DEBUG_TYPE "-hoist", cl::init(false),
+    DEBUG_TYPE "-hoist", cl::init(true),
     cl::desc("Hoist invariant vector operations out of inner loops"));
 
 #ifndef NDEBUG
@@ -51,12 +51,12 @@ static cl::opt<unsigned>
              cl::init(std::numeric_limits<unsigned>::max()));
 #endif
 
-
 static Intrinsic::ID getStoreForm(Intrinsic::ID ID);
 
 namespace {
-// This structure represent all information in an ET vector intrinsic memory access
-// We may the ID for loads to the corresponding stores so those are treated as equal
+// This structure represent all information in an ET vector intrinsic memory
+// access We may the ID for loads to the corresponding stores so those are
+// treated as equal
 struct Access {
   using TupleTy = std::tuple<Value *, Value *, Value *, Intrinsic::ID>;
   TupleTy Tuple;
@@ -67,13 +67,17 @@ struct Access {
   Intrinsic::ID getStoreID() const { return std::get<3>(Tuple); }
   Access(Value *Addr, Value *Index, Value *Mask, Intrinsic::ID ID)
       : Tuple(Addr, Index, Mask, getStoreForm(ID)) {}
-  bool operator==(const Access &Other) const{ return Tuple == Other.Tuple; }
+  bool operator==(const Access &Other) const { return Tuple == Other.Tuple; }
 };
 } // namespace
 namespace llvm {
- template <> struct DenseMapInfo<Access> {
-  static inline Access getEmptyKey() { return Access(nullptr, nullptr, nullptr, 0); }
-  static inline Access getTombstoneKey() { return Access(nullptr, nullptr, nullptr, 1); }
+template <> struct DenseMapInfo<Access> {
+  static inline Access getEmptyKey() {
+    return Access(nullptr, nullptr, nullptr, 0);
+  }
+  static inline Access getTombstoneKey() {
+    return Access(nullptr, nullptr, nullptr, 1);
+  }
   static unsigned getHashValue(const Access &Val) {
     size_t H = reinterpret_cast<size_t>(Val.getAddr());
     H ^= reinterpret_cast<size_t>(Val.getIndex());
@@ -87,7 +91,7 @@ namespace llvm {
   // static unsigned getHashValue(const T &Val);
   // static bool isEqual(const T &LHS, const T &RHS);
 };
-}
+} // namespace llvm
 
 namespace {
 class RISCVOptimizeMemIntrinsics : public FunctionPass {
@@ -133,21 +137,20 @@ private:
   // Return the memory access information for ET intrinsic operation I
   Access getMemoryAccess(Instruction &I);
 
-  // True if two instructions that are vector memory operations 
+  // True if two instructions that are vector memory operations
   // are not aliased
-  bool noAlias(Instruction& I, Instruction& J) {
+  bool noAlias(Instruction &I, Instruction &J) {
     Value *IA = getMemoryAccess(I).getAddr();
     Value *JA = getMemoryAccess(J).getAddr();
-    return AA->isNoAlias(IA,JA);
+    return AA->isNoAlias(IA, JA);
   }
 
   // Look for a vector load which can be matched with a preceding
-  // identical load or corresponding store. Also look for 
+  // identical load or corresponding store. Also look for
   // preceding dead store covered by Iq
   bool combinePriorMemOp(Instruction &I,
                          const SmallVectorImpl<Instruction *> &VectorOps,
-                         SmallVectorImpl<Instruction*> *DeadOps,
-                         Loop &LI);
+                         SmallVectorImpl<Instruction *> *DeadOps, Loop &LI);
 
   // Try to fold a vector select into previous instructions
   bool foldSelect(Instruction &I);
@@ -249,7 +252,32 @@ public:
   // If I is invarant and register pressure allows,
   // hoist it out of the loop.
   bool tryHoist(Instruction &I) {
-    if (RegPressure >= RegPressureLimit || !canHoistVector(I))
+    if (RegPressure >= RegPressureLimit)
+      return false;
+    if (hoistInstruction(I))
+      return true;
+    hoistConstants(I);
+    return false;
+  }
+
+private:
+  // An estimate of the number of vector registers needed for the loop
+  unsigned RegPressure;
+  // A limited on the above value
+  const unsigned RegPressureLimit = 28;
+  Loop &L;
+
+  IRBuilder<> Builder;
+
+  // Operands which have been hoisted out of the loop
+  // which are searched to find CSE's
+  SmallVector<Instruction *, 16> Hoisted;
+
+  // A computation of v8i1 all ones, built once on demand.
+  Value *allOnes{nullptr};
+
+  bool hoistInstruction(Instruction &I) {
+    if (!canHoistVector(I))
       return false;
 
     // Verify non-mask operands are loop invariant
@@ -277,22 +305,6 @@ public:
     I.moveBefore(L.getLoopPredecessor()->getTerminator());
     return true;
   }
-
-private:
-  // An estimate of the number of vector registers needed for the loop
-  unsigned RegPressure;
-  // A limited on the above value
-  const unsigned RegPressureLimit = 28;
-  Loop &L;
-
-  IRBuilder<> Builder;
-
-  // Operands which have been hoisted out of the loop
-  // which are searched to find CSE's
-  SmallVector<Instruction *, 16> Hoisted;
-
-  // A computation of v8i1 all ones, built once on demand.
-  Value *allOnes{nullptr};
 
   // Esimate the number of vector registers need to implement
   // a single-basic-block loop whose block is BB.
@@ -328,6 +340,21 @@ private:
         return false;
     return true;
   }
+
+  bool hoistConstants(Instruction &I) { 
+    // This might be too aggressive when for example
+    // we have mul x 4 which could be a shli...
+    unsigned Last  =  I.getNumOperands() - (isa<CallBase>(&I) ? 1 : 0);
+    for (unsigned Idx = 0; Idx <Last; Idx++) {
+      Value *C = I.getOperand(Idx);
+      if (Value *Hoisted = hoistConstant(C))
+        I.setOperand(Idx, Hoisted);
+    }
+    return false; 
+  }
+
+  DenseMap<Value *, Value *> HoistedConstant;
+  Value * hoistConstant(Value *V);
 };
 } // namespace
 
@@ -387,7 +414,8 @@ void RISCVOptimizeMemIntrinsics::analyzeLoop(Loop &LI) {
         if (S.second == A || noAlias(*S.first, I))
           continue;
         LLVM_DEBUG(dbgs() << "Has alias " << getIndex(I) << " " << I << "\n");
-        LLVM_DEBUG(dbgs() << "    with  " << getIndex(*S.first) << " " << *S.first << "\n");
+        LLVM_DEBUG(dbgs() << "    with  " << getIndex(*S.first) << " "
+                          << *S.first << "\n");
         // S and I alias but don't both have the same invariant address
         // so we clear the address field on the store which will prevent
         // anything aliased to it from being rewriten to scalars
@@ -540,7 +568,8 @@ void RISCVOptimizeMemIntrinsics::analyzeLoop(Loop &LI) {
 
 bool RISCVOptimizeMemIntrinsics::isInvariantVector(Instruction &I, Loop &LI) {
   auto *C = dyn_cast<CallInst>(&I);
-  if (!C || C->getNumArgOperands() == 0 || C->getIntrinsicID() < Intrinsic::riscv_amoaddg_d)
+  if (!C || C->getNumArgOperands() == 0 ||
+      C->getIntrinsicID() < Intrinsic::riscv_amoaddg_d)
     return false;
   // Verify all operands except a value to be stored are invariant.
   return all_of(make_range(C->data_operands_begin() + C->mayWriteToMemory(),
@@ -561,9 +590,11 @@ Access RISCVOptimizeMemIntrinsics::getMemoryAccess(Instruction &I) {
   default:
     return Access(&I, nullptr, nullptr, CI->getIntrinsicID());
   case Intrinsic::riscv_flq2:
-    return Access(I.getOperand(1), I.getOperand(0), nullptr, CI->getIntrinsicID());
+    return Access(I.getOperand(1), I.getOperand(0), nullptr,
+                  CI->getIntrinsicID());
   case Intrinsic::riscv_fsq2:
-    return Access(I.getOperand(2), I.getOperand(1), nullptr, CI->getIntrinsicID());
+    return Access(I.getOperand(2), I.getOperand(1), nullptr,
+                  CI->getIntrinsicID());
 
   case Intrinsic::riscv_flw_ps_m:
   case Intrinsic::riscv_fsw_ps_m:
@@ -634,12 +665,12 @@ static Value *isMaskNot(Value *V) {
 }
 
 bool RISCVOptimizeMemIntrinsics::combinePriorMemOp(
-    Instruction &I, const SmallVectorImpl<Instruction *> &VectorOps, SmallVectorImpl<Instruction*> *DeadOps, Loop &LI) {
+    Instruction &I, const SmallVectorImpl<Instruction *> &VectorOps,
+    SmallVectorImpl<Instruction *> *DeadOps, Loop &LI) {
 
   // return true if I and Prior refer to the
   // same set of memory locations. Prior might be a store.
   auto sameVector = [&I, &LI, this](Instruction *Prior) {
-
     bool isStore = Prior->mayWriteToMemory();
     // Verify non-store parameters are the same, ignoring the last
     // operand which is the function and special casing the masks.
@@ -689,11 +720,11 @@ bool RISCVOptimizeMemIntrinsics::combinePriorMemOp(
       if (!sameVector(Prior))
         return false;
       if (I.mayWriteToMemory()) {
-          // Prior is dead .. 
-          LLVM_DEBUG(dbgs()
-                     << "Remove dead " << getIndex(*Prior) << " " << *Prior);
-          DeadOps->push_back(Prior);
-          return false;
+        // Prior is dead ..
+        LLVM_DEBUG(dbgs() << "Remove dead " << getIndex(*Prior) << " "
+                          << *Prior);
+        DeadOps->push_back(Prior);
+        return false;
       }
       LLVM_DEBUG(dbgs() << "Replace from " << getIndex(*Prior) << " " << *Prior
                         << "\n");
@@ -853,6 +884,43 @@ unsigned CodeHoister::estimateVectorUsage(BasicBlock &BB) {
     }
   }
   return Invariants.size() + MaxLive;
+}
+
+static bool shouldHoist(Value* V) {
+  if (!isa<Constant>(V))
+    return false;
+  // Pointer constants in a PIC model will generate a PseudoLLA that
+  // is treated like a load and does not hoist by MachineLICM because
+  // it does not have a memory operand.
+  if (isa<PointerType>(V->getType()))
+    return true;
+
+  // Otherwise, we hoist vector constants
+  auto *Ty = dyn_cast<FixedVectorType>(V->getType());
+  return (Ty && Ty->getNumElements() == 8);
+}
+
+#ifndef NDEBUG
+static int HCounter = 0;
+#endif
+Value *CodeHoister::hoistConstant(Value *V) {
+#ifndef NDEBUG
+  HCounter += 1;
+  LLVM_DEBUG(dbgs() << HCounter << ": " << *V << "\n");
+#endif
+
+  if (!shouldHoist(V))
+    return nullptr;
+
+  auto Iter = HoistedConstant.find(V);
+  if (Iter != HoistedConstant.end())
+    return Iter->second;
+  IRBuilder<> B(L.getLoopPredecessor()->getTerminator());
+  Value *F = B.CreateFreeze(V);
+  LLVM_DEBUG(dbgs() << "hoist constant " << *V << "\n");
+  HoistedConstant.try_emplace(V, F);
+  RegPressure += 1;
+  return F;
 }
 
 void RISCVOptimizeMemIntrinsics::rewriteGatherScatters(Function &F) {
