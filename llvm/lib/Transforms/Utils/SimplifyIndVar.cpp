@@ -75,7 +75,11 @@ namespace {
     /// Iteratively perform simplification on a worklist of users of the
     /// specified induction variable. This is the top-level driver that applies
     /// all simplifications to users of an IV.
+#ifdef ESPERANTO
+    void simplifyUsers(PHINode *CurrIV, IVVisitor *V = nullptr, bool *HasCmp = nullptr);
+#else
     void simplifyUsers(PHINode *CurrIV, IVVisitor *V = nullptr);
+#endif
 
     Value *foldIVUser(Instruction *UseInst, Instruction *IVOperand);
 
@@ -858,7 +862,11 @@ static bool isSimpleIVUser(Instruction *I, const Loop *L, ScalarEvolution *SE) {
 ///
 /// Once DisableIVRewrite is default, LSR will be the only client of IVUsers.
 ///
+#ifdef ESPERANTO
+void SimplifyIndvar::simplifyUsers(PHINode *CurrIV, IVVisitor *V /*= nullptr*/, bool *HasCmp /*= nullptr*/) {
+#else
 void SimplifyIndvar::simplifyUsers(PHINode *CurrIV, IVVisitor *V) {
+#endif
   if (!SE->isSCEVable(CurrIV->getType()))
     return;
 
@@ -877,6 +885,10 @@ void SimplifyIndvar::simplifyUsers(PHINode *CurrIV, IVVisitor *V) {
     std::pair<Instruction*, Instruction*> UseOper =
       SimpleIVUsers.pop_back_val();
     Instruction *UseInst = UseOper.first;
+#ifdef ESPERANTO
+    if (HasCmp && isa<ICmpInst>(UseInst) && UseInst->getOperand(0)->getType()->getScalarSizeInBits() < 64)
+      *HasCmp = true;
+#endif
 
     // If a user of the IndVar is trivially dead, we prefer just to mark it dead
     // rather than try to do some complex analysis or transformation (such as
@@ -942,10 +954,18 @@ void IVVisitor::anchor() { }
 bool simplifyUsersOfIV(PHINode *CurrIV, ScalarEvolution *SE, DominatorTree *DT,
                        LoopInfo *LI, const TargetTransformInfo *TTI,
                        SmallVectorImpl<WeakTrackingVH> &Dead,
-                       SCEVExpander &Rewriter, IVVisitor *V) {
+#ifdef ESPERANTO
+                       SCEVExpander &Rewriter, IVVisitor *V /*= nullptr*/, bool *HasCmp /*= nullptr*/) {
+#else
+                       SCEVExpander &Rewriter) {
+#endif
   SimplifyIndvar SIV(LI->getLoopFor(CurrIV->getParent()), SE, DT, LI, TTI,
                      Rewriter, Dead);
+#ifdef ESPERANTO
+  SIV.simplifyUsers(CurrIV, V, HasCmp);
+#else
   SIV.simplifyUsers(CurrIV, V);
+#endif
   return SIV.hasChanged();
 }
 

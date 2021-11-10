@@ -481,7 +481,9 @@ FunctionPassManager PassBuilder::buildO1FunctionSimplificationPipeline(
   // TODO: Investigate promotion cap for O1.
   LPM1.addPass(LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap));
   LPM1.addPass(SimpleLoopUnswitchPass());
+#ifndef ESPERANTO
   LPM2.addPass(IndVarSimplifyPass());
+#endif
   LPM2.addPass(LoopIdiomRecognizePass());
 
   for (auto &C : LateLoopOptimizationsEPCallbacks)
@@ -638,7 +640,9 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // TODO: Investigate promotion cap for O1.
   LPM1.addPass(LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap));
   LPM1.addPass(SimpleLoopUnswitchPass());
+#ifndef ESPERANTO
   LPM2.addPass(IndVarSimplifyPass());
+#endif
   LPM2.addPass(LoopIdiomRecognizePass());
 
   for (auto &C : LateLoopOptimizationsEPCallbacks)
@@ -1120,6 +1124,10 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
   // Now run the core loop vectorizer.
   OptimizePM.addPass(LoopVectorizePass(
       LoopVectorizeOptions(!PTO.LoopInterleaving, !PTO.LoopVectorization)));
+#ifdef ESPERANTO
+  OptimizePM.addPass(createFunctionToLoopPassAdaptor(
+      IndVarSimplifyPass(), EnableMSSALoopDependency, DebugLogging));
+#endif
 
   // Eliminate loads by forwarding stores from the previous iteration to loads
   // of the current iteration.

@@ -49,7 +49,11 @@ public:
 bool simplifyUsersOfIV(PHINode *CurrIV, ScalarEvolution *SE, DominatorTree *DT,
                        LoopInfo *LI, const TargetTransformInfo *TTI,
                        SmallVectorImpl<WeakTrackingVH> &Dead,
+#ifdef ESPERANTO
+                       SCEVExpander &Rewriter, IVVisitor *V = nullptr, bool *HasCmp = nullptr);
+#else
                        SCEVExpander &Rewriter, IVVisitor *V = nullptr);
+#endif
 
 /// SimplifyLoopIVs - Simplify users of induction variables within this
 /// loop. This does not actually change or add IVs.
