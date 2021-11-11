@@ -25,6 +25,13 @@ using namespace llvm;
 
 #define DEBUG_TYPE "riscv-isel"
 
+#ifdef ESPERANTO
+static cl::opt<bool> OptimizeMasks(DEBUG_TYPE "-opt-masks", cl::init(true));
+static cl::opt<unsigned>
+    OptimizeMasksLimit(DEBUG_TYPE "-opt-limit",
+                       cl::init(std::numeric_limits<unsigned>::max()));
+#endif
+
 void RISCVDAGToDAGISel::PostprocessISelDAG() { doPeepholeLoadStoreADDI(); }
 
 #ifdef ESPERANTO
@@ -1361,18 +1368,21 @@ void RISCVDAGToDAGISel::esperantoScatter(MemIntrinsicSDNode *M) {
 }
 
 namespace cdc {
-class OptimizeMaskCopies {
+
+class OptimizeMaskCommon {
+protected:
   MachineFunction &MF;
   MachineRegisterInfo &MRI;
+  virtual void processBlock(MachineBasicBlock &MBB) = 0;
 
 public:
-  OptimizeMaskCopies(MachineFunction &MF) : MF(MF), MRI(MF.getRegInfo()) {}
+  OptimizeMaskCommon(MachineFunction &MF) : MF(MF), MRI(MF.getRegInfo()) {}
   void run() {
     for (MachineBasicBlock &MBB : MF)
       processBlock(MBB);
   }
 
-private:
+protected:
   bool definesMask(MachineInstr &MI) {
     unsigned N = MI.getNumDefs();
     if (!N)
@@ -1380,7 +1390,8 @@ private:
     if (!MI.getOperand(0).isReg())
       return false;
     Register R = MI.getOperand(0).getReg();
-    return (R.isVirtual() && MRI.getRegClass(R) == &RISCV::MRRegClass);
+    return (R.isVirtual() && (MRI.getRegClass(R) == &RISCV::MRRegClass ||
+                              MRI.getRegClass(R) == &RISCV::MR0RegClass));
   }
   static bool usesReg(MachineInstr &MI, Register R) {
     return any_of(MI.uses(), [R](MachineOperand &Op) {
@@ -1398,8 +1409,223 @@ private:
       return false;
     Register R = MI.getOperand(1).getReg();
     return R == RISCV::X0 || R.isVirtual();
+  }
+  // These instructions will be lowered in a way that
+  // breaks the basic block.
+  static bool maySplitBlock(const MachineInstr &MI) {
+    switch (MI.getOpcode()) {
+    default:
+      return false;
+    case RISCV::Select_FPR32_Using_CC_GPR:
+    case RISCV::Select_FPR64_Using_CC_GPR:
+    case RISCV::Select_GPR_Using_CC_GPR:
+    case RISCV::PseudoCALL:
+    case RISCV::PseudoCALLIndirect:
+    case RISCV::PseudoCALLReg:
+      return true;
+    }
   };
-  void processBlock(MachineBasicBlock &MBB) {
+};
+
+class OptimizeVectorMasks : public OptimizeMaskCommon {
+public:
+  OptimizeVectorMasks(MachineFunction &MF) : OptimizeMaskCommon(MF) {}
+
+private:
+  DenseMap<MachineInstr *, Register> LiveLanesMap;
+  DenseSet<MachineInstr *> Seen;
+  Register getLiveLanes(MachineInstr &MI) {
+    auto Iter = LiveLanesMap.find(&MI);
+    return Iter == LiveLanesMap.end() ? Register(0) : Iter->second;
+  };
+  static bool isAllLanes(const MachineInstr &MI) {
+    return (MI.getOpcode() == RISCV::MOV_M_X &&
+            MI.getOperand(1).getReg() == RISCV::X0 &&
+            MI.getOperand(2).getImm() == 0xff);
+  }
+  bool isAllLanes(Register R) {
+    if (R.isPhysical())
+      return false;
+    MachineInstr *MI = MRI.getVRegDef(R);
+    return (MI && isAllLanes(*MI));
+  }
+  Register getMaskReg(const MachineInstr &MI) {
+    unsigned N = MI.getNumExplicitOperands();
+    const MachineOperand &MOp = MI.getOperand(N - 1);
+    if (!MOp.isReg() || MOp.isDef())
+      return 0;
+    Register M = MOp.getReg();
+    if (M.isPhysical() || (MRI.getRegClass(M) != &RISCV::MR0RegClass &&
+                           MRI.getRegClass(M) != &RISCV::MRRegClass))
+      return 0;
+    return M;
+  }
+  Register isMaskedVectorOp(const MachineInstr &MI) {
+    if (any_of(MI.explicit_operands(), [this](const MachineOperand &Op) {
+          if (!Op.isReg())
+            return false;
+          Register R = Op.getReg();
+          return (R.isVirtual() &&
+                  MRI.getRegClass(R) == &RISCV::FPR256RegClass);
+        }))
+      return getMaskReg(MI);
+    return 0;
+  }
+  int DebugCount{0};
+  unsigned ChangeCount{0};
+  class CommonMask {
+    bool Bottom{false};
+    Register Common{0};
+
+  public:
+    CommonMask(Register R = 0) : Common(R) {}
+    void add(Register R) {
+      if (R == 0)
+        Bottom = true;
+      else if (Common == 0)
+        Common = R;
+      else if (R != Common)
+        Bottom = true;
+    }
+    operator bool() const { return !Bottom && Common; }
+    Register get() {
+      assert(Common && !Bottom);
+      return Common;
+    }
+    void setBottom() { Bottom = true; }
+  };
+
+  void processBlock(MachineBasicBlock &MBB) override {
+    // The goal here is to look for a matter such as
+    //   %51:mr = MOV_M_X $x0, 255
+    //   ...
+    //   %64:mr0 = COPY %7:mr
+    //   %63:fpr256 = FGW_PS_EX %6:fpr256(tied-def 0), %60:fpr256, %9:gpr,
+    //   %64:mr0 %66:fpr256 = IMPLICIT_DEF %67:mr0 = COPY %51:mr %65:fpr256 =
+    //   FADD_PS_EX %66:fpr256(tied-def 0), killed %58:fpr256, killed
+    //   %63:fpr256, 7, %67:mr0 %68:mr0 = COPY %7:mr FSCW_PS_EX killed
+    //   %65:fpr256, %60:fpr256, %5:gpr, %68:mr0
+    // Here we would prefer to use %7 the mask that controls the FADD_PS_EX
+    // since only the lanes it selects are live
+
+    // We need to know that %51 selects a superset of %7 but
+    // only lanes %7 are live.
+
+    // We will retain the pattern of mask copies and so need to know that
+    // assignments such as to %67 have common usage.
+
+    auto sourceReg = [this, &MBB](Register M) {
+      if (!M)
+        return M;
+      for (;;) {
+        MachineInstr *Def = MRI.getVRegDef(M);
+        if (!Def || Def->getParent() != &MBB || !Def->isCopy())
+          break;
+        M = Def->getOperand(1).getReg();
+      }
+      return M;
+    };
+
+    LiveLanesMap.clear();
+    Seen.clear();
+    LLVM_DEBUG(dbgs() << "optimize masks " << MBB.getName() << "\n");
+    for (MachineInstr &MI : reverse(MBB)) {
+      LLVM_DEBUG(dbgs() << DebugCount << ": " << MI);
+      DebugCount += 1;
+      Seen.insert(&MI);
+      if (definesMask(MI)) {
+        if (!MI.isCopy())
+          continue;
+        Register M = MI.getOperand(0).getReg();
+        if (M.isPhysical())
+          continue;
+        CommonMask Live;
+        for (MachineInstr &UI : MRI.use_nodbg_instructions(M))
+          Live.add(getLiveLanes(UI));
+        if (!Live)
+          continue;
+
+        Register L = Live.get();
+        LiveLanesMap.try_emplace(&MI, L);
+
+        Register Src = sourceReg(MI.getOperand(1).getReg());
+        if (Src == L)
+          continue;
+        MachineInstr *Def = MRI.getVRegDef(L);
+        if (Seen.count(Def))
+          continue;
+        if (!isAllLanes(Src)) // TODO -- really is Live not a subset of Src
+          continue;
+        if (ChangeCount == OptimizeMasksLimit)
+          return;
+
+        // Replace Src with Live
+        MI.getOperand(1).setReg(L);
+        LLVM_DEBUG(dbgs() << "change mask " << ChangeCount << " " << MI);
+        ChangeCount += 1;
+        continue;
+      }
+
+      if (MI.getOpcode() == RISCV::FCMOV_PS_EX)
+        continue;
+      if (MI.getOpcode() == RISCV::FCMOVM_PS_EX)
+        continue;
+
+      // Find the mask controlling this instruction
+      // and verify it is a vector instruction
+      Register M = sourceReg(isMaskedVectorOp(MI));
+      if (!M)
+        continue;
+
+      // There are a few patterns where we update an output
+      // register by writing a subset of the live lanes.
+      // In that case we treat all lanves as live.
+      if (MI.isRegTiedToDefOperand(1)) {
+        MachineInstr *Def = MRI.getVRegDef(MI.getOperand(1).getReg());
+        if (Def->getOpcode() != RISCV::IMPLICIT_DEF)
+          continue;
+      }
+
+      LLVM_DEBUG(dbgs() << "Mask is "
+                        << "%" << M.virtRegIndex() << "\n");
+
+      // Loads and stores have accurate masks based on control flow
+      if (MI.mayLoadOrStore()) {
+        // Some kind of store
+        LiveLanesMap.try_emplace(&MI, M);
+        continue;
+      }
+
+      // Verify uses of MI have a common controlling mask
+      CommonMask Live;
+      for (MachineOperand &D : MI.defs()) {
+        Register R = D.getReg();
+        if (R.isPhysical()) {
+          Live.setBottom();
+          break;
+        }
+        if (MRI.getRegClass(R) == &RISCV::FPR256RegClass)
+          for (MachineInstr &UI : MRI.use_nodbg_instructions(R))
+            // TODO special case conditional move?
+            Live.add(getLiveLanes(UI));
+      }
+      if (!Live) {
+        LiveLanesMap.try_emplace(&MI, M);
+        continue;
+      }
+      LLVM_DEBUG(dbgs() << "Live mask "
+                        << "%" << Live.get().virtRegIndex() << " " << MI);
+      LiveLanesMap.try_emplace(&MI, Live.get());
+    }
+  }
+};
+
+class OptimizeMaskCopies : public OptimizeMaskCommon {
+public:
+  OptimizeMaskCopies(MachineFunction &MF) : OptimizeMaskCommon(MF) {}
+
+private:
+  void processBlock(MachineBasicBlock &MBB) override {
     // This is the more recent virtual register which
     // has been copied into M0. This is used to eliminate
     // subsequent copies of this value into M0
@@ -1446,6 +1672,7 @@ private:
         }
         continue;
       }
+
       Register DstReg = MI.getOperand(0).getReg();
       if (DstReg.isPhysical() || MRI.getRegClass(DstReg) != &RISCV::MR0RegClass)
         continue;
@@ -1478,22 +1705,6 @@ private:
       checkLastUse();
     }
   }
-
-  // These instructions will be lowered in a way that
-  // breaks the basic block.
-  static bool maySplitBlock(const MachineInstr &MI) {
-    switch (MI.getOpcode()) {
-    default:
-      return false;
-    case RISCV::Select_FPR32_Using_CC_GPR:
-    case RISCV::Select_FPR64_Using_CC_GPR:
-    case RISCV::Select_GPR_Using_CC_GPR:
-    case RISCV::PseudoCALL:
-    case RISCV::PseudoCALLIndirect:
-    case RISCV::PseudoCALLReg:
-      return true;
-    }
-  };
 };
 } // namespace cdc
 using namespace cdc;
@@ -1502,8 +1713,20 @@ void RISCVDAGToDAGISel::optimizeMaskCopies(MachineFunction &MF) {
   // The fast register allocator does not correctly handle
   // references to M0 and marks them killed incorrectly
   if (MF.getTarget().getOptLevel() != CodeGenOpt::Level::None &&
-      !MF.getFunction().hasOptNone())
+      !MF.getFunction().hasOptNone()) {
+    if (OptimizeMasks) {
+      LLVM_DEBUG({
+        dbgs() << "Before Vector Masks ";
+        MF.dump();
+      });
+      OptimizeVectorMasks(MF).run();
+    }
+    LLVM_DEBUG({
+      dbgs() << "Before Mask Copies ";
+      MF.dump();
+    });
     OptimizeMaskCopies(MF).run();
+  }
 }
 #endif
 
