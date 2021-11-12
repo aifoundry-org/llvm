@@ -1683,7 +1683,7 @@ private:
       // MachhineCSE::PerformTrivialCopyPropagation from changing
       // the register class on SrcReg to also be MR0RegClass.
       MRI.replaceRegWith(DstReg, RISCV::M0);
-      if (SrcReg == CurrentM0)
+      if (CurrentM0 && sameMask(SrcReg,CurrentM0))
         MI.eraseFromParent();
       else if (SrcReg != RISCV::M0) {
         CurrentM0 = SrcReg;
@@ -1705,6 +1705,32 @@ private:
       checkLastUse();
     }
   }
+
+  MachineInstr *getDef(Register R) {
+    for (;;) {
+      if (R.isPhysical())
+        return nullptr;
+      MachineInstr *Def = MRI.getVRegDef(R);
+      if (!Def || !Def->isCopy())
+        return Def;
+      R = Def->getOperand(1).getReg();
+    }
+  }
+  bool isAllLanes(MachineInstr& MI) {
+    return MI.getOpcode() == RISCV::MOV_M_X &&
+           MI.getOperand(1).getReg() == RISCV::X0 &&
+           MI.getOperand(2).getImm() == 0xff;
+  }
+  bool sameMask(Register X, Register Y) {
+    if (X == Y)
+      return true;
+    MachineInstr *DefX = getDef(X);
+    if (!DefX)
+      return false;
+    MachineInstr *DefY = getDef(Y);
+    return DefY && 
+      (isAllLanes(*DefX) ? isAllLanes(*DefY) : DefX == DefY);
+  };
 };
 } // namespace cdc
 using namespace cdc;
