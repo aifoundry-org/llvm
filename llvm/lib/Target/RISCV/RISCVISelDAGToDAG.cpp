@@ -663,20 +663,6 @@ void RISCVDAGToDAGISel::esperantoRewrite(SDNode *N) {
                           /*Addr*/ N->getOperand(2),
                           /*PassThru*/ SDValue(),
                           /*Mask*/ SDValue(), ISD::LoadExtType::NON_EXTLOAD);
-  case ISD::MLOAD:
-    return esperantoMemop(cast<MemSDNode>(N),
-                          /*Value*/ SDValue(),
-                          /*Addr*/ N->getOperand(1),
-                          /*PassThru*/ N->getOperand(4),
-                          /*Mask*/ N->getOperand(3),
-                          cast<MaskedLoadSDNode>(N)->getExtensionType());
-  case ISD::MSTORE:
-    return esperantoMemop(cast<MemSDNode>(N),
-                          /*Value*/ N->getOperand(1),
-                          /*Addr*/ N->getOperand(2),
-                          /*PassThru*/ SDValue(),
-                          /*Mask*/ N->getOperand(4),
-                          ISD::LoadExtType::NON_EXTLOAD);
   case ISD::INTRINSIC_W_CHAIN:
     if (N->getConstantOperandVal(1) == Intrinsic::riscv_et_gather)
       esperantoGather(cast<MemIntrinsicSDNode>(N));
@@ -1278,8 +1264,10 @@ void RISCVDAGToDAGISel::esperantoMemop(MemSDNode *M, SDValue Value,
                              {UndefVec, ZeroReg, mask(isVector ? 0xff : 0x1)}),
       0);
   if (isVector) {
-    // TODO -- this should be done earlier so that the constructed vector
-    // is built outside of a loop....
+    // This is generally done earlier in RISCVOPtimizeMemIntrinsics but
+    // in some cases we spill a vector to the stack to accomplish a bitcast
+    // those scenarios are generally as poor choice and should be eliminated.
+    // (TODO: one example Jira ESP-462)
     for (unsigned Idx = 1; Idx < 8; Idx++)
       IndexVec = SDValue(
           CurDAG->getMachineNode(RISCV::FBCI_PI_EX, SDLoc(M), MVT::v8i32,

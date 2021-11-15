@@ -155,8 +155,24 @@ private:
   // Try to fold a vector select into previous instructions
   bool foldSelect(Instruction &I);
 
+  // Rewrite suitable gathers to et_gather with manifest index vector
   void rewriteGather(Instruction &I);
+
+  // Convert I into an et_gather with index Vector Index (scaled by Scale)
+  // based address Base and mask Mask.
+  void createGather(Instruction &I, Value *Index, unsigned Scale, Value *Base,
+                    Value *Mask);
+
+  // Rewrite suitable scatters to et_scatter with manifest index vector
   void rewriteScatter(Instruction &I);
+
+  // Convert I into an et_scatter with index Vector Index (scaled by Scale)
+  // based address Base and mask Mask.
+  void createScatter(Instruction &I, Value *Index, unsigned Scale, Value *Base,
+                     Value *Mask);
+
+  // If address has the form base+index where index has type v8i32
+  // Scale is set to the byte size of the obejcts accessed in memory.
   bool isUniform(Value *Addr, Value **Base, Value **Index_, unsigned *Scale);
 
   DenseMap<Instruction *, unsigned> Index; // Debugging only
@@ -164,6 +180,9 @@ private:
     auto Iter = Index.find(&I);
     return (Iter == Index.end() ? 0 : Iter->second);
   }
+
+  // Scan the basic block and rewrite vector memory operations in it
+  void rewriteVectorMemOps(BasicBlock &BB);
 };
 
 } // end anonymous namespace
@@ -190,6 +209,9 @@ bool RISCVOptimizeMemIntrinsics::runOnFunction(Function &F) {
     return false;
   AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
   LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+
+  for (BasicBlock &BB : F)
+    rewriteVectorMemOps(BB);
 
   MadeChange = false;
   for (Loop *L : LI.getTopLevelLoops())
@@ -341,20 +363,20 @@ private:
     return true;
   }
 
-  bool hoistConstants(Instruction &I) { 
+  bool hoistConstants(Instruction &I) {
     // This might be too aggressive when for example
     // we have mul x 4 which could be a shli...
-    unsigned Last  =  I.getNumOperands() - (isa<CallBase>(&I) ? 1 : 0);
-    for (unsigned Idx = 0; Idx <Last; Idx++) {
+    unsigned Last = I.getNumOperands() - (isa<CallBase>(&I) ? 1 : 0);
+    for (unsigned Idx = 0; Idx < Last; Idx++) {
       Value *C = I.getOperand(Idx);
       if (Value *Hoisted = hoistConstant(C))
         I.setOperand(Idx, Hoisted);
     }
-    return false; 
+    return false;
   }
 
   DenseMap<Value *, Value *> HoistedConstant;
-  Value * hoistConstant(Value *V);
+  Value *hoistConstant(Value *V);
 };
 } // namespace
 
@@ -886,7 +908,7 @@ unsigned CodeHoister::estimateVectorUsage(BasicBlock &BB) {
   return Invariants.size() + MaxLive;
 }
 
-static bool shouldHoist(Value* V) {
+static bool shouldHoist(Value *V) {
   if (!isa<Constant>(V))
     return false;
   // Pointer constants in a PIC model will generate a PseudoLLA that
@@ -1003,11 +1025,94 @@ void RISCVOptimizeMemIntrinsics::rewriteGather(Instruction &I) {
     return;
   assert(isa<UndefValue>(I.getOperand(3)) &&
          "Expected undefined Pass through in gather");
+  createGather(I, Index, Scale, Base, I.getOperand(2));
+}
+
+void RISCVOptimizeMemIntrinsics::rewriteScatter(Instruction &I) {
+  Value *Base, *Index;
+  unsigned Scale;
+  if (!isUniform(I.getOperand(1), &Base, &Index, &Scale))
+    return;
+  createScatter(I, Index, Scale, Base, I.getOperand(3));
+}
+
+// Build an iota-vector scalaed by the size of memory objects
+// pointed to by Addr
+static Value *buildIndices(Value *Addr) {
+  unsigned Scale = dyn_cast<PointerType>(Addr->getType())
+                       ->getElementType()
+                       ->getScalarSizeInBits() /
+                   8;
+  SmallVector<Constant *, 8> CIndices;
+  for (unsigned Idx = 0; Idx < 8; Idx++)
+    CIndices.push_back(ConstantInt::get(
+        IntegerType::get(Addr->getContext(), 32), Idx * Scale));
+  return ConstantVector::get(CIndices);
+}
+
+// Returb a bit mask of all true
+static Constant *allLanes(LLVMContext &Ctx) {
+  return ConstantVector::getSplat(
+      ElementCount(8, false), ConstantInt::get(IntegerType::get(Ctx, 1), 1));
+}
+
+void RISCVOptimizeMemIntrinsics::rewriteVectorMemOps(BasicBlock &BB) {
+
+  // We don't need to rewrite operations that are not vector
+  // or which don't need an explicit vector of indices 
+  // since they map toe fsw or flw operations.
+  auto shouldRewrite = [](Value *V, unsigned AddrSpace) {
+    auto *Ty = dyn_cast<FixedVectorType>(V->getType());
+    if (!Ty || Ty->getNumElements() != 8)
+      return false;
+    unsigned Size = Ty->getScalarSizeInBits();
+    if (Size == 0 || Size == 64)
+      return false;
+    return (Size != 32 || AddrSpace != 0);
+  };
+
+  LLVMContext &Ctx = BB.getContext();
+  BasicBlock::iterator End = BB.end();
+  BasicBlock::iterator Cur = BB.begin();
+  while (Cur != End) {
+    Instruction &I = *Cur++;
+    if (auto *C = dyn_cast<CallInst>(&I)) {
+      switch (C->getIntrinsicID()) {
+      case Intrinsic::masked_load:
+        if (shouldRewrite(&I,
+                          I.getOperand(0)->getType()->getPointerAddressSpace()))
+          createGather(I, buildIndices(I.getOperand(0)), 1, I.getOperand(0),
+                       I.getOperand(2));
+        break;
+      case Intrinsic::masked_store:
+        if (shouldRewrite(I.getOperand(0),
+                          I.getOperand(1)->getType()->getPointerAddressSpace()))
+          createScatter(I, buildIndices(I.getOperand(1)), 1, I.getOperand(1),
+                        I.getOperand(3));
+        break;
+      }
+    } else if (auto *S = dyn_cast<StoreInst>(&I)) {
+      if (shouldRewrite(S->getOperand(0), S->getPointerAddressSpace()))
+        createScatter(I, buildIndices(S->getOperand(1)), 1, S->getOperand(1),
+                      allLanes(Ctx));
+    } else if (auto *L = dyn_cast<LoadInst>(&I)) {
+      if (shouldRewrite(L, L->getPointerAddressSpace()))
+        createGather(I, buildIndices(L->getOperand(0)), 1, L->getOperand(0),
+                     allLanes(Ctx));
+    }
+  }
+}
+
+void RISCVOptimizeMemIntrinsics::createGather(Instruction &I, Value *Index,
+                                              unsigned Scale, Value *Base,
+                                              Value *Mask) {
+  LLVM_DEBUG(dbgs() << "Convert to gather " << I << "\n");
   IRBuilder<> B(&I);
   if (Index->getType()->getScalarSizeInBits() < 32)
     Index = B.CreateSExt(Index, FixedVectorType::get(B.getInt32Ty(), 8));
-  Value *ByteIndex =
-      B.CreateMul(Index, B.CreateVectorSplat(8, B.getInt32(Scale)));
+  Value *ByteIndex = Index;
+  if (Scale != 1)
+    B.CreateMul(Index, B.CreateVectorSplat(8, B.getInt32(Scale)));
   // Convert to "et_masked_gather"
 
   Type *Ret = I.getType();
@@ -1019,31 +1124,30 @@ void RISCVOptimizeMemIntrinsics::rewriteGather(Instruction &I) {
                         {/*Ptr*/ Base, ByteIndex,
                          /*PassThru*/ UndefValue::get(Ret),
                          /*Load Ext*/ B.getInt32(ISD::LoadExtType::NON_EXTLOAD),
-                         /*Mask*/ I.getOperand(2)});
+                         /*Mask*/ Mask});
   if (Ret != I.getType())
     G = B.CreateTrunc(G, I.getType());
   I.replaceAllUsesWith(G);
   I.eraseFromParent();
 }
 
-void RISCVOptimizeMemIntrinsics::rewriteScatter(Instruction &I) {
-  Value *Base, *Index;
-  unsigned Scale;
-  if (!isUniform(I.getOperand(1), &Base, &Index, &Scale))
-    return;
-
+void RISCVOptimizeMemIntrinsics::createScatter(Instruction &I, Value *Index,
+                                               unsigned Scale, Value *Base,
+                                               Value *Mask) {
+  LLVM_DEBUG(dbgs() << "Convert to scattter " << I << "\n");
   IRBuilder<> B(&I);
   if (Index->getType()->getScalarSizeInBits() < 32)
     Index = B.CreateSExt(Index, FixedVectorType::get(B.getInt32Ty(), 8));
-  Value *ByteIndex =
-      B.CreateMul(Index, B.CreateVectorSplat(8, B.getInt32(Scale)));
+  Value *ByteIndex = Index;
+  if (Scale != 1)
+    B.CreateMul(Index, B.CreateVectorSplat(8, B.getInt32(Scale)));
 
   // Convert to "et_masked_gather"
   CallInst *S = B.CreateIntrinsic(Intrinsic::riscv_et_scatter,
                                   {I.getOperand(0)->getType(), Base->getType()},
                                   {/*Value*/ I.getOperand(0),
                                    /*Ptr*/ Base, ByteIndex,
-                                   /*Mask*/ I.getOperand(3)});
+                                   /*Mask*/ Mask});
   I.replaceAllUsesWith(S);
   I.eraseFromParent();
 }
