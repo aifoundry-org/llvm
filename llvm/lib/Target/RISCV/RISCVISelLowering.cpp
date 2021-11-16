@@ -300,6 +300,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
       setOperationAction(Op, MVT::v8f32, Custom);
     }
     setOperationAction(ISD::BITCAST, MVT::i8, Custom);
+    setOperationAction(ISD::EXTRACT_VECTOR_ELT, MVT::i16, Custom);
     setOperationAction(ISD::EXTRACT_VECTOR_ELT, MVT::v8i1, Custom);
   }
 #endif
@@ -1332,6 +1333,22 @@ void RISCVTargetLowering::ReplaceNodeResults(SDNode *N,
                                 Mem->getMemoryVT(), Mem->getMemOperand());
     Results.push_back(Gather);
     Results.push_back(SDValue(Gather.getNode(), 1));
+    return;
+  }
+  case ISD::EXTRACT_VECTOR_ELT: {
+    SDValue Cast = N->getOperand(0);
+    if (Cast.getValueType() != MVT::v16i16 || Cast->getOpcode() != ISD::BITCAST)
+      return;
+    SDValue X = Cast->getOperand(0);
+    if (X.getValueType() != MVT::v8i32)
+      return;
+    // extract_vec_elt (bit_cast(x), 0)
+    auto Idx = dyn_cast<ConstantSDNode>(N->getOperand(1));
+    if (!Idx || Idx->getZExtValue() != 0)
+      return;
+    SDValue E = DAG.getNode(ISD::EXTRACT_VECTOR_ELT, SDLoc(N), MVT::i32, X, N->getOperand(1));
+    SDValue F = DAG.getNode(ISD::TRUNCATE, SDLoc(N), MVT::i16, E);
+    Results.push_back(F);
     return;
   }
 #endif
