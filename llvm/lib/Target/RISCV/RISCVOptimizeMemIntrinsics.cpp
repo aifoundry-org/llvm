@@ -686,6 +686,25 @@ static Value *isMaskNot(Value *V) {
   return nullptr;
 }
 
+// Build an iota-vector scalaed by the size of memory objects
+// pointed to by Addr
+static Value *buildIndices(Value *Addr) {
+  unsigned Scale = 1;
+  if (auto *PT = dyn_cast<PointerType>(Addr->getType()))
+    Scale = PT->getElementType()->getScalarSizeInBits() / 8;
+  SmallVector<Constant *, 8> CIndices;
+  for (unsigned Idx = 0; Idx < 8; Idx++)
+    CIndices.push_back(ConstantInt::get(
+        IntegerType::get(Addr->getContext(), 32), Idx * Scale));
+  return ConstantVector::get(CIndices);
+}
+
+// Returb a bit mask of all true
+static Constant *allLanes(LLVMContext &Ctx) {
+  return ConstantVector::getSplat(
+      ElementCount(8, false), ConstantInt::get(IntegerType::get(Ctx, 1), 1));
+}
+
 bool RISCVOptimizeMemIntrinsics::combinePriorMemOp(
     Instruction &I, const SmallVectorImpl<Instruction *> &VectorOps,
     SmallVectorImpl<Instruction *> *DeadOps, Loop &LI) {
@@ -951,6 +970,34 @@ void RISCVOptimizeMemIntrinsics::rewriteGatherScatters(Function &F) {
       Instruction &I = *Cur++;
       if (I.getOpcode() != Instruction::Call)
         continue;
+
+      // Look for case where LICM has moved  setting
+      // the first lane of a vector to a value. If there are
+      // a lot of these they spill yielding very poor code so here
+      // we move them back to the use (typically a scalar load or store
+      // to a non-zero address space) and rewrite as a special intrinsic
+      // that will be mapped to a Psuedo instruction to prevent additional
+      // motion at the machine level. Sigh
+      IRBuilder<> B(&I);
+      unsigned N = I.getNumOperands();
+      for (unsigned Idx = 0; Idx < N; Idx++) {
+        auto *V = dyn_cast<InsertElementInst>(I.getOperand(Idx));
+        if (!V || !isa<UndefValue>(V->getOperand(0)) || V->getParent() == &BB)
+          continue;
+        auto *C = dyn_cast<ConstantInt>(V->getOperand(2));
+        if (!C || C->getZExtValue() != 0)
+          continue;
+        Value *Input = V->getOperand(1);
+        if (Input->getType()->isFloatTy())
+          Input = B.CreateBitCast(Input, B.getInt32Ty());
+        if (Input->getType()->getScalarSizeInBits() < 64)
+          Input = B.CreateSExt(Input, B.getInt64Ty());
+        I.setOperand(
+            Idx, B.CreateIntrinsic(Intrinsic::riscv_et_to_vector, {}, {Input}));
+        if (V->getNumUses() == 0)
+          V->eraseFromParent();
+      }
+
       switch (dyn_cast<CallBase>(&I)->getIntrinsicID()) {
       case Intrinsic::masked_scatter:
         rewriteScatter(I);
@@ -958,6 +1005,12 @@ void RISCVOptimizeMemIntrinsics::rewriteGatherScatters(Function &F) {
       case Intrinsic::masked_gather:
         rewriteGather(I);
         break;
+      case Intrinsic::riscv_iota: {
+        Value *F = B.CreateFreeze(buildIndices(&I));
+        I.replaceAllUsesWith(F);
+        I.eraseFromParent();
+        break;
+      }
       }
     }
 }
@@ -1036,30 +1089,10 @@ void RISCVOptimizeMemIntrinsics::rewriteScatter(Instruction &I) {
   createScatter(I, Index, Scale, Base, I.getOperand(3));
 }
 
-// Build an iota-vector scalaed by the size of memory objects
-// pointed to by Addr
-static Value *buildIndices(Value *Addr) {
-  unsigned Scale = dyn_cast<PointerType>(Addr->getType())
-                       ->getElementType()
-                       ->getScalarSizeInBits() /
-                   8;
-  SmallVector<Constant *, 8> CIndices;
-  for (unsigned Idx = 0; Idx < 8; Idx++)
-    CIndices.push_back(ConstantInt::get(
-        IntegerType::get(Addr->getContext(), 32), Idx * Scale));
-  return ConstantVector::get(CIndices);
-}
-
-// Returb a bit mask of all true
-static Constant *allLanes(LLVMContext &Ctx) {
-  return ConstantVector::getSplat(
-      ElementCount(8, false), ConstantInt::get(IntegerType::get(Ctx, 1), 1));
-}
-
 void RISCVOptimizeMemIntrinsics::rewriteVectorMemOps(BasicBlock &BB) {
 
   // We don't need to rewrite operations that are not vector
-  // or which don't need an explicit vector of indices 
+  // or which don't need an explicit vector of indices
   // since they map toe fsw or flw operations.
   auto shouldRewrite = [](Value *V, unsigned AddrSpace) {
     auto *Ty = dyn_cast<FixedVectorType>(V->getType());
@@ -1112,7 +1145,7 @@ void RISCVOptimizeMemIntrinsics::createGather(Instruction &I, Value *Index,
     Index = B.CreateSExt(Index, FixedVectorType::get(B.getInt32Ty(), 8));
   Value *ByteIndex = Index;
   if (Scale != 1)
-    B.CreateMul(Index, B.CreateVectorSplat(8, B.getInt32(Scale)));
+    ByteIndex = B.CreateMul(Index, B.CreateVectorSplat(8, B.getInt32(Scale)));
   // Convert to "et_masked_gather"
 
   Type *Ret = I.getType();
@@ -1140,7 +1173,7 @@ void RISCVOptimizeMemIntrinsics::createScatter(Instruction &I, Value *Index,
     Index = B.CreateSExt(Index, FixedVectorType::get(B.getInt32Ty(), 8));
   Value *ByteIndex = Index;
   if (Scale != 1)
-    B.CreateMul(Index, B.CreateVectorSplat(8, B.getInt32(Scale)));
+    ByteIndex = B.CreateMul(Index, B.CreateVectorSplat(8, B.getInt32(Scale)));
 
   // Convert to "et_masked_gather"
   CallInst *S = B.CreateIntrinsic(Intrinsic::riscv_et_scatter,

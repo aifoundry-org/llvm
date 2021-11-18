@@ -63,6 +63,7 @@ private:
                               MachineBasicBlock::iterator MBBI,
                               MachineBasicBlock::iterator &NextMBBI,
                               unsigned Opcode);
+#ifdef ESPERANTO
   bool expandStackOps(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
                       MachineBasicBlock::iterator &NextMBBI);
   bool expandMaskLS(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
@@ -71,6 +72,9 @@ private:
                   MachineBasicBlock::iterator &NextMBBI);
   bool expandHARTID(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
                   MachineBasicBlock::iterator &NextMBBI);
+  bool expandTO_VECTOR(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
+                       MachineBasicBlock::iterator &NextMBBI);
+#endif
 };
 
 char RISCVExpandPseudo::ID = 0;
@@ -424,6 +428,7 @@ bool RISCVExpandPseudo::expandMI(MachineBasicBlock &MBB,
     return expandLoadTLSIEAddress(MBB, MBBI, NextMBBI);
   case RISCV::PseudoLA_TLS_GD:
     return expandLoadTLSGDAddress(MBB, MBBI, NextMBBI);
+#ifdef ESPERANTO
   case RISCV::StackFLQ2:
   case RISCV::StackFSQ2:
     return expandStackOps(MBB, MBBI, NextMBBI);
@@ -431,6 +436,9 @@ bool RISCVExpandPseudo::expandMI(MachineBasicBlock &MBB,
     return expandIOTA(MBB, MBBI, NextMBBI);
   case RISCV::HARTID:
     return expandHARTID(MBB, MBBI, NextMBBI);
+  case RISCV::TO_VECTOR:
+    return expandTO_VECTOR(MBB, MBBI, NextMBBI);
+#endif
   default:
     if (Optional<unsigned> ImplicitOpcode =
             getImplicitOpcode(MBBI->getOpcode()))
@@ -548,6 +556,7 @@ bool RISCVExpandPseudo::expandImplicitOperands(
   return true;
 }
 
+#ifdef ESPERANTO
 bool RISCVExpandPseudo::expandStackOps(MachineBasicBlock &MBB,
                                        MachineBasicBlock::iterator MBBI,
                                        MachineBasicBlock::iterator &NextMBBI) {
@@ -588,6 +597,18 @@ bool RISCVExpandPseudo::expandHARTID(MachineBasicBlock &MBB,
   MBBI->eraseFromParent();
   return true;
 }
+
+bool RISCVExpandPseudo::expandTO_VECTOR(MachineBasicBlock &MBB,
+                                        MachineBasicBlock::iterator MBBI,
+                                        MachineBasicBlock::iterator &NextMBBI) {
+  Register DstReg = MBBI->getOperand(0).getReg();
+  DebugLoc DL = MBBI->getDebugLoc();
+  BuildMI(MBB, MBBI, DL, TII->get(RISCV::FMV_W_X), DstReg)
+      .addReg(MBBI->getOperand(1).getReg());
+  MBBI->eraseFromParent();
+  return true;
+}
+#endif
 
 } // end of anonymous namespace
 

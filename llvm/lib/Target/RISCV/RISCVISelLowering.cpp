@@ -270,6 +270,8 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
       setOperationAction(ISD::INTRINSIC_W_CHAIN, MT, Custom); // gather
       setOperationAction(ISD::INTRINSIC_VOID, MT, Custom);    // scatter
     }
+    setOperationAction(ISD::INTRINSIC_WO_CHAIN, MVT::v8i32, Custom); // iota
+
     for (unsigned Op : {
              ISD::ADD,        ISD::AND,         ISD::BUILD_VECTOR,
              ISD::MUL,        ISD::OR,          ISD::SDIV,

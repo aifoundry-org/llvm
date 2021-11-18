@@ -1219,6 +1219,10 @@ def : EspPat<(int_riscv_iota), (IOTA)>;
 def HARTID : Pseudo<(outs GPR:$rd), (ins), [], "hartid", "$rd">;
 def : EspPat<(int_riscv_hartid), (HARTID)>;
 
+def TO_VECTOR : Pseudo<(outs FPR256:$rd), (ins GPR:$rs1), [], "fmv.ps.x", "$rd, $rs1">;
+def : EspPat<(int_riscv_et_to_vector GPR:$rs1),
+             (TO_VECTOR $rs1)>;
+
 def : EspPat<(f32 (extractelt FPR256:$rd, 0)),
           (f32 (EXTRACT_SUBREG $rd, sub_32))>;
 

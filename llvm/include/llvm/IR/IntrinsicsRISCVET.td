@@ -16,6 +16,8 @@ def int_riscv_et_scatter: Intrinsic<[],
                                   llvm_v8i1_ty], // 3 Mask
                                  [IntrWriteMem, IntrArgMemOnly,
                                   IntrWillReturn]>;
+def int_riscv_et_to_vector: Intrinsic<[llvm_v8i32_ty], [llvm_i64_ty], []>;
+
 // Generate iota vector of length 8
 def int_riscv_iota :
   GCCBuiltin<"__builtin_riscv_iota">,
