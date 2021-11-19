@@ -25,5 +25,6 @@ define void @mload(%VEC* %result,
 ; CHECK-NEXT:	mov.m.x	[[V4:m[0-9]+]], zero, 255
 ; CHECK-NEXT:	fltm.pi	[[V5:m[0-9]+]], [[V0]], [[V2]]
 ; CHECK-NEXT:	fslli.pi	[[V6:f(a|s|t)[0-9]+]], [[V0]], 2
-; CHECK-NEXT:	fgwl.ps	[[V7:f(a|s|t)[0-9]+]], [[V6]]([[V8:(a|s|t)[0-9]+]])
-; CHECK-NEXT:	fsq2	[[V7]], 0([[V9:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	maskand	[[V7:m[0-9]+]], [[V5]], [[V5]]
+; CHECK-NEXT:	fgwl.ps	[[V8:f(a|s|t)[0-9]+]], [[V6]]([[V9:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	fsq2	[[V8]], 0([[V10:(a|s|t)[0-9]+]])

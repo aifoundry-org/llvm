@@ -26,4 +26,5 @@ define void @lmscatterb(%VEC* %result,
 ; CHECK-NEXT:	mov.m.x	[[V4:m[0-9]+]], zero, 255
 ; CHECK-NEXT:	fltm.pi	[[V5:m[0-9]+]], [[V0]], [[V2]]
 ; CHECK-NEXT:	fslli.pi	[[V6:f(a|s|t)[0-9]+]], [[V0]], 1
-; CHECK-NEXT:	fschl.ps	[[V0]], [[V6]]([[V7:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	maskand	[[V7:m[0-9]+]], [[V5]], [[V5]]
+; CHECK-NEXT:	fschl.ps	[[V0]], [[V6]]([[V8:(a|s|t)[0-9]+]])

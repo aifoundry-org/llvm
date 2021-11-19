@@ -48,8 +48,10 @@ void initializeRISCVExpandAtomicPseudoPass(PassRegistry &);
 
 #ifdef ESPERANTO
 FunctionPass *createRISCVOptimizeMemIntrinsicsPass(RISCVTargetMachine &TM);
-// FunctionPass* createRISCVOptimizeMemIntrinsicsPass();
 void initializeRISCVOptimizeMemIntrinsicsPass(PassRegistry &);
+
+FunctionPass *createRISCVETMaskAllocatorPass();
+void initializeRISCVETMaskAllocatorPass(PassRegistry &);
 #endif
 
 InstructionSelector *createRISCVInstructionSelector(const RISCVTargetMachine &,

@@ -22,13 +22,14 @@ define void @mload(%VEC* %result,
 ; CHECK-NEXT:	flq2	[[V2:f(a|s|t)[0-9]+]], 0([[V3:(a|s|t)[0-9]+]])
 ; CHECK-NEXT:	mov.m.x	[[V4:m[0-9]+]], zero, 255
 ; CHECK-NEXT:	fltm.pi	[[V5:m[0-9]+]], [[V0]], [[V2]]
-; CHECK-NEXT:	fbci.pi	[[V6:f(a|s|t)[0-9]+]], 0
-; CHECK-NEXT:	mov.m.x	[[V7:m[0-9]+]], zero, 170
-; CHECK-NEXT:	faddi.pi	[[V8:f(a|s|t)[0-9]+]], [[V6]], 4
-; CHECK-NEXT:	mov.m.x	[[V9:m[0-9]+]], zero, 204
-; CHECK-NEXT:	faddi.pi	[[V10:f(a|s|t)[0-9]+]], [[V8]], 8
-; CHECK-NEXT:	mov.m.x	[[V11:m[0-9]+]], zero, 240
-; CHECK-NEXT:	faddi.pi	[[V12:f(a|s|t)[0-9]+]], [[V10]], 16
-; CHECK-NEXT:	maskand	[[V13:m[0-9]+]], [[V5]], [[V5]]
-; CHECK-NEXT:	fgwl.ps	[[V14:f(a|s|t)[0-9]+]], [[V12]]([[V15:(a|s|t)[0-9]+]])
-; CHECK-NEXT:	fsq2	[[V14]], 0([[V16:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	mov.m.x	[[V6:m[0-9]+]], zero, 255
+; CHECK-NEXT:	fbci.pi	[[V7:f(a|s|t)[0-9]+]], 0
+; CHECK-NEXT:	mov.m.x	[[V8:m[0-9]+]], zero, 170
+; CHECK-NEXT:	faddi.pi	[[V9:f(a|s|t)[0-9]+]], [[V7]], 4
+; CHECK-NEXT:	mov.m.x	[[V10:m[0-9]+]], zero, 204
+; CHECK-NEXT:	faddi.pi	[[V11:f(a|s|t)[0-9]+]], [[V9]], 8
+; CHECK-NEXT:	mov.m.x	[[V12:m[0-9]+]], zero, 240
+; CHECK-NEXT:	faddi.pi	[[V13:f(a|s|t)[0-9]+]], [[V11]], 16
+; CHECK-NEXT:	maskand	[[V14:m[0-9]+]], [[V5]], [[V5]]
+; CHECK-NEXT:	fgwl.ps	[[V15:f(a|s|t)[0-9]+]], [[V13]]([[V16:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	fsq2	[[V15]], 0([[V17:(a|s|t)[0-9]+]])

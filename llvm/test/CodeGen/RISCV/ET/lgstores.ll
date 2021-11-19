@@ -20,5 +20,6 @@ entry:
 ; CHECK-NEXT:	mov.m.x	[[V8:m[0-9]+]], zero, 240
 ; CHECK-NEXT:	faddi.pi	[[V9:f(a|s|t)[0-9]+]], [[V7]], 16
 ; CHECK-NEXT:	mov.m.x	[[V10:m[0-9]+]], zero, 255
-; CHECK-NEXT:	fscwl.ps	[[V0]], [[V9]]([[V11:(a|s|t)[0-9]+]])
-; CHECK-NEXT:	fscwg.ps	[[V0]], [[V9]]([[V12:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	mov.m.x	[[V11:m[0-9]+]], zero, 255
+; CHECK-NEXT:	fscwl.ps	[[V0]], [[V9]]([[V12:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	fscwg.ps	[[V0]], [[V9]]([[V13:(a|s|t)[0-9]+]])

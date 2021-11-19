@@ -25,14 +25,16 @@ define void @gmgatherb(%VECb * %result,
 ; CHECK-NEXT:	flq2	[[V2:f(a|s|t)[0-9]+]], 0([[V3:(a|s|t)[0-9]+]])
 ; CHECK-NEXT:	mov.m.x	[[V4:m[0-9]+]], zero, 255
 ; CHECK-NEXT:	fltm.pi	[[V5:m[0-9]+]], [[V0]], [[V2]]
-; CHECK-NEXT:	fgbg.ps	[[V6:f(a|s|t)[0-9]+]], [[V0]]([[V7:(a|s|t)[0-9]+]])
-; CHECK-NEXT:	mov.m.x	[[V8:m[0-9]+]], zero, 255
-; CHECK-NEXT:	fbci.pi	[[V9:f(a|s|t)[0-9]+]], 0
-; CHECK-NEXT:	mov.m.x	[[V10:m[0-9]+]], zero, 170
-; CHECK-NEXT:	faddi.pi	[[V11:f(a|s|t)[0-9]+]], [[V9]], 1
-; CHECK-NEXT:	mov.m.x	[[V12:m[0-9]+]], zero, 204
-; CHECK-NEXT:	faddi.pi	[[V13:f(a|s|t)[0-9]+]], [[V11]], 2
-; CHECK-NEXT:	mov.m.x	[[V14:m[0-9]+]], zero, 240
-; CHECK-NEXT:	faddi.pi	[[V15:f(a|s|t)[0-9]+]], [[V13]], 4
-; CHECK-NEXT:	mov.m.x	[[V16:m[0-9]+]], zero, 255
-; CHECK-NEXT:	fscb.ps	[[V6]], [[V15]]([[V17:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	maskand	[[V6:m[0-9]+]], [[V5]], [[V5]]
+; CHECK-NEXT:	fgbg.ps	[[V7:f(a|s|t)[0-9]+]], [[V0]]([[V8:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	mov.m.x	[[V9:m[0-9]+]], zero, 255
+; CHECK-NEXT:	fbci.pi	[[V10:f(a|s|t)[0-9]+]], 0
+; CHECK-NEXT:	mov.m.x	[[V11:m[0-9]+]], zero, 170
+; CHECK-NEXT:	faddi.pi	[[V12:f(a|s|t)[0-9]+]], [[V10]], 1
+; CHECK-NEXT:	mov.m.x	[[V13:m[0-9]+]], zero, 204
+; CHECK-NEXT:	faddi.pi	[[V14:f(a|s|t)[0-9]+]], [[V12]], 2
+; CHECK-NEXT:	mov.m.x	[[V15:m[0-9]+]], zero, 240
+; CHECK-NEXT:	faddi.pi	[[V16:f(a|s|t)[0-9]+]], [[V14]], 4
+; CHECK-NEXT:	mov.m.x	[[V17:m[0-9]+]], zero, 255
+; CHECK-NEXT:	mov.m.x	[[V18:m[0-9]+]], zero, 255
+; CHECK-NEXT:	fscb.ps	[[V7]], [[V16]]([[V19:(a|s|t)[0-9]+]])

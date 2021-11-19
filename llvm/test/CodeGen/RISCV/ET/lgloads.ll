@@ -22,5 +22,7 @@ entry:
 ; CHECK-NEXT:	mov.m.x	[[V8:m[0-9]+]], zero, 255
 ; CHECK-NEXT:	fgwl.ps	[[V9:f(a|s|t)[0-9]+]], [[V7]]([[V10:(a|s|t)[0-9]+]])
 ; CHECK-NEXT:	fgwg.ps	[[V11:f(a|s|t)[0-9]+]], [[V7]]([[V12:(a|s|t)[0-9]+]])
-; CHECK-NEXT:	fadd.ps	[[V13:f(a|s|t)[0-9]+]], [[V9]], [[V11]], dyn
-; CHECK-NEXT:	fsq2	[[V13]], 0([[V14:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	mov.m.x	[[V13:m[0-9]+]], zero, 255
+; CHECK-NEXT:	mov.m.x	[[V14:m[0-9]+]], zero, 255
+; CHECK-NEXT:	fadd.ps	[[V15:f(a|s|t)[0-9]+]], [[V9]], [[V11]], dyn
+; CHECK-NEXT:	fsq2	[[V15]], 0([[V16:(a|s|t)[0-9]+]])

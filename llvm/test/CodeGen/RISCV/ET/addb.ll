@@ -31,5 +31,6 @@ define void @copy(%P %x, %P %y) {
 ; CHECK-NEXT:	faddi.pi	[[V7:f(a|s|t)[0-9]+]], [[V5]], 4
 ; CHECK-NEXT:	mov.m.x	[[V8:m[0-9]+]], zero, 255
 ; CHECK-NEXT:	fgb.ps	[[V9:f(a|s|t)[0-9]+]], [[V7]]([[V10:(a|s|t)[0-9]+]])
-; CHECK-NEXT:	faddi.pi	[[V11:f(a|s|t)[0-9]+]], [[V9]], 1
-; CHECK-NEXT:	fscb.ps	[[V11]], [[V7]]([[V12:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	mov.m.x	[[V11:m[0-9]+]], zero, 255
+; CHECK-NEXT:	faddi.pi	[[V12:f(a|s|t)[0-9]+]], [[V9]], 1
+; CHECK-NEXT:	fscb.ps	[[V12]], [[V7]]([[V13:(a|s|t)[0-9]+]])

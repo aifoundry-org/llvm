@@ -13,12 +13,14 @@ define void @ord(%IVEC* %result, %VEC* %0, %VEC* %1) {
   ret void
 }
 
-; CHECK:	flq2	ft0, 0(a2)
-; CHECK-NEXT:	flq2	ft1, 0(a1)
-; CHECK-NEXT:	mov.m.x	m0, zero, 255
-; CHECK-NEXT:	feqm.ps	m1, ft0, ft0
-; CHECK-NEXT:	feqm.ps	m2, ft1, ft1
-; CHECK-NEXT:	maskand	m1, m2, m1
-; CHECK-NEXT:	fbci.pi	ft0, 0
-; CHECK-NEXT:	maskand	m0, m1, m1
-; CHECK-NEXT:	fbci.pi	ft0, -1
+; CHECK:	flq2	[[V0:f(a|s|t)[0-9]+]], 0([[V1:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	flq2	[[V2:f(a|s|t)[0-9]+]], 0([[V3:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	mov.m.x	[[V4:m[0-9]+]], zero, 255
+; CHECK-NEXT:	mov.m.x	[[V5:m[0-9]+]], zero, 255
+; CHECK-NEXT:	feqm.ps	[[V6:m[0-9]+]], [[V0]], [[V0]]
+; CHECK-NEXT:	feqm.ps	[[V7:m[0-9]+]], [[V2]], [[V2]]
+; CHECK-NEXT:	maskand	[[V8:m[0-9]+]], [[V7]], [[V6]]
+; CHECK-NEXT:	fbci.pi	[[V9:f(a|s|t)[0-9]+]], 0
+; CHECK-NEXT:	maskand	[[V10:m[0-9]+]], [[V8]], [[V8]]
+; CHECK-NEXT:	fbci.pi	[[V11:f(a|s|t)[0-9]+]], -1
+; CHECK-NEXT:	fsq2	[[V11]], 0([[V12:(a|s|t)[0-9]+]])

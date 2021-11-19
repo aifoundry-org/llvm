@@ -16,8 +16,9 @@ entry:
   tail call void @llvm.masked.store.v8i32.p0v8i32(%VEC %x, %VEC* %result, i32 4, %MASK %m)
   ret void
 }
-; CHECK:	flq2	ft0, 0(a1)
-; CHECK-NEXT:	flq2	ft1, 0(a2)
-; CHECK-NEXT:	mov.m.x	m0, zero, 255
-; CHECK-NEXT:	fltm.pi	m0, ft0, ft1
-; CHECK-NEXT:	fsw.ps	ft0, 0(a0)
+; CHECK:	flq2	[[V0:f(a|s|t)[0-9]+]], 0([[V1:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	flq2	[[V2:f(a|s|t)[0-9]+]], 0([[V3:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	mov.m.x	[[V4:m[0-9]+]], zero, 255
+; CHECK-NEXT:	fltm.pi	[[V5:m[0-9]+]], [[V0]], [[V2]]
+; CHECK-NEXT:	maskand	[[V6:m[0-9]+]], [[V5]], [[V5]]
+; CHECK-NEXT:	fsw.ps	[[V0]], 0([[V7:(a|s|t)[0-9]+]])

@@ -9,8 +9,10 @@ define void @rem(<8 x i32>* %result, <8 x i32>* %0, i32 signext %y) {
   ret void
 }
 
-; CHECK:	flq2	ft0, 0(a1)
-; CHECK-NEXT:	mov.m.x	m0, zero, 8
-; CHECK-NEXT:	fbcx.ps	ft0, a2
-; CHECK-NEXT:	mov.m.x	m0, zero, 16
-; CHECK-NEXT:	fbci.pi	ft0, 1234
+; CHECK:	flq2	[[V0:f(a|s|t)[0-9]+]], 0([[V1:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	mov.m.x	[[V2:m[0-9]+]], zero, 16
+; CHECK-NEXT:	mov.m.x	[[V3:m[0-9]+]], zero, 8
+; CHECK-NEXT:	fbcx.ps	[[V4:f(a|s|t)[0-9]+]], [[V5:(a|s|t)[0-9]+]]
+; CHECK-NEXT:	mov.m.x	[[V6:m[0-9]+]], zero, 16
+; CHECK-NEXT:	fbci.pi	[[V7:f(a|s|t)[0-9]+]], 1234
+; CHECK-NEXT:	fsq2	[[V7]], 0([[V8:(a|s|t)[0-9]+]])

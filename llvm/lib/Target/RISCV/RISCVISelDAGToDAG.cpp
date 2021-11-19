@@ -26,7 +26,7 @@ using namespace llvm;
 #define DEBUG_TYPE "riscv-isel"
 
 #ifdef ESPERANTO
-static cl::opt<bool> OptimizeMasks(DEBUG_TYPE "-opt-masks", cl::init(true));
+static cl::opt<bool> OptimizeMasksFlag(DEBUG_TYPE "-opt-masks", cl::init(true));
 static cl::opt<unsigned>
     OptimizeMasksLimit(DEBUG_TYPE "-opt-limit",
                        cl::init(std::numeric_limits<unsigned>::max()));
@@ -1381,38 +1381,6 @@ protected:
     return (R.isVirtual() && (MRI.getRegClass(R) == &RISCV::MRRegClass ||
                               MRI.getRegClass(R) == &RISCV::MR0RegClass));
   }
-  static bool usesReg(MachineInstr &MI, Register R) {
-    return any_of(MI.uses(), [R](MachineOperand &Op) {
-      return Op.isReg() && Op.getReg() == R;
-    });
-  };
-  unsigned numInsUses(Register R) {
-    return llvm::count_if(MRI.use_nodbg_instructions(R),
-                          [](MachineInstr &) { return true; });
-  };
-  // True if this defines a mask from components
-  // available at the current instruction
-  static bool isSafeMove(MachineInstr &MI) {
-    if (MI.getOpcode() != RISCV::MOV_M_X)
-      return false;
-    Register R = MI.getOperand(1).getReg();
-    return R == RISCV::X0 || R.isVirtual();
-  }
-  // These instructions will be lowered in a way that
-  // breaks the basic block.
-  static bool maySplitBlock(const MachineInstr &MI) {
-    switch (MI.getOpcode()) {
-    default:
-      return false;
-    case RISCV::Select_FPR32_Using_CC_GPR:
-    case RISCV::Select_FPR64_Using_CC_GPR:
-    case RISCV::Select_GPR_Using_CC_GPR:
-    case RISCV::PseudoCALL:
-    case RISCV::PseudoCALLIndirect:
-    case RISCV::PseudoCALLReg:
-      return true;
-    }
-  };
 };
 
 class OptimizeVectorMasks : public OptimizeMaskCommon {
@@ -1607,119 +1575,6 @@ private:
     }
   }
 };
-
-class OptimizeMaskCopies : public OptimizeMaskCommon {
-public:
-  OptimizeMaskCopies(MachineFunction &MF) : OptimizeMaskCommon(MF) {}
-
-private:
-  void processBlock(MachineBasicBlock &MBB) override {
-    // This is the more recent virtual register which
-    // has been copied into M0. This is used to eliminate
-    // subsequent copies of this value into M0
-    Register CurrentM0 = 0;
-
-    // Keep track of the last definition of an
-    // instruction which defines a mask and we might
-    // want to pre-allocate to assign to M0 when
-    // it has one use and no intervening reference to M0
-    Register LastDef = 0;
-    unsigned LiveCount = 0; // Number of uses of LastDef not yet seen
-
-    // Process a use of LastDef
-    auto checkLastUse = [&CurrentM0, &LastDef, &LiveCount, this]() {
-      LiveCount -= 1;
-      if (LiveCount == 0 && CurrentM0 == LastDef) {
-        // We have seen all uses of LastDef and
-        // there has been no intervening mask definition
-        // and it has been copied to M0 so we can bind it to M0
-        MRI.replaceRegWith(LastDef, RISCV::M0);
-        LastDef = 0;
-      }
-    };
-
-    MachineBasicBlock::iterator Cur = MBB.getFirstNonPHI();
-    MachineBasicBlock::iterator End = MBB.end();
-    while (Cur != End) {
-      MachineInstr &MI = *Cur++;
-      if (!MI.isCopy()) {
-        if (LastDef && usesReg(MI, LastDef))
-          checkLastUse();
-        // Don't allow M0 to be live across an operation
-        // that might split the block because we subsequently
-        // won't pass verification because the splitting code
-        // does not know that M0 is live (apparently).
-        if (maySplitBlock(MI)) {
-          CurrentM0 = 0;
-          LastDef = 0;
-          continue;
-        }
-        if (definesMask(MI)) {
-          LastDef = MI.getOperand(0).getReg();
-          LiveCount = numInsUses(LastDef);
-        }
-        continue;
-      }
-
-      Register DstReg = MI.getOperand(0).getReg();
-      if (DstReg.isPhysical() || MRI.getRegClass(DstReg) != &RISCV::MR0RegClass)
-        continue;
-      Register SrcReg = MI.getOperand(1).getReg();
-
-      // Here we have a copy where the LHS is constrained to be MR0
-      // so we just immediately replace it with M0. This prevents
-      // MachhineCSE::PerformTrivialCopyPropagation from changing
-      // the register class on SrcReg to also be MR0RegClass.
-      MRI.replaceRegWith(DstReg, RISCV::M0);
-      if (CurrentM0 && sameMask(SrcReg,CurrentM0))
-        MI.eraseFromParent();
-      else if (SrcReg != RISCV::M0) {
-        CurrentM0 = SrcReg;
-        if (MachineInstr *Def = MRI.getVRegDef(SrcReg)) {
-          if (isSafeMove(*Def)) {
-            // Don't copy AllTrue, rematerialize it.
-            BuildMI(MBB, &MI, Def->getDebugLoc(), Def->getDesc(), RISCV::M0)
-                .add(Def->getOperand(1))
-                .add(Def->getOperand(2));
-            LastDef = 0;
-            MI.eraseFromParent();
-          }
-        }
-      }
-      if (SrcReg == LastDef)
-        CurrentM0 = SrcReg;
-      else
-        LastDef = 0;
-      checkLastUse();
-    }
-  }
-
-  MachineInstr *getDef(Register R) {
-    for (;;) {
-      if (R.isPhysical())
-        return nullptr;
-      MachineInstr *Def = MRI.getVRegDef(R);
-      if (!Def || !Def->isCopy())
-        return Def;
-      R = Def->getOperand(1).getReg();
-    }
-  }
-  bool isAllLanes(MachineInstr& MI) {
-    return MI.getOpcode() == RISCV::MOV_M_X &&
-           MI.getOperand(1).getReg() == RISCV::X0 &&
-           MI.getOperand(2).getImm() == 0xff;
-  }
-  bool sameMask(Register X, Register Y) {
-    if (X == Y)
-      return true;
-    MachineInstr *DefX = getDef(X);
-    if (!DefX)
-      return false;
-    MachineInstr *DefY = getDef(Y);
-    return DefY && 
-      (isAllLanes(*DefX) ? isAllLanes(*DefY) : DefX == DefY);
-  };
-};
 } // namespace cdc
 using namespace cdc;
 
@@ -1728,18 +1583,13 @@ void RISCVDAGToDAGISel::optimizeMaskCopies(MachineFunction &MF) {
   // references to M0 and marks them killed incorrectly
   if (MF.getTarget().getOptLevel() != CodeGenOpt::Level::None &&
       !MF.getFunction().hasOptNone()) {
-    if (OptimizeMasks) {
+    if (OptimizeMasksFlag) {
       LLVM_DEBUG({
         dbgs() << "Before Vector Masks ";
         MF.dump();
       });
       OptimizeVectorMasks(MF).run();
     }
-    LLVM_DEBUG({
-      dbgs() << "Before Mask Copies ";
-      MF.dump();
-    });
-    OptimizeMaskCopies(MF).run();
   }
 }
 #endif
