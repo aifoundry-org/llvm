@@ -13,10 +13,11 @@ define void @ord(%VEC* %result, %VEC* %0, %VEC* %1) {
   ret void
 }
 
-; CHECK:	flq2	ft0, 0(a2)
-; CHECK-NEXT:	flq2	ft1, 0(a1)
-; CHECK-NEXT:	mov.m.x	m0, zero, 255
-; CHECK-NEXT:	feqm.ps	m1, ft0, ft0
-; CHECK-NEXT:	feqm.ps	m0, ft1, ft1
-; CHECK-NEXT:	maskand	m0, m0, m1
-; CHECK-NEXT:	fcmovm.ps	ft0, ft1, ft0
+; CHECK:	flq2	[[V0:f(a|s|t)[0-9]+]], 0([[V1:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	flq2	[[V2:f(a|s|t)[0-9]+]], 0([[V3:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	mov.m.x	[[V4:m[0-9]+]], zero, 255
+; CHECK-NEXT:	feqm.ps	[[V5:m[0-9]+]], [[V0]], [[V0]]
+; CHECK-NEXT:	feqm.ps	[[V6:m[0-9]+]], [[V2]], [[V2]]
+; CHECK-NEXT:	maskand	[[V7:m[0-9]+]], [[V6]], [[V5]]
+; CHECK-NEXT:	fcmovm.ps	[[V8:f(a|s|t)[0-9]+]], [[V2]], [[V0]]
+; CHECK-NEXT:	fsq2	[[V8]], 0([[V9:(a|s|t)[0-9]+]])

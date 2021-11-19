@@ -18,26 +18,17 @@ define void @mload(%VEC* %result,
   ret void
 }
 
-; CHECK:	flq2	ft0, 0(a1)
-; CHECK-NEXT:	flq2	ft1, 0(a2)
-; CHECK-NEXT:	mov.m.x	m0, zero, 255
-; CHECK-NEXT:	fltm.pi	m1, ft0, ft1
-; CHECK-NEXT:	fbcx.ps	ft0, zero
-; CHECK-NEXT:	mov.m.x	m0, zero, 2
-; CHECK-NEXT:	fbci.pi	ft0, 1
-; CHECK-NEXT:	mov.m.x	m0, zero, 4
-; CHECK-NEXT:	fbci.pi	ft0, 2
-; CHECK-NEXT:	mov.m.x	m0, zero, 8
-; CHECK-NEXT:	fbci.pi	ft0, 3
-; CHECK-NEXT:	mov.m.x	m0, zero, 16
-; CHECK-NEXT:	fbci.pi	ft0, 4
-; CHECK-NEXT:	mov.m.x	m0, zero, 32
-; CHECK-NEXT:	fbci.pi	ft0, 5
-; CHECK-NEXT:	mov.m.x	m0, zero, 64
-; CHECK-NEXT:	fbci.pi	ft0, 6
-; CHECK-NEXT:	mov.m.x	m0, zero, 128
-; CHECK-NEXT:	fbci.pi	ft0, 7
-; CHECK-NEXT:	mov.m.x	m0, zero, 255
-; CHECK-NEXT:	fslli.pi	ft0, ft0, 2
-; CHECK-NEXT:	maskand	m0, m1, m1
-; CHECK-NEXT:	fgwg.ps	ft0, ft0(a3)
+; CHECK:	flq2	[[V0:f(a|s|t)[0-9]+]], 0([[V1:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	flq2	[[V2:f(a|s|t)[0-9]+]], 0([[V3:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	mov.m.x	[[V4:m[0-9]+]], zero, 255
+; CHECK-NEXT:	fltm.pi	[[V5:m[0-9]+]], [[V0]], [[V2]]
+; CHECK-NEXT:	fbci.pi	[[V6:f(a|s|t)[0-9]+]], 0
+; CHECK-NEXT:	mov.m.x	[[V7:m[0-9]+]], zero, 170
+; CHECK-NEXT:	faddi.pi	[[V8:f(a|s|t)[0-9]+]], [[V6]], 4
+; CHECK-NEXT:	mov.m.x	[[V9:m[0-9]+]], zero, 204
+; CHECK-NEXT:	faddi.pi	[[V10:f(a|s|t)[0-9]+]], [[V8]], 8
+; CHECK-NEXT:	mov.m.x	[[V11:m[0-9]+]], zero, 240
+; CHECK-NEXT:	faddi.pi	[[V12:f(a|s|t)[0-9]+]], [[V10]], 16
+; CHECK-NEXT:	maskand	[[V13:m[0-9]+]], [[V5]], [[V5]]
+; CHECK-NEXT:	fgwg.ps	[[V14:f(a|s|t)[0-9]+]], [[V12]]([[V15:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	fsq2	[[V14]], 0([[V16:(a|s|t)[0-9]+]])

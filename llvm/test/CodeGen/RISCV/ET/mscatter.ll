@@ -19,10 +19,9 @@ define void @mscatter(%VEC* %result,
   ret void
 }
 
-; CHECK:	flq2	ft0, 0(a1)
-; CHECK-NEXT:	flq2	ft1, 0(a2)
-; CHECK-NEXT:	mov.m.x	m0, zero, 255
-; CHECK-NEXT:	fltm.pi	m1, ft0, ft1
-; CHECK-NEXT:	fslli.pi	ft1, ft0, 2
-; CHECK-NEXT:	maskand	m0, m1, m1
-; CHECK-NEXT:	fscw.ps	ft0, ft1(a3)
+; CHECK:	flq2	[[V0:f(a|s|t)[0-9]+]], 0([[V1:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	flq2	[[V2:f(a|s|t)[0-9]+]], 0([[V3:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	mov.m.x	[[V4:m[0-9]+]], zero, 255
+; CHECK-NEXT:	fltm.pi	[[V5:m[0-9]+]], [[V0]], [[V2]]
+; CHECK-NEXT:	fslli.pi	[[V6:f(a|s|t)[0-9]+]], [[V0]], 2
+; CHECK-NEXT:	fscw.ps	[[V0]], [[V6]]([[V7:(a|s|t)[0-9]+]])

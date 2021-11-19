@@ -21,28 +21,18 @@ define void @gmgatherb(%VECb * %result,
   ret void
 }
 
-; CHECK:	flq2	ft0, 0(a1)
-; CHECK-NEXT:	flq2	ft1, 0(a2)
-; CHECK-NEXT:	mov.m.x	m0, zero, 255
-; CHECK-NEXT:	fltm.pi	m1, ft0, ft1
-; CHECK-NEXT:	fslli.pi	ft0, ft0, 2
-; CHECK-NEXT:	maskand	m0, m1, m1
-; CHECK-NEXT:	fgbg.ps	ft0, ft0(a3)
-; CHECK-NEXT:	mov.m.x	m0, zero, 255
-; CHECK-NEXT:	fbcx.ps	ft1, zero
-; CHECK-NEXT:	mov.m.x	m0, zero, 2
-; CHECK-NEXT:	fbci.pi	ft1, 1
-; CHECK-NEXT:	mov.m.x	m0, zero, 4
-; CHECK-NEXT:	fbci.pi	ft1, 2
-; CHECK-NEXT:	mov.m.x	m0, zero, 8
-; CHECK-NEXT:	fbci.pi	ft1, 3
-; CHECK-NEXT:	mov.m.x	m0, zero, 16
-; CHECK-NEXT:	fbci.pi	ft1, 4
-; CHECK-NEXT:	mov.m.x	m0, zero, 32
-; CHECK-NEXT:	fbci.pi	ft1, 5
-; CHECK-NEXT:	mov.m.x	m0, zero, 64
-; CHECK-NEXT:	fbci.pi	ft1, 6
-; CHECK-NEXT:	mov.m.x	m0, zero, 128
-; CHECK-NEXT:	fbci.pi	ft1, 7
-; CHECK-NEXT:	mov.m.x	m0, zero, 255
-; CHECK-NEXT:	fscb.ps	ft0, ft1(a0)
+; CHECK:	flq2	[[V0:f(a|s|t)[0-9]+]], 0([[V1:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	flq2	[[V2:f(a|s|t)[0-9]+]], 0([[V3:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	mov.m.x	[[V4:m[0-9]+]], zero, 255
+; CHECK-NEXT:	fltm.pi	[[V5:m[0-9]+]], [[V0]], [[V2]]
+; CHECK-NEXT:	fgbg.ps	[[V6:f(a|s|t)[0-9]+]], [[V0]]([[V7:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	mov.m.x	[[V8:m[0-9]+]], zero, 255
+; CHECK-NEXT:	fbci.pi	[[V9:f(a|s|t)[0-9]+]], 0
+; CHECK-NEXT:	mov.m.x	[[V10:m[0-9]+]], zero, 170
+; CHECK-NEXT:	faddi.pi	[[V11:f(a|s|t)[0-9]+]], [[V9]], 1
+; CHECK-NEXT:	mov.m.x	[[V12:m[0-9]+]], zero, 204
+; CHECK-NEXT:	faddi.pi	[[V13:f(a|s|t)[0-9]+]], [[V11]], 2
+; CHECK-NEXT:	mov.m.x	[[V14:m[0-9]+]], zero, 240
+; CHECK-NEXT:	faddi.pi	[[V15:f(a|s|t)[0-9]+]], [[V13]], 4
+; CHECK-NEXT:	mov.m.x	[[V16:m[0-9]+]], zero, 255
+; CHECK-NEXT:	fscb.ps	[[V6]], [[V15]]([[V17:(a|s|t)[0-9]+]])

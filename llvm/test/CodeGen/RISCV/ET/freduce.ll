@@ -14,13 +14,13 @@ define float @rreduce(%VEC* %0) {
   %r = fadd float %lo, %hi
   ret float %r
 }
-; CHECK:	flq2	ft0, 0(a0)
-; CHECK-NEXT:	fswizz.ps	ft1, ft0, 238
-; CHECK-NEXT:	mov.m.x	m0, zero, 255
-; CHECK-NEXT:	fadd.ps	ft0, ft0, ft1, dyn
-; CHECK-NEXT:	fswizz.ps	ft1, ft0, 229
-; CHECK-NEXT:	fadd.ps	ft0, ft0, ft1, dyn
-; CHECK-NEXT:	fmvz.x.ps	a0, ft0, 4
-; CHECK-NEXT:	fmv.w.x	ft1, a0
-; CHECK-NEXT:	fadd.s	ft0, ft0, ft1
-; CHECK-NEXT:	fmv.x.w	a0, ft0
+; CHECK:	flq2	[[V0:f(a|s|t)[0-9]+]], 0([[V1:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	mov.m.x	[[V2:m[0-9]+]], zero, 255
+; CHECK-NEXT:	fswizz.ps	[[V3:f(a|s|t)[0-9]+]], [[V0]], 238
+; CHECK-NEXT:	fadd.ps	[[V4:f(a|s|t)[0-9]+]], [[V0]], [[V3]], dyn
+; CHECK-NEXT:	fswizz.ps	[[V5:f(a|s|t)[0-9]+]], [[V4]], 229
+; CHECK-NEXT:	fadd.ps	[[V6:f(a|s|t)[0-9]+]], [[V4]], [[V5]], dyn
+; CHECK-NEXT:	fmvz.x.ps	[[V7:(a|s|t)[0-9]+]], [[V6]], 4
+; CHECK-NEXT:	fmv.w.x	[[V8:f(a|s|t)[0-9]+]], [[V7]]
+; CHECK-NEXT:	fadd.s	[[V9:f(a|s|t)[0-9]+]], [[V6]], [[V8]]
+; CHECK-NEXT:	fmv.x.w	[[V10:(a|s|t)[0-9]+]], [[V9]]

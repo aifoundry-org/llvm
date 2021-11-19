@@ -11,25 +11,16 @@ entry:
   ret void
 }
 
-; CHECK:	mov.m.x	m0, zero, 255
-; CHECK-NEXT:	fbcx.ps	ft0, zero
-; CHECK-NEXT:	mov.m.x	m0, zero, 2
-; CHECK-NEXT:	fbci.pi	ft0, 1
-; CHECK-NEXT:	mov.m.x	m0, zero, 4
-; CHECK-NEXT:	fbci.pi	ft0, 2
-; CHECK-NEXT:	mov.m.x	m0, zero, 8
-; CHECK-NEXT:	fbci.pi	ft0, 3
-; CHECK-NEXT:	mov.m.x	m0, zero, 16
-; CHECK-NEXT:	fbci.pi	ft0, 4
-; CHECK-NEXT:	mov.m.x	m0, zero, 32
-; CHECK-NEXT:	fbci.pi	ft0, 5
-; CHECK-NEXT:	mov.m.x	m0, zero, 64
-; CHECK-NEXT:	fbci.pi	ft0, 6
-; CHECK-NEXT:	mov.m.x	m0, zero, 128
-; CHECK-NEXT:	fbci.pi	ft0, 7
-; CHECK-NEXT:	mov.m.x	m0, zero, 255
-; CHECK-NEXT:	fslli.pi	ft0, ft0, 2
-; CHECK-NEXT:	fgwl.ps	ft1, ft0(a1)
-; CHECK-NEXT:	fgwg.ps	ft0, ft0(a2)
-; CHECK-NEXT:	mov.m.x	m0, zero, 255
-; CHECK-NEXT:	fadd.ps	ft0, ft1, ft0, dyn
+; CHECK:	mov.m.x	[[V0:m[0-9]+]], zero, 255
+; CHECK-NEXT:	fbci.pi	[[V1:f(a|s|t)[0-9]+]], 0
+; CHECK-NEXT:	mov.m.x	[[V2:m[0-9]+]], zero, 170
+; CHECK-NEXT:	faddi.pi	[[V3:f(a|s|t)[0-9]+]], [[V1]], 4
+; CHECK-NEXT:	mov.m.x	[[V4:m[0-9]+]], zero, 204
+; CHECK-NEXT:	faddi.pi	[[V5:f(a|s|t)[0-9]+]], [[V3]], 8
+; CHECK-NEXT:	mov.m.x	[[V6:m[0-9]+]], zero, 240
+; CHECK-NEXT:	faddi.pi	[[V7:f(a|s|t)[0-9]+]], [[V5]], 16
+; CHECK-NEXT:	mov.m.x	[[V8:m[0-9]+]], zero, 255
+; CHECK-NEXT:	fgwl.ps	[[V9:f(a|s|t)[0-9]+]], [[V7]]([[V10:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	fgwg.ps	[[V11:f(a|s|t)[0-9]+]], [[V7]]([[V12:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	fadd.ps	[[V13:f(a|s|t)[0-9]+]], [[V9]], [[V11]], dyn
+; CHECK-NEXT:	fsq2	[[V13]], 0([[V14:(a|s|t)[0-9]+]])
