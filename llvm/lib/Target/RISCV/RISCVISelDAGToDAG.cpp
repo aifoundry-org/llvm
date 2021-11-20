@@ -1293,13 +1293,16 @@ void RISCVDAGToDAGISel::esperantoMemop(MemSDNode *M, SDValue Value,
       SDValue Zero = CurDAG->getTargetConstant(0, SDLoc(M), MVT::i32);
       unsigned MoveOpcode =
           (Ext == ISD::ZEXTLOAD ? RISCV::FMVZ_X_PS : RISCV::FMVS_X_PS);
-      Result = SDValue(CurDAG->getMachineNode(MoveOpcode, SDLoc(M), MVT::i64,
+      bool f32 = M->getValueType(0) == MVT::f32;
+      Result = SDValue(CurDAG->getMachineNode(MoveOpcode, SDLoc(M), f32 ? MVT::f32 : MVT::i64,
                                               {SDValue(NewM, 0), Zero}),
                        0);
       if (TruncateMask)
         Result = CurDAG->getNode(
             ISD::AND, SDLoc(M), MVT::i64,
             {Result, CurDAG->getConstant(TruncateMask, SDLoc(M), MVT::i64)});
+  //      if (f32)
+    //    Result = SDValue(CurDAG->getMachineNode(RISCV::FMV_W_X, SDLoc(Result), MVT::f32, Result),0);
     } else if (TruncateMask) {
       Result = CurDAG->getNode(
           ISD::AND, SDLoc(M), MVT::v8i32,
