@@ -222,7 +222,7 @@ bool RISCVDAGToDAGISel::SelectSLOI(SDValue N, SDValue &RS1, SDValue &Shamt) {
           if (VC1 == maskTrailingOnes<uint64_t>(VC2)) {
             RS1 = Shl.getOperand(0);
             Shamt = CurDAG->getTargetConstant(VC2, SDLoc(N),
-                                              Shl.getOperand(1).getValueType());
+                           Shl.getOperand(1).getValueType());
             return true;
           }
         }
@@ -232,7 +232,7 @@ bool RISCVDAGToDAGISel::SelectSLOI(SDValue N, SDValue &RS1, SDValue &Shamt) {
           if (VC1 == maskTrailingOnes<uint32_t>(VC2)) {
             RS1 = Shl.getOperand(0);
             Shamt = CurDAG->getTargetConstant(VC2, SDLoc(N),
-                                              Shl.getOperand(1).getValueType());
+                           Shl.getOperand(1).getValueType());
             return true;
           }
         }
@@ -266,7 +266,7 @@ bool RISCVDAGToDAGISel::SelectSROI(SDValue N, SDValue &RS1, SDValue &Shamt) {
           if (VC1 == maskLeadingOnes<uint64_t>(VC2)) {
             RS1 = Srl.getOperand(0);
             Shamt = CurDAG->getTargetConstant(VC2, SDLoc(N),
-                                              Srl.getOperand(1).getValueType());
+                           Srl.getOperand(1).getValueType());
             return true;
           }
         }
@@ -276,7 +276,7 @@ bool RISCVDAGToDAGISel::SelectSROI(SDValue N, SDValue &RS1, SDValue &Shamt) {
           if (VC1 == maskLeadingOnes<uint32_t>(VC2)) {
             RS1 = Srl.getOperand(0);
             Shamt = CurDAG->getTargetConstant(VC2, SDLoc(N),
-                                              Srl.getOperand(1).getValueType());
+                           Srl.getOperand(1).getValueType());
             return true;
           }
         }
@@ -322,6 +322,7 @@ bool RISCVDAGToDAGISel::SelectRORI(SDValue N, SDValue &RS1, SDValue &Shamt) {
   }
   return false;
 }
+
 
 // Check that it is a SLLIUW (Shift Logical Left Immediate Unsigned i32
 // on RV64).
@@ -457,10 +458,11 @@ bool RISCVDAGToDAGISel::SelectRORIW(SDValue N, SDValue &RS1, SDValue &Shamt) {
             uint32_t VC1 = Srl.getConstantOperandVal(1);
             uint32_t VC2 = Shl.getConstantOperandVal(1);
             uint32_t VC3 = And.getConstantOperandVal(1);
-            if (VC2 == (32 - VC1) && VC3 == maskLeadingOnes<uint32_t>(VC2)) {
+            if (VC2 == (32 - VC1) &&
+                VC3 == maskLeadingOnes<uint32_t>(VC2)) {
               RS1 = Shl.getOperand(0);
-              Shamt = CurDAG->getTargetConstant(
-                  VC1, SDLoc(N), Srl.getOperand(1).getValueType());
+              Shamt = CurDAG->getTargetConstant(VC1, SDLoc(N),
+                                              Srl.getOperand(1).getValueType());
               return true;
             }
           }
@@ -504,11 +506,12 @@ bool RISCVDAGToDAGISel::SelectFSRIW(SDValue N, SDValue &RS1, SDValue &RS2,
             uint32_t VC1 = Srl.getConstantOperandVal(1);
             uint32_t VC2 = Shl.getConstantOperandVal(1);
             uint32_t VC3 = And.getConstantOperandVal(1);
-            if (VC2 == (32 - VC1) && VC3 == maskLeadingOnes<uint32_t>(VC2)) {
+            if (VC2 == (32 - VC1) &&
+                VC3 == maskLeadingOnes<uint32_t>(VC2)) {
               RS1 = Shl.getOperand(0);
               RS2 = And.getOperand(0);
-              Shamt = CurDAG->getTargetConstant(
-                  VC1, SDLoc(N), Srl.getOperand(1).getValueType());
+              Shamt = CurDAG->getTargetConstant(VC1, SDLoc(N),
+                                              Srl.getOperand(1).getValueType());
               return true;
             }
           }
@@ -1355,7 +1358,7 @@ void RISCVDAGToDAGISel::esperantoScatter(MemIntrinsicSDNode *M) {
   ReplaceNode(M, NewM);
 }
 
-namespace cdc {
+namespace {
 
 class OptimizeMaskCommon {
 protected:
@@ -1575,8 +1578,7 @@ private:
     }
   }
 };
-} // namespace cdc
-using namespace cdc;
+} // namespace
 
 void RISCVDAGToDAGISel::optimizeMaskCopies(MachineFunction &MF) {
   // The fast register allocator does not correctly handle

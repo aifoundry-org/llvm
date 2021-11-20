@@ -1213,9 +1213,6 @@ def : EspPat<(v8i1 (xor (v8i1 MR:$x), (v8i1 MR:$y))), (MASKXOR $x, $y)>;
 def : EspPat<(v8i32 (bitconvert (v8f32 FPR256:$in))), (v8i32 (COPY $in))>;
 def : EspPat<(v8f32 (bitconvert (v8i32 FPR256:$in))), (v8f32 (COPY $in))>;
 
-let Defs = [M0] in
-def IOTA : Pseudo<(outs FPR256:$rd), (ins), [], "iota", "$rd">;
-def : EspPat<(int_riscv_iota), (IOTA)>;
 def HARTID : Pseudo<(outs GPR:$rd), (ins), [], "hartid", "$rd">;
 def : EspPat<(int_riscv_hartid), (HARTID)>;
 

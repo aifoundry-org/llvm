@@ -66,10 +66,6 @@ private:
 #ifdef ESPERANTO
   bool expandStackOps(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
                       MachineBasicBlock::iterator &NextMBBI);
-  bool expandMaskLS(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
-                    MachineBasicBlock::iterator &NextMBBI);
-  bool expandIOTA(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
-                  MachineBasicBlock::iterator &NextMBBI);
   bool expandHARTID(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
                   MachineBasicBlock::iterator &NextMBBI);
   bool expandTO_VECTOR(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
@@ -432,8 +428,6 @@ bool RISCVExpandPseudo::expandMI(MachineBasicBlock &MBB,
   case RISCV::StackFLQ2:
   case RISCV::StackFSQ2:
     return expandStackOps(MBB, MBBI, NextMBBI);
-  case RISCV::IOTA:
-    return expandIOTA(MBB, MBBI, NextMBBI);
   case RISCV::HARTID:
     return expandHARTID(MBB, MBBI, NextMBBI);
   case RISCV::TO_VECTOR:
@@ -567,20 +561,6 @@ bool RISCVExpandPseudo::expandStackOps(MachineBasicBlock &MBB,
       .add(MBBI->getOperand(2))
       .add(MBBI->getOperand(1))
       .cloneMemRefs(*MBBI);
-  MBBI->eraseFromParent();
-  return true;
-}
-
-bool RISCVExpandPseudo::expandIOTA(MachineBasicBlock &MBB,
-                                   MachineBasicBlock::iterator MBBI,
-                                   MachineBasicBlock::iterator &NextMBBI) {
-  Register DstReg = MBBI->getOperand(0).getReg();
-  DebugLoc DL = MBBI->getDebugLoc();
-
-  for (unsigned Idx = 0; Idx < 8; Idx++) {
-    BuildMI(MBB, MBBI, DL, TII->get(RISCV::MOV_M_X), RISCV::M0).addReg(RISCV::X0).addImm(1ull << Idx);
-    BuildMI(MBB, MBBI, DL, TII->get(RISCV::FBCI_PI), DstReg).addImm(Idx);
-  }
   MBBI->eraseFromParent();
   return true;
 }

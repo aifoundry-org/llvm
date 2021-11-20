@@ -1909,7 +1909,6 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     setLibcallName(RTLIB::SRL_I128, nullptr);
     setLibcallName(RTLIB::SRA_I128, nullptr);
     setLibcallName(RTLIB::MUL_I128, nullptr);
-    setLibcallName(RTLIB::MULO_I128, nullptr);
   }
 
   // Combine sin / cos into _sincos_stret if it is available.
