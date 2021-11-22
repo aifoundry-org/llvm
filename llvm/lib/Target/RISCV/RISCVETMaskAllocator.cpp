@@ -319,7 +319,7 @@ void RISCVETMaskAllocator::processBlock(MachineBasicBlock &MBB) {
               LLVM_DEBUG(dbgs()
                          << "rematerialize by copy %" << Current.virtRegIndex()
                          << " <- %" << CurrentSrc.virtRegIndex()
-                         << format("as 0x%x from %d\n", Lanes,
+                         << format(" as 0x%x from %d\n", Lanes,
                                    SourceReg[CurrentSrc].virtRegIndex()));
             } else {
               // We can rematerialize a value rather than making a copy from a
@@ -444,6 +444,10 @@ Register RISCVETMaskAllocator::makeGeneral(Register R) {
   }
   if (!G)
     G = MRI->createVirtualRegister(&RISCV::MRRegClass);
+  if (unsigned L = getMaskLanes(R)) {
+    Lanes.try_emplace(G, L);
+    LLVM_DEBUG(dbgs() << format("Lanes 0x%x for %%d\n", L, G.virtRegIndex()));
+  }
   GeneralMask.try_emplace(R, G);
 #ifndef NDEBUG
   SourceReg.try_emplace(G, R);
