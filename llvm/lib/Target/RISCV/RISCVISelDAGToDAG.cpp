@@ -1290,19 +1290,26 @@ void RISCVDAGToDAGISel::esperantoMemop(MemSDNode *M, SDValue Value,
     Chain = SDValue(NewM, 1);
     SDValue Result = SDValue(NewM, 0);
     if (!isVector) {
-      SDValue Zero = CurDAG->getTargetConstant(0, SDLoc(M), MVT::i32);
-      unsigned MoveOpcode =
-          (Ext == ISD::ZEXTLOAD ? RISCV::FMVZ_X_PS : RISCV::FMVS_X_PS);
       bool f32 = M->getValueType(0) == MVT::f32;
-      Result = SDValue(CurDAG->getMachineNode(MoveOpcode, SDLoc(M), f32 ? MVT::f32 : MVT::i64,
-                                              {SDValue(NewM, 0), Zero}),
-                       0);
-      if (TruncateMask)
-        Result = CurDAG->getNode(
-            ISD::AND, SDLoc(M), MVT::i64,
-            {Result, CurDAG->getConstant(TruncateMask, SDLoc(M), MVT::i64)});
-  //      if (f32)
-    //    Result = SDValue(CurDAG->getMachineNode(RISCV::FMV_W_X, SDLoc(Result), MVT::f32, Result),0);
+      if (f32) {
+        Result = SDValue(
+            CurDAG->getMachineNode(
+                RISCV::EXTRACT_SUBREG, SDLoc(M), MVT::f32, Result,
+                CurDAG->getTargetConstant(RISCV::sub_32, SDLoc(M), MVT::i32)),
+            0);
+      } else {
+        SDValue Zero = CurDAG->getTargetConstant(0, SDLoc(M), MVT::i32);
+        unsigned MoveOpcode =
+            (Ext == ISD::ZEXTLOAD ? RISCV::FMVZ_X_PS : RISCV::FMVS_X_PS);
+        Result = SDValue(CurDAG->getMachineNode(MoveOpcode, SDLoc(M),
+                                                f32 ? MVT::f32 : MVT::i64,
+                                                {SDValue(NewM, 0), Zero}),
+                         0);
+        if (TruncateMask)
+          Result = CurDAG->getNode(
+              ISD::AND, SDLoc(M), MVT::i64,
+              {Result, CurDAG->getConstant(TruncateMask, SDLoc(M), MVT::i64)});
+      }
     } else if (TruncateMask) {
       Result = CurDAG->getNode(
           ISD::AND, SDLoc(M), MVT::v8i32,
@@ -1314,12 +1321,26 @@ void RISCVDAGToDAGISel::esperantoMemop(MemSDNode *M, SDValue Value,
     ReplaceUses(SDValue(M, 1), Chain);  // Update the chain
     CurDAG->RemoveDeadNode(M);
   } else {
-    if (!isVector)
-      // Copy the value into the vector register file
-      Value =
-          SDValue(CurDAG->getMachineNode(RISCV::FBCX_PS_EX, SDLoc(M),
-                                         MVT::v8i32, {UndefVec, Value, Mask}),
-                  0);
+    if (!isVector) {
+      bool f32 = Value->getValueType(0) == MVT::f32;
+      if (f32) {
+        Value = SDValue(
+            CurDAG->getMachineNode(
+                RISCV::INSERT_SUBREG, SDLoc(M), MVT::v8f32,
+                {SDValue(CurDAG->getMachineNode(RISCV::IMPLICIT_DEF, SDLoc(M),
+                                                MVT::v8f32),
+                         0),
+                 Value,
+                 CurDAG->getTargetConstant(RISCV::sub_32, SDLoc(M), MVT::i32)}),
+            0);
+      } else {
+        // Copy the value into the vector register file
+        Value =
+            SDValue(CurDAG->getMachineNode(RISCV::FBCX_PS_EX, SDLoc(M),
+                                           MVT::v8i32, {UndefVec, Value, Mask}),
+                    0);
+      }
+    }
     // and store it to memory
     NewM = CurDAG->getMachineNode(Opcode, SDLoc(M), MVT::Other,
                                   {Value, IndexVec, Addr, Mask, Chain});
