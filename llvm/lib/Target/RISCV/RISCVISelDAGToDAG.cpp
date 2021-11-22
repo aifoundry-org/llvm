@@ -1262,11 +1262,12 @@ void RISCVDAGToDAGISel::esperantoMemop(MemSDNode *M, SDValue Value,
       CurDAG->getMachineNode(TargetOpcode::IMPLICIT_DEF, SDLoc(M), MVT::v8i32),
       0);
   SDNode *NewM;
-  SDValue IndexVec(
-      CurDAG->getMachineNode(RISCV::FBCX_PS_EX, SDLoc(M), MVT::v8i32,
-                             {UndefVec, ZeroReg, mask(isVector ? 0xff : 0x1)}),
-      0);
+  SDValue IndexVec;
   if (isVector) {
+    IndexVec = SDValue(CurDAG->getMachineNode(
+                           RISCV::FBCX_PS_EX, SDLoc(M), MVT::v8i32,
+                           {UndefVec, ZeroReg, mask(isVector ? 0xff : 0x1)}),
+                       0);
     // This is generally done earlier in RISCVOPtimizeMemIntrinsics but
     // in some cases we spill a vector to the stack to accomplish a bitcast
     // those scenarios are generally as poor choice and should be eliminated.
@@ -1282,6 +1283,16 @@ void RISCVDAGToDAGISel::esperantoMemop(MemSDNode *M, SDValue Value,
           CurDAG->getSplatBuildVector(
               MVT::v8i32, SDLoc(M),
               CurDAG->getConstant(MemWidth == 16 ? 1 : 2, SDLoc(M), MVT::i32)));
+  } else {
+    IndexVec = SDValue(
+        CurDAG->getMachineNode(
+            RISCV::INSERT_SUBREG, SDLoc(M), MVT::v8i32,
+            {SDValue(CurDAG->getMachineNode(RISCV::IMPLICIT_DEF, SDLoc(M),
+                                            MVT::v8f32),
+                     0),
+             CurDAG->getConstant(0, SDLoc(M), MVT::i64),
+             CurDAG->getTargetConstant(RISCV::sub_32, SDLoc(M), MVT::i32)}),
+        0);
   }
   if (!Value) {
     NewM = CurDAG->getMachineNode(Opcode, SDLoc(M), {MVT::v8i32, MVT::Other},
@@ -1328,8 +1339,7 @@ void RISCVDAGToDAGISel::esperantoMemop(MemSDNode *M, SDValue Value,
             CurDAG->getMachineNode(
                 RISCV::INSERT_SUBREG, SDLoc(M), MVT::v8f32,
                 {SDValue(CurDAG->getMachineNode(RISCV::IMPLICIT_DEF, SDLoc(M),
-                                                MVT::v8f32),
-                         0),
+                                        MVT::v8f32),0),
                  Value,
                  CurDAG->getTargetConstant(RISCV::sub_32, SDLoc(M), MVT::i32)}),
             0);

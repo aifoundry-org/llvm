@@ -11,49 +11,49 @@ unsigned int shared_load(SHARED unsigned short *P) { return *P; }
 unsigned int shared_load(SHARED unsigned int *P) { return *P; }
 
 // CHECK: _Z11shared_loadPU3AS1c:
-// CHECK: 	mov.m.x	m0, zero, 1
-// CHECK-NEXT: 	fbcx.ps	ft0, zero
+// CHECK: 	fmv.w.x	ft0, zero
 // CHECK-NEXT: 	mov.m.x	m0, zero, 1
 // CHECK-NEXT: 	fgbl.ps	ft0, ft0(a0)
 // CHECK-NEXT: 	fmvz.x.ps	a0, ft0, 0
 // CHECK-NEXT: 	andi	a0, a0, 255
+// CHECK-NEXT: 	mov.m.x	m1, zero, 1
 // CHECK-NEXT: 	ret
 // CHECK: _Z11shared_loadPU3AS1s:
-// CHECK: 	mov.m.x	m0, zero, 1
-// CHECK-NEXT: 	fbcx.ps	ft0, zero
+// CHECK: 	fmv.w.x	ft0, zero
 // CHECK-NEXT: 	mov.m.x	m0, zero, 1
 // CHECK-NEXT: 	fghl.ps	ft0, ft0(a0)
 // CHECK-NEXT: 	fmvs.x.ps	a0, ft0, 0
+// CHECK-NEXT: 	mov.m.x	m1, zero, 1
 // CHECK-NEXT: 	ret
 // CHECK: _Z11shared_loadPU3AS1i:
-// CHECK: 	mov.m.x	m0, zero, 1
-// CHECK-NEXT: 	fbcx.ps	ft0, zero
+// CHECK: 	fmv.w.x	ft0, zero
 // CHECK-NEXT: 	mov.m.x	m0, zero, 1
 // CHECK-NEXT: 	fgwl.ps	ft0, ft0(a0)
 // CHECK-NEXT: 	fmvs.x.ps	a0, ft0, 0
+// CHECK-NEXT: 	mov.m.x	m1, zero, 1
 // CHECK-NEXT: 	ret
 // CHECK: _Z11shared_loadPU3AS1h:
-// CHECK: 	mov.m.x	m0, zero, 1
-// CHECK-NEXT: 	fbcx.ps	ft0, zero
+// CHECK: 	fmv.w.x	ft0, zero
 // CHECK-NEXT: 	mov.m.x	m0, zero, 1
 // CHECK-NEXT: 	fgbl.ps	ft0, ft0(a0)
 // CHECK-NEXT: 	fmvz.x.ps	a0, ft0, 0
 // CHECK-NEXT: 	andi	a0, a0, 255
+// CHECK-NEXT: 	mov.m.x	m1, zero, 1
 // CHECK-NEXT: 	ret
 // CHECK: _Z11shared_loadPU3AS1t:
-// CHECK: 	mov.m.x	m0, zero, 1
-// CHECK-NEXT: 	fbcx.ps	ft0, zero
+// CHECK: 	fmv.w.x	ft0, zero
 // CHECK-NEXT: 	mov.m.x	m0, zero, 1
 // CHECK-NEXT: 	fghl.ps	ft0, ft0(a0)
 // CHECK-NEXT: 	fmvz.x.ps	a0, ft0, 0
 // CHECK-NEXT: 	lui	a1, 16
 // CHECK-NEXT: 	addiw	a1, a1, -1
 // CHECK-NEXT: 	and	a0, a0, a1
+// CHECK-NEXT: 	mov.m.x	m1, zero, 1
 // CHECK-NEXT: 	ret
 // CHECK: _Z11shared_loadPU3AS1j:
-// CHECK: 	mov.m.x	m0, zero, 1
-// CHECK-NEXT: 	fbcx.ps	ft0, zero
+// CHECK: 	fmv.w.x	ft0, zero
 // CHECK-NEXT: 	mov.m.x	m0, zero, 1
 // CHECK-NEXT: 	fgwl.ps	ft0, ft0(a0)
 // CHECK-NEXT: 	fmvs.x.ps	a0, ft0, 0
+// CHECK-NEXT: 	mov.m.x	m1, zero, 1
 // CHECK-NEXT: 	ret
