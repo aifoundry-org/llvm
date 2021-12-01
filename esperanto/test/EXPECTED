@@ -4,11 +4,11 @@ extr4.ll passed
 fabs.ll passed
 fcopysign.ll passed
 fcopysignneg.ll passed
-fexp2.ll link failed
+fexp2.ll passed
 finsert.ll passed
-flog2.ll link failed
+flog2.ll failed
 freduce.ll passed
-fsin.ll link failed
+fsin.ll failed
 fsqrt.ll failed
 gmgather.ll unsupported test
 gmgatherb.ll unsupported test
@@ -86,7 +86,7 @@ vfmul.ll passed
 vfneg.ll passed
 vfnmadd.ll passed
 vfnmsub.ll passed
-vfrem.ll link failed
+vfrem.ll passed
 vfsub.ll passed
 vfuge.ll passed
 vfugt.ll passed
