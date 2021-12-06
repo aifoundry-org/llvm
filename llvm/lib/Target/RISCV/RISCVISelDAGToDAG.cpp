@@ -28,7 +28,7 @@ using namespace llvm;
 #ifdef ESPERANTO
 static cl::opt<bool> OptimizeMasksFlag(DEBUG_TYPE "-opt-masks", cl::init(true));
 static cl::opt<unsigned>
-    OptimizeMasksLimit(DEBUG_TYPE "-opt-limit",
+    OptimizeMasksLimit(DEBUG_TYPE "-opt-masks-limit",
                        cl::init(std::numeric_limits<unsigned>::max()));
 #endif
 
@@ -1489,15 +1489,17 @@ private:
   };
 
   void processBlock(MachineBasicBlock &MBB) override {
+    // clang-format off
     // The goal here is to look for a matter such as
     //   %51:mr = MOV_M_X $x0, 255
     //   ...
     //   %64:mr0 = COPY %7:mr
-    //   %63:fpr256 = FGW_PS_EX %6:fpr256(tied-def 0), %60:fpr256, %9:gpr,
-    //   %64:mr0 %66:fpr256 = IMPLICIT_DEF %67:mr0 = COPY %51:mr %65:fpr256 =
-    //   FADD_PS_EX %66:fpr256(tied-def 0), killed %58:fpr256, killed
-    //   %63:fpr256, 7, %67:mr0 %68:mr0 = COPY %7:mr FSCW_PS_EX killed
-    //   %65:fpr256, %60:fpr256, %5:gpr, %68:mr0
+    //   %63:fpr256 = FGW_PS_EX %6:fpr256(tied-def 0), %60:fpr256, %9:gpr, %64:mr0
+    //   %66:fpr256 = IMPLICIT_DEF
+    //   %67:mr0 = COPY %51:mr
+    //   %65:fpr256 = FADD_PS_EX %66:fpr256(tied-def 0), killed %58:fpr256, killed %63:fpr256, 7, %67:mr0
+    //   %68:mr0 = COPY %7:mr
+    //   FSCW_PS_EX killed %65:fpr256, %60:fpr256, %5:gpr, %68:mr0
     // Here we would prefer to use %7 the mask that controls the FADD_PS_EX
     // since only the lanes it selects are live
 
@@ -1506,6 +1508,7 @@ private:
 
     // We will retain the pattern of mask copies and so need to know that
     // assignments such as to %67 have common usage.
+    // clang-format on
 
     auto sourceReg = [this, &MBB](Register M) {
       if (!M)
