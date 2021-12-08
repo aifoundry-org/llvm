@@ -96,7 +96,7 @@ def runtest(test, args):
     # generate code using vector instructions
     # the relax attribute is needed for correct linking
     baseobj = base + "-vec.o"
-    command(f"llc -filetype=obj -mattr=+relax --mcpu=et-soc1-min " +
+    command(f"llc -filetype=obj -mattr=+relax --mcpu=et-soc1-min -mabi=lp64f " +
             f"-o {baseobj} {test}")
 
     # generate code using a baseline RISCV with similar features
@@ -331,7 +331,7 @@ TYPE_MAP = { "<8 x i32>*" : [ "unsigned", 8 ],
 }
 
 TARGET = "--target=riscv64-unknown-unknown-elf"
-CPU="-mcpu=et-soc1-min"
+CPU="-mcpu=et-soc1-min -mabi=lp64f"
 INSTALL_DIR = environ.get("INSTALL_DIR", None)
 if not INSTALL_DIR:
     print("Set environment variable INSTALL_DIR to installation directory",

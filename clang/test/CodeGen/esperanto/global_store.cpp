@@ -1,4 +1,4 @@
-// RUN: %clang -fPIC --target=riscv64-unknown-elf -mcpu=et-soc1-min -O3 -o - -S %s | FileCheck %s
+// RUN: %clang -fPIC --target=riscv64-unknown-elf -mcpu=et-soc1-min -mabi=lp64f -O3 -o - -S %s | FileCheck %s
 #define SHARED __attribute__((address_space(1)))
 #define GLOBAL __attribute__((address_space(2)))
 

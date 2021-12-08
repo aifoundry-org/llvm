@@ -6,7 +6,7 @@ if [ "$TEST" == "all" ] ; then
     done
     exit 0
 fi
-llc -mcpu=et-soc1-min < ${TEST} > temp.s
+llc -mcpu=et-soc1-min -mabi=lp64f < ${TEST} > temp.s
 if  FileCheck ${TEST} < temp.s >& /dev/null ; then
     echo passed
     rm temp.s

@@ -11,7 +11,7 @@ if ./mktest.py ${TEST} >& LOG ; then
     emacsclient -n ${TEST}
     exit 0
 fi
-llc -mcpu=et-soc1-min -debug-only=isel < ${TEST} >& ISEL || true
+llc -mcpu=et-soc1-min -mabi=lp64f -debug-only=isel < ${TEST} >& ISEL || true
 emacsclient -n ISEL
 
 

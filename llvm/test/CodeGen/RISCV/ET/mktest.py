@@ -11,10 +11,10 @@ def main():
 
 
     with open(args.src,"r") as src:
-        p = run(["llc", "-mcpu=et-soc1-min"], check=True, stdin=src,stdout=PIPE)
+        p = run(["llc", "-mcpu=et-soc1-min -mabi=lp64f"], check=True, stdin=src,stdout=PIPE)
 
     with open(args.src, "w") as src:
-        print("; RUN: llc -mcpu=et-soc1-min < %s | FileCheck %s", file=src)
+        print("; RUN: llc -mcpu=et-soc1-min -mabi=lp64f < %s | FileCheck %s", file=src)
         for line in lines:
             print(line,file=src)
 

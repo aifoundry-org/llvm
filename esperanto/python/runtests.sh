@@ -7,7 +7,7 @@ TMP=$(mktemp -d)
 trap 'rm -rf "${TMP}"' EXIT
 ./gen_asm.py > $TMP/test.s
 PATH="../../build/bin:$PATH"
-TARGET="-target riscv64-unknown-elf -mcpu=et-soc1-min"
+TARGET="-target riscv64-unknown-elf -mcpu=et-soc1-min -mabi=lp64f"
 clang -c ${TARGET} $TMP/test.s -o $TMP/test.o
 ./verify.py $TMP/test.o
 ./gen_ctest.py > $TMP/test.c

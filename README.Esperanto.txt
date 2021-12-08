@@ -11,7 +11,7 @@ Notes on the Esperanto llvm target
    and is selected using the mcpu option set to "et-soc1-min".
    
    The assembler is invoked
-       clang -c -mcpu=et-soc1-min <input.s>
+       clang -c -mcpu=et-soc1-min -mabi=lp64f <input.s>
    To disassemble:
        llvm-objdump --mcpu=et-soc1-min -d <input.o>
 

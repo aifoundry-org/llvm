@@ -15,7 +15,7 @@ def main():
             print(line.rstrip(), file=out)
         
     
-    cmd = f"clang -fPIC --target=riscv64-unknown-elf -mcpu=et-soc1-min -O3 -o - -S {args.test}"
+    cmd = f"clang -fPIC --target=riscv64-unknown-elf -mcpu=et-soc1-min -mabi=lp64f -O3 -o - -S {args.test}"
     prefix = "CHECK"
     for line in check_output(cmd.split(" "),encoding='utf-8').split("\n"):
         if re.match("^\t\.", line):
