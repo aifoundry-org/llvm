@@ -1,6 +1,6 @@
 ; XFAIL: *
 ;  Jira ESP-343
-; RUN: llc -mcpu=et-soc1-min -mabi=lp64f < %s | FileCheck %s
+; RUN: llc -mcpu=et-soc1-min < %s | FileCheck %s
 
 target triple = "riscv64-unknown-unknown-elf"
 
