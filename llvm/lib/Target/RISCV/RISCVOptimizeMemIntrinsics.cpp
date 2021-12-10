@@ -1027,6 +1027,7 @@ void RISCVOptimizeMemIntrinsics::rewriteGatherScatters(Function &F) {
       switch (I.getOpcode()) {
       case Instruction::GetElementPtr:
       case Instruction::SExt:
+      case Instruction::ZExt:
         if (I.getNumUses() == 0)
           I.eraseFromParent();
         break;
