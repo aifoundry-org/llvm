@@ -183,6 +183,12 @@ private:
 
   // Scan the basic block and rewrite vector memory operations in it
   void rewriteVectorMemOps(BasicBlock &BB);
+
+  // perform custom strength reduction on vector induction variables
+  void optimizeVectorIndVars(Loop &LI);
+
+  // Optimize via strength reduction vector addressing operands
+  void vectorStrengthReduce(PHINode &Index);
 };
 
 } // end anonymous namespace
@@ -406,6 +412,8 @@ void RISCVOptimizeMemIntrinsics::analyzeLoop(Loop &LI) {
     return;
   }
 #endif
+
+  optimizeVectorIndVars(LI);
 
   LLVM_DEBUG(Index.clear());
 
@@ -965,7 +973,8 @@ Value *CodeHoister::hoistConstant(Value *V) {
 }
 
 void RISCVOptimizeMemIntrinsics::rewriteGatherScatters(Function &F) {
-  for (BasicBlock &BB : F)
+  for (BasicBlock &BB : F) {
+
     for (BasicBlock::iterator Cur = BB.begin(); Cur != BB.end();) {
       Instruction &I = *Cur++;
       if (I.getOpcode() != Instruction::Call)
@@ -1013,6 +1022,17 @@ void RISCVOptimizeMemIntrinsics::rewriteGatherScatters(Function &F) {
       }
       }
     }
+    for (BasicBlock::reverse_iterator Cur = BB.rbegin(); Cur != BB.rend();) {
+      Instruction &I = *Cur++;
+      switch (I.getOpcode()) {
+      case Instruction::GetElementPtr:
+      case Instruction::SExt:
+        if (I.getNumUses() == 0)
+          I.eraseFromParent();
+        break;
+      }
+    }
+  }
 }
 
 // Decompose an address vector into a common base pointer
@@ -1183,6 +1203,156 @@ void RISCVOptimizeMemIntrinsics::createScatter(Instruction &I, Value *Index,
                                    /*Mask*/ Mask});
   I.replaceAllUsesWith(S);
   I.eraseFromParent();
+}
+
+void RISCVOptimizeMemIntrinsics::optimizeVectorIndVars(Loop &LI) {
+
+  auto PHIs = LI.getHeader()->phis();
+  BasicBlock::phi_iterator Start = PHIs.begin();
+  BasicBlock::phi_iterator End = PHIs.end();
+  while (Start != End)
+    vectorStrengthReduce(*Start++);
+}
+
+// Return the operand to binary operator X that is not In
+static Value *otherInput(Instruction *X, Value *In) {
+  unsigned OpNo = X->getOperand(0) == In;
+  return X->getOperand(OpNo);
+}
+
+void RISCVOptimizeMemIntrinsics::vectorStrengthReduce(PHINode &Index) {
+  if (!isa<FixedVectorType>(Index.getType()))
+    return;
+
+  BasicBlock *BB = Index.getParent();
+  BasicBlock *LoopPred =
+      *find_if(predecessors(BB), [BB](BasicBlock *P) { return P != BB; });
+  Value *InitialValue = Index.getIncomingValueForBlock(LoopPred);
+  auto *NextValue =
+      dyn_cast<BinaryOperator>(Index.getIncomingValueForBlock(BB));
+
+  // Verify Next = Index + splat(Step)
+  if (!NextValue || NextValue->getOpcode() != Instruction::Add)
+    return;
+  auto *Addend = dyn_cast<Constant>(otherInput(NextValue, &Index));
+  if (!Addend || otherInput(NextValue, Addend) != &Index)
+    return;
+  auto *Increment = dyn_cast_or_null<ConstantInt>(Addend->getSplatValue());
+  if (!Increment)
+    return;
+
+  // Determine how many low bits of the induction variable
+  // are always 0 so that we can determine when or-ing in a small
+  // constant is the same as addition.
+  uint64_t Step = 0;
+  if (auto *InitialConstant = dyn_cast<ConstantDataVector>(InitialValue)) {
+    if (InitialConstant->getNumElements() < 2)
+      return;
+    uint64_t Mask = Increment->getZExtValue();
+    for (unsigned Idx = 0; Idx < InitialConstant->getNumElements(); Idx++)
+      Mask |= InitialConstant->getElementAsInteger(Idx);
+    Step = 1ull << countTrailingZeros(Mask);
+  }
+
+  // We have an operation "Index | V" which we can
+  // treat as an add if V < Step.
+  auto checkStep = [Step](Value *V) {
+    auto *C = dyn_cast<Constant>(V);
+    if (!C)
+      return false;
+    auto *I = dyn_cast_or_null<ConstantInt>(C->getSplatValue());
+    return (I && I->getZExtValue() < Step);
+  };
+
+  // The case we want is that uses if PHI have the form
+  //    Scale * (Index + Offset)
+  // where Scale is common and Offset is a split
+  // When this is the case we rewrite
+  //    Init -> Scale*Init2
+  // and each expression above to
+  //    Init2 + Index*Offset
+  // the final increment is replaced with
+  //    Next2 = Init2 + Scale*Offset
+
+  // This vector is all the uses of Index of the form Index or  (Index + Offset)
+  // terms.
+  SmallVector<std::pair<Instruction *, Instruction *>, 8> Uses;
+  auto addUses = [&Uses](Instruction &I) {
+    for (User *U : I.users())
+      Uses.emplace_back(cast<Instruction>(U), &I);
+  };
+  addUses(Index);
+
+  // This is the set of all Scale * (use of Index) terms
+  SmallVector<Instruction *, 8> Multiplies;
+  // The common scaling term for uses of Index
+  Constant *Scale = nullptr;
+  while (!Uses.empty()) {
+    Instruction *Use, *Input;
+    std::tie(Use, Input) = Uses.pop_back_val();
+    if (Use == NextValue)
+      continue;
+    // dbgs() << "CHecking " << *Use << "\n";
+    if (Use->getOpcode() == Instruction::Add ||
+        Use->getOpcode() == Instruction::Or) {
+      if (Input != &Index) //  (Index + X) + Y
+        return;
+      if (Use->getOpcode() == Instruction::Or &&
+          !checkStep(otherInput(Use, Input)))
+        return;
+      addUses(*Use);
+      continue;
+    }
+    if (Use->getOpcode() != Instruction::Mul)
+      return;
+    auto *Mutiplicand = dyn_cast<Constant>(otherInput(Use, Input));
+    if (!Mutiplicand || (Scale && Scale != Mutiplicand))
+      return;
+    Multiplies.push_back(Use);
+    Scale = Mutiplicand;
+  }
+  if (!Scale)
+    return;
+
+  // We have verified all uses are scaled by Scale so
+  // we can do the rewrite. Start by building
+  // the scaled induction variable and its increment.
+  IRBuilder<> B(LoopPred->getTerminator());
+  Value *InitScaled = B.CreateMul(InitialValue, Scale);
+  B.SetInsertPoint(BB, BB->begin());
+  PHINode *IndexScaled = B.CreatePHI(Index.getType(), 2);
+  IndexScaled->addIncoming(InitScaled, LoopPred);
+  B.SetInsertPoint(NextValue);
+  Value *NextScaled = B.CreateAdd(
+      InitScaled, B.CreateMul(Scale, otherInput(NextValue, &Index)));
+  IndexScaled->addIncoming(NextScaled, BB);
+  for (Instruction *Mul : Multiplies) {
+    Value *Input = otherInput(Mul, Scale);
+    Value *MulScaled;
+    if (Input == &Index) {
+      // Scale * Index -> IndexScaled
+      MulScaled = IndexScaled;
+    } else {
+      B.SetInsertPoint(Mul);
+      // Scale * (Index + Offset) -> IndexScaled + Scale*Offset
+      Value *Offset = otherInput(cast<Instruction>(Input), &Index);
+      MulScaled = B.CreateAdd(IndexScaled, B.CreateMul(Scale, Offset));
+    }
+    LLVM_DEBUG(dbgs() << "replace " << *Mul << " with " << *MulScaled << "\n");
+    Mul->replaceAllUsesWith(MulScaled);
+    Mul->eraseFromParent();
+    if (auto *I = dyn_cast<Instruction>(Input))
+      if (I->getNumUses() == 0)
+        I->eraseFromParent();
+  }
+  if (NextValue->getNumUses() == 1) {
+    Index.replaceAllUsesWith(UndefValue::get(Index.getType()));
+    Index.eraseFromParent();
+    NextValue->eraseFromParent();
+    if (auto *I = dyn_cast<Instruction>(InitialValue))
+      if (I->getNumUses() == 0)
+        I->eraseFromParent();
+  }
 }
 
 #endif
