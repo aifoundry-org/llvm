@@ -1325,7 +1325,7 @@ void RISCVOptimizeMemIntrinsics::vectorStrengthReduce(PHINode &Index) {
   IndexScaled->addIncoming(InitScaled, LoopPred);
   B.SetInsertPoint(NextValue);
   Value *NextScaled = B.CreateAdd(
-      InitScaled, B.CreateMul(Scale, otherInput(NextValue, &Index)));
+      IndexScaled, B.CreateMul(Scale, otherInput(NextValue, &Index)));
   IndexScaled->addIncoming(NextScaled, BB);
   for (Instruction *Mul : Multiplies) {
     Value *Input = otherInput(Mul, Scale);
