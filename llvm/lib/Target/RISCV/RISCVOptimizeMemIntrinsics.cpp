@@ -369,20 +369,10 @@ private:
     return true;
   }
 
-  bool hoistConstants(Instruction &I) {
-    // This might be too aggressive when for example
-    // we have mul x 4 which could be a shli...
-    unsigned Last = I.getNumOperands() - (isa<CallBase>(&I) ? 1 : 0);
-    for (unsigned Idx = 0; Idx < Last; Idx++) {
-      Value *C = I.getOperand(Idx);
-      if (Value *Hoisted = hoistConstant(C))
-        I.setOperand(Idx, Hoisted);
-    }
-    return false;
-  }
+  bool hoistConstants(Instruction &I);
 
   DenseMap<Value *, Value *> HoistedConstant;
-  Value *hoistConstant(Value *V);
+  Value *hoistConstant(Value *V, Instruction &I);
 };
 } // namespace
 
@@ -935,7 +925,7 @@ unsigned CodeHoister::estimateVectorUsage(BasicBlock &BB) {
   return Invariants.size() + MaxLive;
 }
 
-static bool shouldHoist(Value *V) {
+static bool shouldHoist(Value *V, Instruction &I) {
   if (!isa<Constant>(V))
     return false;
   // Pointer constants in a PIC model will generate a PseudoLLA that
@@ -946,19 +936,34 @@ static bool shouldHoist(Value *V) {
 
   // Otherwise, we hoist vector constants
   auto *Ty = dyn_cast<FixedVectorType>(V->getType());
-  return (Ty && Ty->getNumElements() == 8);
+  if (!Ty || Ty->getNumElements() != 8)
+    return false;
+  auto C = dyn_cast_or_null<ConstantInt>(cast<Constant>(V)->getSplatValue());
+  if (!C)
+    return true;
+  switch (I.getOpcode()) {
+  default:
+    return true;
+  case Instruction::Add:
+  case Instruction::Sub:
+    return !isInt<12>(C->getSExtValue());
+  case Instruction::Shl:
+  case Instruction::LShr:
+  case Instruction::AShr:
+    return (C->getZExtValue() < 64 && V == I.getOperand(1));
+  }
 }
 
 #ifndef NDEBUG
 static int HCounter = 0;
 #endif
-Value *CodeHoister::hoistConstant(Value *V) {
+Value *CodeHoister::hoistConstant(Value *V, Instruction &I) {
 #ifndef NDEBUG
   HCounter += 1;
   LLVM_DEBUG(dbgs() << HCounter << ": " << *V << "\n");
 #endif
 
-  if (!shouldHoist(V))
+  if (!shouldHoist(V, I))
     return nullptr;
 
   auto Iter = HoistedConstant.find(V);
@@ -970,6 +975,18 @@ Value *CodeHoister::hoistConstant(Value *V) {
   HoistedConstant.try_emplace(V, F);
   RegPressure += 1;
   return F;
+}
+
+bool CodeHoister::hoistConstants(Instruction &I) {
+  // This might be too aggressive when for example
+  // we have mul x 4 which could be a shli...
+  unsigned Last = I.getNumOperands() - (isa<CallBase>(&I) ? 1 : 0);
+  for (unsigned Idx = 0; Idx < Last; Idx++) {
+    Value *C = I.getOperand(Idx);
+    if (Value *Hoisted = hoistConstant(C, I))
+      I.setOperand(Idx, Hoisted);
+  }
+  return false;
 }
 
 void RISCVOptimizeMemIntrinsics::rewriteGatherScatters(Function &F) {
@@ -1275,8 +1292,8 @@ void RISCVOptimizeMemIntrinsics::vectorStrengthReduce(PHINode &Index) {
   // the final increment is replaced with
   //    Next2 = Init2 + Scale*Offset
 
-  // This vector is all the uses of Index of the form Index or  (Index + Offset)
-  // terms.
+  // This vector is all the uses of Index of the form Index or  (Index +
+  // Offset) terms.
   SmallVector<std::pair<Instruction *, Instruction *>, 8> Uses;
   auto addUses = [&Uses](Instruction &I) {
     for (User *U : I.users())
