@@ -1310,7 +1310,6 @@ void RISCVOptimizeMemIntrinsics::vectorStrengthReduce(PHINode &Index) {
     std::tie(Use, Input) = Uses.pop_back_val();
     if (Use == NextValue)
       continue;
-    // dbgs() << "CHecking " << *Use << "\n";
     if (Use->getOpcode() == Instruction::Add ||
         Use->getOpcode() == Instruction::Or) {
       if (Input != &Index) //  (Index + X) + Y
