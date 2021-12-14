@@ -1,4 +1,4 @@
-; RUN: llc -mcpu=et-soc1-min < %s | FileCheck %s
+; RUN: llc -mcpu=et-soc1-min -target-abi lp64f < %s | FileCheck %s
 target triple = "riscv64-unknown-unknown-elf"
 %VEC = type <8 x float>
 %IVEC = type <8 x i32>
@@ -24,4 +24,3 @@ define float @rreduce(%VEC* %0) {
 ; CHECK-NEXT:	fmvz.x.ps	[[V8:(a|s|t)[0-9]+]], [[V7]], 4
 ; CHECK-NEXT:	fmv.w.x	[[V9:f(a|s|t)[0-9]+]], [[V8]]
 ; CHECK-NEXT:	fadd.s	[[V10:f(a|s|t)[0-9]+]], [[V7]], [[V9]]
-; CHECK-NEXT:	fmv.x.w	[[V11:(a|s|t)[0-9]+]], [[V10]]

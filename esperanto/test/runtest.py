@@ -76,7 +76,7 @@ def runtest(test, args):
 
     base = join(args.temp_dir.name, Path(test).stem)
     log = base + ".log"
-    testcl = parse_test(test,base, args)
+    testcl = parse_test(test, base, args)
     if testcl is None:
         return ("unsupported test", name)
 
@@ -96,7 +96,7 @@ def runtest(test, args):
     # generate code using vector instructions
     # the relax attribute is needed for correct linking
     baseobj = base + "-vec.o"
-    command(f"llc -filetype=obj -mattr=+relax --mcpu=et-soc1-min -mabi=lp64f " +
+    command(f"{LLC_FOR_TARGET} -filetype=obj -mattr=+relax --mcpu=et-soc1-min -target-abi lp64f " +
             f"-o {baseobj} {test}")
 
     # generate code using a baseline RISCV with similar features
@@ -104,25 +104,24 @@ def runtest(test, args):
     # llvm features.  We exclude masked intrinsics because there
     # is no baseline support for lowering them.
     novecobj = testcl.novec[:-3] + ".o"
-    command(f"llc -filetype=obj -mattr=+m,+c,-save-restore,+f,+64bit,+relax "
+    command(f"{LLC_FOR_TARGET} -filetype=obj -mattr=+m,+f,+c,-save-restore,+64bit,+relax -target-abi lp64f "
             + f"-o {novecobj} {testcl.novec}")
     
     drvobj = base + "-drv.o"
-    command(f"clang {TARGET} {CPU} -c -O2 -o {drvobj} {dfn}")
+    command(f"{CC_FOR_TARGET} -c -O2 -o {drvobj} {dfn}")
 
     # link object files to build an executable. This may fail
     # if when the basline code generates a library call which
     # is not supported.
-    ld = str(INSTALL_DIR / "bin/sysemu-ld")
     exe = base + ".exe"
-    p = run(log, [ld, "-o", exe,baseobj, novecobj, drvobj], check=False)
+    p = run(log, [LD_FOR_TARGET, "-o", exe, baseobj, novecobj, drvobj], check=False)
     if p.returncode:
         return ("link failed", name)
     
     # The driver stores a return code in the global "num_errors"
     # here we find the virtual address of that variable
     num_errors_address = None
-    for ln in output(f"llvm-nm {exe}"):
+    for ln in output(f"{NM_FOR_TARGET} {exe}"):
         f = ln.split(' ')
         if f[1] == 'B' and f[2] == 'num_errors':
             num_errors_address = f[0]
@@ -135,7 +134,7 @@ def runtest(test, args):
     # the value stored in the location "num_errors" since
     # that records the programmatic exit status
     status = base + ".rc"
-    cmd = [str(INSTALL_DIR / "bin/sys_emu"), "-elf_load", exe,
+    cmd = [SIM_FOR_TARGET, "-elf_load", exe,
            "-single_thread",
            "-shires", "0x1",
            "-minions", "0x1",
@@ -282,14 +281,14 @@ will be compiled without vector instructions"""
     fun = None
     fun_nv = None
     with open(novec, "w") as nv:
-        for line in output("opt -S -o - " + test):
+        for line in output(f"{OPT_FOR_TARGET} -S -o - {test}"):
             if skip_re.match(line):
                 return None
             if fun is not None:
                 print(line,file=nv)
                 continue
 
-            # lok for the function definition line
+            # look for the function definition line
             m = def_re.match(line)
             if not m:
                 print(line, file=nv)
@@ -327,17 +326,21 @@ TYPE_MAP = { "<8 x i32>*" : [ "unsigned", 8 ],
           "<8 x i8>*" : ["unsighed char", 8],
           "<8 x i16>*" : ["unsighed char", 8],
           "i8*" : ["unsigned char", 32],
-          "i16*" : ["unsigned short", 32],
+          "i16*" : ["unsigned short", 16],
 }
 
-TARGET = "--target=riscv64-unknown-unknown-elf"
-CPU="-mcpu=et-soc1-min -mabi=lp64f"
 INSTALL_DIR = environ.get("INSTALL_DIR", None)
 if not INSTALL_DIR:
     print("Set environment variable INSTALL_DIR to installation directory",
           file=stderr)
     exit (1)
-INSTALL_DIR = Path(INSTALL_DIR)    
+
+CC_FOR_TARGET  = f"{INSTALL_DIR}/bin/sysemu-clang"
+LD_FOR_TARGET  = f"{INSTALL_DIR}/bin/sysemu-ld"
+LLC_FOR_TARGET = f"{INSTALL_DIR}/bin/llc"
+NM_FOR_TARGET  = f"{INSTALL_DIR}/bin/llvm-nm"
+OPT_FOR_TARGET = f"{INSTALL_DIR}/bin/opt"
+SIM_FOR_TARGET = f"{INSTALL_DIR}/bin/sys_emu"
 
 if __name__ == "__main__":
     main()

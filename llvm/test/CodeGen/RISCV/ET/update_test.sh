@@ -6,7 +6,7 @@ if [ "$TEST" == "all" ] ; then
     done
     exit 0
 fi
-llc -mcpu=et-soc1-min -mabi=lp64f < ${TEST} > temp.s
+llc -mcpu=et-soc1-min -target-abi lp64f < ${TEST} > temp.s
 if  FileCheck ${TEST} < temp.s >& /dev/null ; then
     echo passed
     rm temp.s
@@ -23,5 +23,3 @@ fi
 grep -v "; CHECK" $TEST | cat - CHECKS > new
 mv new $TEST
 rm CHECKS check.s temp.s
-
-

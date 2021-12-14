@@ -1,6 +1,6 @@
 ; XFAIL: *
 ; we hope to eventually generate a suitable masked operation for 4-vector
-; RUN: llc -mcpu=et-soc1-min < %s | FileCheck %s
+; RUN: llc -mcpu=et-soc1-min -target-abi lp64f < %s | FileCheck %s
 target triple = "riscv64-unknown-unknown-elf"
 
 %VEC = type <4 x i32>
