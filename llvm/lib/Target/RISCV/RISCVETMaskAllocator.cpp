@@ -43,7 +43,7 @@ private:
   // register. 0 indicates an unknown value.
   void computeAtEnd(MachineFunction &MF);
 
-  // Determine which MR0 class registers much be spilled because
+  // Determine which MR0 class registers must be spilled because
   // they are live when some other value is in M0.
   void spillForConflicts(MachineBasicBlock &MBB);
 
@@ -111,17 +111,6 @@ private:
     for (unsigned Idx = 0; Idx < Desc.getNumOperands(); Idx++)
       if (Desc.OpInfo[Idx].RegClass == RISCV::MR0RegClassID)
         return &MI.getOperand(Idx);
-#if 0
-    for (MachineOperand &Op : MI.explicit_operands()) {
-      if (!Op.isReg())
-        continue;
-      Register R = Op.getReg();
-      if (R.isPhysical())
-        continue;
-      if (MRI->getRegClass(R) == &RISCV::MR0RegClass)
-        return &Op;
-      }
-#endif
     return nullptr;
   };
 
