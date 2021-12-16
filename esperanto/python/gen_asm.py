@@ -16,6 +16,9 @@ def main():
     for r in getRecords():
         if r.getValue("isPseudo"):
             continue
+        # exclude Maxion instructions if the target is et-soc1-min
+        if args.target == "et-soc1-min" and "HasEsperantoMaxion" in r.getValue("Predicates"):
+            continue
         if "HasEsperanto" not in r.getValue("Predicates"):
             continue
         generate(r)
@@ -68,6 +71,8 @@ def createValues(dag, values):
 
 def parse_args():
     parser = ArgumentParser(DESCRIPTION)
+    parser.add_argument("--target", default="et-soc1-min",
+                        help="target triple to select et-soc1-min or et-soc1-max")
     return do_parse_args(parser)
 
 if __name__ == "__main__":
