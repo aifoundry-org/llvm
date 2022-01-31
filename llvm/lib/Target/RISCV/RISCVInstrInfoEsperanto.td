@@ -486,7 +486,7 @@ defm FPACKREPH_PI :
        ETOpsRdR1<0b0010011, 0b00000, 0b001, OPC_OP_PS, "fpackreph.pi">;
 
 
-multiclass ETOpsRdR1R2G<bits<7> funct7, string opcodestr> {
+multiclass ETOpsRdR1R2G32<bits<7> funct7, string opcodestr> {
     def "" : RVInstR<funct7, 0b001, OPC_MEM_PS,
                  (outs FPR256:$rd),
                  (ins GPR:$rs1, GPR:$rs2),
@@ -500,15 +500,25 @@ multiclass ETOpsRdR1R2G<bits<7> funct7, string opcodestr> {
 }
 
 let mayLoad = 1 in {
-defm FG32W_PS : ETOpsRdR1R2G<0b0010000, "fg32w.ps">;
-defm FG32H_PS : ETOpsRdR1R2G<0b0001000, "fg32h.ps">;
-defm FG32B_PS : ETOpsRdR1R2G<0b0000100, "fg32b.ps">;
+defm FG32W_PS : ETOpsRdR1R2G32<0b0010000, "fg32w.ps">;
+defm FG32H_PS : ETOpsRdR1R2G32<0b0001000, "fg32h.ps">;
+defm FG32B_PS : ETOpsRdR1R2G32<0b0000100, "fg32b.ps">;
 }
 
+multiclass ETOpsR3R1R2SC32<bits<7> funct7, string opcodestr> {
+   def "" : RVInstE12<funct7, 0b001, OPC_MEM_PS,
+                  (outs),
+                  (ins FPR256:$rs3, GPR:$rs1, GPR:$rs2),
+                  opcodestr, "$rs3, ${rs1}(${rs2})">;
+   def _EX : Pseudo<
+                 (outs),
+                 (ins FPR256:$rs3, GPR:$rs1, GPR:$rs2, MR0:$m0), [],
+                  opcodestr, "$rs3, ${rs1}(${rs2}), $m0">;
+}
 let mayStore = 1 in {
-defm FSC32W_PS : ETOpsR3R1R2<0b1010000, 0b001, "fsc32w.ps">;
-defm FSC32H_PS : ETOpsR3R1R2<0b1001000, 0b001, "fsc32h.ps">;
-defm FSC32B_PS : ETOpsR3R1R2<0b1000100, 0b001, "fsc32b.ps">;
+defm FSC32W_PS : ETOpsR3R1R2SC32<0b1010000, "fsc32w.ps">;
+defm FSC32H_PS : ETOpsR3R1R2SC32<0b1001000, "fsc32h.ps">;
+defm FSC32B_PS : ETOpsR3R1R2SC32<0b1000100, "fsc32b.ps">;
 }
 
 // Specialse FCMOVM has no implicit input since all of output
