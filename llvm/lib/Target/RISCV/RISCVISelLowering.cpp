@@ -2984,6 +2984,9 @@ RISCVTargetLowering::getConstraintType(StringRef Constraint) const {
     switch (Constraint[0]) {
     default:
       break;
+#ifdef ESPERANTO
+    case 'M':
+#endif
     case 'f':
       return C_RegisterClass;
     case 'I':
@@ -3007,6 +3010,10 @@ RISCVTargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
     switch (Constraint[0]) {
     case 'r':
       return std::make_pair(0U, &RISCV::GPRRegClass);
+#ifdef ESPERANTO
+    case 'M':
+      return std::make_pair(RISCV::MR0, &RISCV::MRRegClass);
+#endif        
     case 'f':
 #ifdef ESPERANTO
       if (VT == MVT::v8i32 or VT == MVT::v8f32)
