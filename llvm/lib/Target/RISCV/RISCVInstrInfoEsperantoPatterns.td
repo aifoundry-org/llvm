@@ -287,12 +287,12 @@ def : EspPat<(int_riscv_fsat8_pi (v8i32 FPR256:$in), (v8i32 FPR256:$rs1), MR0:$m
 def : EspPat<(int_riscv_fsat8_pi_m (v8i32 FPR256:$in), (v8i32 FPR256:$rs1), MR0:$m0), (FSAT8_PI_EX $in, $rs1, $m0)>;
 def : EspPat<(int_riscv_fsatu8_pi (v8i32 FPR256:$in), (v8i32 FPR256:$rs1), MR0:$m0), (FSATU8_PI_EX $in, $rs1, $m0)>;
 def : EspPat<(int_riscv_fsatu8_pi_m (v8i32 FPR256:$in), (v8i32 FPR256:$rs1), MR0:$m0), (FSATU8_PI_EX $in, $rs1, $m0)>;
-def : EspPat<(int_riscv_fsc32b_ps (v8i32 FPR256:$rs3), (v8i32 FPR256:$rs1), GPR:$rs2, MR0:$m0), (FSC32B_PS_EX $rs3, $rs1, $rs2, $m0)>;
-def : EspPat<(int_riscv_fsc32b_ps_m (v8i32 FPR256:$rs3), (v8i32 FPR256:$rs1), GPR:$rs2, MR0:$m0), (FSC32B_PS_EX $rs3, $rs1, $rs2, $m0)>;
-def : EspPat<(int_riscv_fsc32h_ps (v8i32 FPR256:$rs3), (v8i32 FPR256:$rs1), GPR:$rs2, MR0:$m0), (FSC32H_PS_EX $rs3, $rs1, $rs2, $m0)>;
-def : EspPat<(int_riscv_fsc32h_ps_m (v8i32 FPR256:$rs3), (v8i32 FPR256:$rs1), GPR:$rs2, MR0:$m0), (FSC32H_PS_EX $rs3, $rs1, $rs2, $m0)>;
-def : EspPat<(int_riscv_fsc32w_ps (v8i32 FPR256:$rs3), (v8i32 FPR256:$rs1), GPR:$rs2, MR0:$m0), (FSC32W_PS_EX $rs3, $rs1, $rs2, $m0)>;
-def : EspPat<(int_riscv_fsc32w_ps_m (v8i32 FPR256:$rs3), (v8i32 FPR256:$rs1), GPR:$rs2, MR0:$m0), (FSC32W_PS_EX $rs3, $rs1, $rs2, $m0)>;
+def : EspPat<(int_riscv_fsc32b_ps (v8i32 FPR256:$rs3), GPR:$rs1, GPR:$rs2, MR0:$m0), (FSC32B_PS_EX $rs3, $rs1, $rs2, $m0)>;
+def : EspPat<(int_riscv_fsc32b_ps_m (v8i32 FPR256:$rs3), GPR:$rs1, GPR:$rs2, MR0:$m0), (FSC32B_PS_EX $rs3, $rs1, $rs2, $m0)>;
+def : EspPat<(int_riscv_fsc32h_ps (v8i32 FPR256:$rs3), GPR:$rs1, GPR:$rs2, MR0:$m0), (FSC32H_PS_EX $rs3, $rs1, $rs2, $m0)>;
+def : EspPat<(int_riscv_fsc32h_ps_m (v8i32 FPR256:$rs3), GPR:$rs1, GPR:$rs2, MR0:$m0), (FSC32H_PS_EX $rs3, $rs1, $rs2, $m0)>;
+def : EspPat<(int_riscv_fsc32w_ps (v8i32 FPR256:$rs3), GPR:$rs1, GPR:$rs2, MR0:$m0), (FSC32W_PS_EX $rs3, $rs1, $rs2, $m0)>;
+def : EspPat<(int_riscv_fsc32w_ps_m (v8i32 FPR256:$rs3), GPR:$rs1, GPR:$rs2, MR0:$m0), (FSC32W_PS_EX $rs3, $rs1, $rs2, $m0)>;
 def : EspPat<(int_riscv_fscbg_ps (v8i32 FPR256:$rs3), (v8i32 FPR256:$rs1), GPR:$rs2, MR0:$m0), (FSCBG_PS_EX $rs3, $rs1, $rs2, $m0)>;
 def : EspPat<(int_riscv_fscbg_ps_m (v8i32 FPR256:$rs3), (v8i32 FPR256:$rs1), GPR:$rs2, MR0:$m0), (FSCBG_PS_EX $rs3, $rs1, $rs2, $m0)>;
 def : EspPat<(int_riscv_fscbl_ps (v8i32 FPR256:$rs3), (v8i32 FPR256:$rs1), GPR:$rs2, MR0:$m0), (FSCBL_PS_EX $rs3, $rs1, $rs2, $m0)>;
