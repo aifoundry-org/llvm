@@ -102,8 +102,8 @@ def : EspPat<(int_riscv_fandi_pi (v8i32 FPR256:$in), (v8i32 FPR256:$rs1), timm:$
 def : EspPat<(int_riscv_fandi_pi_m (v8i32 FPR256:$in), (v8i32 FPR256:$rs1), timm:$imm, MR0:$m0), (FANDI_PI_EX $in, $rs1, (LO10s $imm), $m0)>;
 def : EspPat<(int_riscv_fand_pi (v8i32 FPR256:$in), (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2), MR0:$m0), (FAND_PI_EX $in, $rs1, $rs2, $m0)>;
 def : EspPat<(int_riscv_fand_pi_m (v8i32 FPR256:$in), (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2), MR0:$m0), (FAND_PI_EX $in, $rs1, $rs2, $m0)>;
-def : EspPat<(int_riscv_fbci_pi (v8i32 FPR256:$in), timm:$imm20, MR0:$m0), (FBCI_PI_EX $in, (LO20s $imm20), $m0)>;
-def : EspPat<(int_riscv_fbci_pi_m (v8i32 FPR256:$in), timm:$imm20, MR0:$m0), (FBCI_PI_EX $in, (LO20s $imm20), $m0)>;
+def : EspPat<(int_riscv_fbci_pi (v8i32 FPR256:$in), timm:$imm20, MR0:$m0), (FBCI_PI_EX $in, (LO20 $imm20), $m0)>;
+def : EspPat<(int_riscv_fbci_pi_m (v8i32 FPR256:$in), timm:$imm20, MR0:$m0), (FBCI_PI_EX $in, (LO20 $imm20), $m0)>;
 def : EspPat<(int_riscv_fbci_ps (v8f32 FPR256:$in), timm:$imm20, MR0:$m0), (FBCI_PS_EX $in, (LO20 $imm20), $m0)>;
 def : EspPat<(int_riscv_fbci_ps_m (v8f32 FPR256:$in), timm:$imm20, MR0:$m0), (FBCI_PS_EX $in, (LO20 $imm20), $m0)>;
 def : EspPat<(int_riscv_fbcx_ps (v8f32 FPR256:$in), GPR:$rs1, MR0:$m0), (FBCX_PS_EX $in, $rs1, $m0)>;
