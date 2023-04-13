@@ -705,38 +705,57 @@ static const char *bits(unsigned Lanes) {
 // build up the final values.
 static SDValue buildComplexIntegerVector(SDNode *N, SelectionDAG *CurDAG) {
 
-  // If the value is a 20-bit immediate integer, return it
-  // Otherwise None.
+  // If the value is an immediate integer return it, otherwise None.
   auto getImmediate = [](SDValue Elt) -> Optional<int> {
     auto *EltC = dyn_cast<ConstantSDNode>(Elt);
-    if (!EltC || !isInt<20>(EltC->getSExtValue()))
+    if (EltC == nullptr) {
       return None;
-    int64_t EltV = EltC->getSExtValue();
-    if (!isInt<20>(EltV))
-      return None;
-    return EltV;
+    }
+    int64_t value = EltC->getSExtValue();
+    return value;
   };
 
-  // Find the smallest immediate
-  int Min = std::numeric_limits<int>::max();
-  for (SDValue Elt : N->ops())
-    if (Optional<int> C = getImmediate(Elt))
-      Min = std::min(Min, *C);
+  // Find the minium of the small immediates
+  Optional<int> Min;
+  for (SDValue Elt : N->ops()) {
+    Optional<int> imm = getImmediate(Elt);
+    if (imm.hasValue() and isUInt<20>(*imm)) {
+      if (Min.hasValue())
+        Min = std::min(Min, imm);
+      else
+        Min = imm;
+    }
+  }
 
-  // Split the operands in to Immediate and NonImmediate values
-  // each with associated lanes. We use a MapVector so that
-  // we output the values in a deterministic order when
-  // they are not constructued through addition.
+  // Split the lanes in:
+  // - Lanes with small immediates suitable for uint<20>, which are encoded as the
+  //   minimum values which is also uint<20> plus an uint<10> offset.
+  // - Lanes suitable for fbci.pi, also fitting in 20 bits but not representable with an uint<10> offset.
+  // - Lanes with immediates whatsoever not having optimal encoding.
+  // - Lanes with non-immediates
+  //
+  // An immediate is said to have optimal encoding iif:
+  // - It is representable as a 20 bits unsigned integer.
+  // - If not the mininium of the immediates representable as 20 unsigned integers,
+  //   it should be representable as 10 bits unsigned offset added to the minimum.
+  //
+  // We use a MapVector so that we output the values in a deterministic
   MapVector<SDValue, unsigned> NonImmediateLanes;
   MapVector<int, unsigned> Immediates;
+  MapVector<int, unsigned> OtherUint20Immediates;
+  MapVector<int, unsigned> OutlierImmediates;
   for (unsigned Idx = 0; Idx < 8; Idx++) {
     SDValue Elt = N->getOperand(Idx);
     unsigned Lane = 1 << Idx;
     Optional<int> C = getImmediate(Elt);
-    if (C && isIntN(10, *C - Min))
-      Immediates[*C] |= Lane;
-    else if (!Elt->isUndef())
+    if (not C.hasValue())
       NonImmediateLanes[Elt] |= Lane;
+    else if (isUInt<20>(*C) and isUInt<10>(*C - *Min))
+      Immediates[*C] |= Lane;
+    else if (isUInt<20>(*C))
+      OtherUint20Immediates[*C] |= Lane;
+    else
+      OutlierImmediates[*C] |= Lane;
   }
 
   LLVM_DEBUG(dbgs() << "build vector "; N->dump(););
@@ -746,7 +765,7 @@ static SDValue buildComplexIntegerVector(SDNode *N, SelectionDAG *CurDAG) {
   // assuming we initialize to Min
   unsigned Bits = 0;
   for (auto &Pair : Immediates)
-    Bits |= (Pair.first - Min);
+    Bits |= (Pair.first - *Min);
 
   // For each bit position, determine which vector
   // immediate lanes needs that bit to be set.
@@ -764,7 +783,7 @@ static SDValue buildComplexIntegerVector(SDNode *N, SelectionDAG *CurDAG) {
     Bits &= ~SingleBitValue;
     unsigned Lanes = 0;
     for (auto &Pair : Immediates)
-      if ((Pair.first - Min) & SingleBitValue)
+      if ((Pair.first - *Min) & SingleBitValue)
         Lanes |= Pair.second;
     Bits2Lanes.push_back({SingleBitValue, Lanes});
   }
@@ -843,7 +862,7 @@ static SDValue buildComplexIntegerVector(SDNode *N, SelectionDAG *CurDAG) {
     Value =
         SDValue(CurDAG->getMachineNode(
                     RISCV::FBCI_PI_EX, SDLoc(N), VT, Value,
-                    CurDAG->getTargetConstant(Min, DL, MVT::i32), mask(0xff)),
+                    CurDAG->getTargetConstant(*Min, DL, MVT::i32), mask(0xff)),
                 0);
     // Now build remaining values a few bits at a time
     for (Bit2LaneElt &Bits : Bits2Lanes)
@@ -853,6 +872,61 @@ static SDValue buildComplexIntegerVector(SDNode *N, SelectionDAG *CurDAG) {
                            CurDAG->getTargetConstant(Bits.Value, DL, MVT::i32),
                            mask(Bits.Lanes)}),
                       0);
+  }
+
+  // Now broadcast other immediates fitting as 20 bits unsigned integer
+  for (auto &Pair : OtherUint20Immediates) {
+    SDValue v0 = CurDAG->getTargetConstant(Pair.first, DL, MVT::i32);
+
+    Value = SDValue(CurDAG->getMachineNode(RISCV::FBCI_PI_EX, SDLoc(N), VT,
+                                           Value, v0, mask(Pair.second)),
+                    0);
+  }
+
+  // Now broadcast the outlier immediates
+  for (auto &Pair : OutlierImmediates) {
+    SDValue zero = CurDAG->getRegister(RISCV::X0, MVT::i64);
+    SDValue v0 = CurDAG->getTargetConstant((Pair.first >> 30) & ((1 << 2) - 1),
+                                           DL, MVT::i32);
+    SDValue v1 = CurDAG->getTargetConstant((Pair.first >> 20) & ((1 << 10) - 1),
+                                           DL, MVT::i32);
+    SDValue v2 = CurDAG->getTargetConstant((Pair.first >> 10) & ((1 << 10) - 1),
+                                           DL, MVT::i32);
+    SDValue v3 = CurDAG->getTargetConstant((Pair.first >> 0) & ((1 << 10) - 1),
+                                           DL, MVT::i32);
+    SDValue ten = CurDAG->getTargetConstant(10, DL, MVT::i32);
+
+    Value = SDValue(CurDAG->getMachineNode(RISCV::FBCX_PS_EX, SDLoc(N), VT,
+                                           Value, zero, mask(Pair.second)),
+                    0);
+    Value =
+        SDValue(CurDAG->getMachineNode(RISCV::FADDI_PI_EX, DL, VT,
+                                       {Value, Value, v0, mask(Pair.second)}),
+                0);
+    Value =
+        SDValue(CurDAG->getMachineNode(RISCV::FSLLI_PI_EX, DL, VT,
+                                       {Value, Value, ten, mask(Pair.second)}),
+                0);
+    Value =
+        SDValue(CurDAG->getMachineNode(RISCV::FADDI_PI_EX, DL, VT,
+                                       {Value, Value, v1, mask(Pair.second)}),
+                0);
+    Value =
+        SDValue(CurDAG->getMachineNode(RISCV::FSLLI_PI_EX, DL, VT,
+                                       {Value, Value, ten, mask(Pair.second)}),
+                0);
+    Value =
+        SDValue(CurDAG->getMachineNode(RISCV::FADDI_PI_EX, DL, VT,
+                                       {Value, Value, v2, mask(Pair.second)}),
+                0);
+    Value =
+        SDValue(CurDAG->getMachineNode(RISCV::FSLLI_PI_EX, DL, VT,
+                                       {Value, Value, ten, mask(Pair.second)}),
+                0);
+    Value =
+        SDValue(CurDAG->getMachineNode(RISCV::FADDI_PI_EX, DL, VT,
+                                       {Value, Value, v3, mask(Pair.second)}),
+                0);
   }
 
   // Now broadcast the values which are not immediate. One poke for each
