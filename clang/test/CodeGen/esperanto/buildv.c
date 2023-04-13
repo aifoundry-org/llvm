@@ -102,23 +102,15 @@ example(9, x, y, x, x, y, y, x, 1<<19)
 // CHECK-NEXT: 	mov.m.x	m0, zero, 32
 // CHECK-NEXT: 	fbci.pi	ft0, 524287
 // CHECK-NEXT: 	mov.m.x	m0, zero, 64
-// CHECK-NEXT: 	fbcx.ps	ft0, zero
-// CHECK-NEXT: 	faddi.pi	ft0, ft0, 3
+// CHECK-NEXT: 	fbci.pi	ft0, 1048448
 // CHECK-NEXT: 	fslli.pi	ft0, ft0, 10
-// CHECK-NEXT: 	faddi.pi	ft0, ft0, 1023
-// CHECK-NEXT: 	fslli.pi	ft0, ft0, 10
-// CHECK-NEXT: 	faddi.pi	ft0, ft0, 512
-// CHECK-NEXT: 	fslli.pi	ft0, ft0, 10
-// CHECK-NEXT: 	faddi.pi	ft0, ft0, 0
+// CHECK-NEXT: 	fslli.pi	ft0, ft0, 2
 // CHECK-NEXT: 	mov.m.x	m0, zero, 128
-// CHECK-NEXT: 	fbcx.ps	ft0, zero
+// CHECK-NEXT: 	fbci.pi	ft0, 1048447
+// CHECK-NEXT: 	fslli.pi	ft0, ft0, 10
+// CHECK-NEXT: 	faddi.pi	ft0, ft0, 1023
+// CHECK-NEXT: 	fslli.pi	ft0, ft0, 2
 // CHECK-NEXT: 	faddi.pi	ft0, ft0, 3
-// CHECK-NEXT: 	fslli.pi	ft0, ft0, 10
-// CHECK-NEXT: 	faddi.pi	ft0, ft0, 1023
-// CHECK-NEXT: 	fslli.pi	ft0, ft0, 10
-// CHECK-NEXT: 	faddi.pi	ft0, ft0, 511
-// CHECK-NEXT: 	fslli.pi	ft0, ft0, 10
-// CHECK-NEXT: 	faddi.pi	ft0, ft0, 1023
 // CHECK-NEXT: 	fsq2	ft0, 0(a0)
 // CHECK-NEXT: 	ret
 // CHECK: build6:
@@ -165,14 +157,10 @@ example(9, x, y, x, x, y, y, x, 1<<19)
 // CHECK-NEXT: 	mov.m.x	m0, zero, 42
 // CHECK-NEXT: 	faddi.pi	ft0, ft0, 1
 // CHECK-NEXT: 	mov.m.x	m0, zero, 128
-// CHECK-NEXT: 	fbcx.ps	ft0, zero
-// CHECK-NEXT: 	faddi.pi	ft0, ft0, 3
+// CHECK-NEXT: 	fbci.pi	ft0, 1048575
 // CHECK-NEXT: 	fslli.pi	ft0, ft0, 10
 // CHECK-NEXT: 	faddi.pi	ft0, ft0, 1023
-// CHECK-NEXT: 	fslli.pi	ft0, ft0, 10
-// CHECK-NEXT: 	faddi.pi	ft0, ft0, 1023
-// CHECK-NEXT: 	fslli.pi	ft0, ft0, 10
-// CHECK-NEXT: 	faddi.pi	ft0, ft0, 1020
+// CHECK-NEXT: 	fslli.pi	ft0, ft0, 2
 // CHECK-NEXT: 	mov.m.x	m0, zero, 80
 // CHECK-NEXT: 	fbcx.ps	ft0, a1
 // CHECK-NEXT: 	fsq2	ft0, 0(a0)

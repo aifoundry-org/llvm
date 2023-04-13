@@ -877,7 +877,6 @@ static SDValue buildComplexIntegerVector(SDNode *N, SelectionDAG *CurDAG) {
   // Now broadcast other immediates fitting as 20 bits unsigned integer
   for (auto &Pair : OtherUint20Immediates) {
     SDValue v0 = CurDAG->getTargetConstant(Pair.first, DL, MVT::i32);
-
     Value = SDValue(CurDAG->getMachineNode(RISCV::FBCI_PI_EX, SDLoc(N), VT,
                                            Value, v0, mask(Pair.second)),
                     0);
@@ -885,48 +884,47 @@ static SDValue buildComplexIntegerVector(SDNode *N, SelectionDAG *CurDAG) {
 
   // Now broadcast the outlier immediates
   for (auto &Pair : OutlierImmediates) {
-    SDValue zero = CurDAG->getRegister(RISCV::X0, MVT::i64);
-    SDValue v0 = CurDAG->getTargetConstant((Pair.first >> 30) & ((1 << 2) - 1),
-                                           DL, MVT::i32);
-    SDValue v1 = CurDAG->getTargetConstant((Pair.first >> 20) & ((1 << 10) - 1),
-                                           DL, MVT::i32);
-    SDValue v2 = CurDAG->getTargetConstant((Pair.first >> 10) & ((1 << 10) - 1),
-                                           DL, MVT::i32);
-    SDValue v3 = CurDAG->getTargetConstant((Pair.first >> 0) & ((1 << 10) - 1),
-                                           DL, MVT::i32);
-    SDValue ten = CurDAG->getTargetConstant(10, DL, MVT::i32);
+    int bits0 = (Pair.first >> 12) & ((1 << 20) - 1);
+    int bits1 = (Pair.first >> 2) & ((1 << 10) - 1);
+    int bits2 = Pair.first & ((1 << 2) - 1);
 
-    Value = SDValue(CurDAG->getMachineNode(RISCV::FBCX_PS_EX, SDLoc(N), VT,
-                                           Value, zero, mask(Pair.second)),
+    SDValue v0 = CurDAG->getTargetConstant(bits0, DL, MVT::i32);
+    SDValue v1 = CurDAG->getTargetConstant(bits1, DL, MVT::i32);
+    SDValue v2 = CurDAG->getTargetConstant(bits2, DL, MVT::i32);
+
+    SDValue ten = CurDAG->getTargetConstant(10, DL, MVT::i32);
+    SDValue two = CurDAG->getTargetConstant(2, DL, MVT::i32);
+
+    Value = SDValue(CurDAG->getMachineNode(RISCV::FBCI_PI_EX, SDLoc(N), VT,
+                                           Value, v0, mask(Pair.second)),
                     0);
-    Value =
-        SDValue(CurDAG->getMachineNode(RISCV::FADDI_PI_EX, DL, VT,
-                                       {Value, Value, v0, mask(Pair.second)}),
-                0);
-    Value =
-        SDValue(CurDAG->getMachineNode(RISCV::FSLLI_PI_EX, DL, VT,
-                                       {Value, Value, ten, mask(Pair.second)}),
-                0);
-    Value =
-        SDValue(CurDAG->getMachineNode(RISCV::FADDI_PI_EX, DL, VT,
-                                       {Value, Value, v1, mask(Pair.second)}),
-                0);
-    Value =
-        SDValue(CurDAG->getMachineNode(RISCV::FSLLI_PI_EX, DL, VT,
-                                       {Value, Value, ten, mask(Pair.second)}),
-                0);
-    Value =
-        SDValue(CurDAG->getMachineNode(RISCV::FADDI_PI_EX, DL, VT,
-                                       {Value, Value, v2, mask(Pair.second)}),
-                0);
-    Value =
-        SDValue(CurDAG->getMachineNode(RISCV::FSLLI_PI_EX, DL, VT,
-                                       {Value, Value, ten, mask(Pair.second)}),
-                0);
-    Value =
-        SDValue(CurDAG->getMachineNode(RISCV::FADDI_PI_EX, DL, VT,
-                                       {Value, Value, v3, mask(Pair.second)}),
-                0);
+    if (bits0) {
+      Value = SDValue(
+          CurDAG->getMachineNode(RISCV::FSLLI_PI_EX, DL, VT,
+                                 {Value, Value, ten, mask(Pair.second)}),
+          0);
+    }
+
+    if (bits1) {
+      Value =
+          SDValue(CurDAG->getMachineNode(RISCV::FADDI_PI_EX, DL, VT,
+                                         {Value, Value, v1, mask(Pair.second)}),
+                  0);
+    }
+
+    if (bits0 or bits1) {
+      Value = SDValue(
+          CurDAG->getMachineNode(RISCV::FSLLI_PI_EX, DL, VT,
+                                 {Value, Value, two, mask(Pair.second)}),
+          0);
+    }
+
+    if (bits2) {
+      Value =
+          SDValue(CurDAG->getMachineNode(RISCV::FADDI_PI_EX, DL, VT,
+                                         {Value, Value, v2, mask(Pair.second)}),
+                  0);
+    }
   }
 
   // Now broadcast the values which are not immediate. One poke for each
