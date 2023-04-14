@@ -85,6 +85,11 @@ bool RISCVTargetInfo::validateAsmConstraint(
     // A floating-point register.
     Info.setAllowsRegister();
     return true;
+#ifdef ESPERANTO
+  case 'M':
+    Info.setAllowsRegister();
+    return true;
+#endif
   case 'A':
     // An address that is held in a general-purpose register.
     Info.setAllowsMemory();

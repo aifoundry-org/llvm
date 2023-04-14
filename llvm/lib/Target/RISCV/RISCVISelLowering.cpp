@@ -94,7 +94,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
     for (MVT VT : {MVT::v8i32, MVT::v8f32})
       addRegisterClass(VT, &RISCV::FPR256RegClass);
   }
-#endif 
+#endif
   // Compute derived properties from the register classes.
   computeRegisterProperties(STI.getRegisterInfo());
 
@@ -2984,6 +2984,9 @@ RISCVTargetLowering::getConstraintType(StringRef Constraint) const {
     switch (Constraint[0]) {
     default:
       break;
+#ifdef ESPERANTO
+    case 'M':
+#endif
     case 'f':
       return C_RegisterClass;
     case 'I':
@@ -3007,7 +3010,15 @@ RISCVTargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
     switch (Constraint[0]) {
     case 'r':
       return std::make_pair(0U, &RISCV::GPRRegClass);
+#ifdef ESPERANTO
+    case 'M':
+      return std::make_pair(RISCV::MR0, &RISCV::MRRegClass);
+#endif        
     case 'f':
+#ifdef ESPERANTO
+      if (VT == MVT::v8i32 or VT == MVT::v8f32)
+        return std::make_pair(0U, &RISCV::FPR256RegClass);
+#endif
       if (Subtarget.hasStdExtF() && VT == MVT::f32)
         return std::make_pair(0U, &RISCV::FPR32RegClass);
       if (Subtarget.hasStdExtD() && VT == MVT::f64)

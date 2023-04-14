@@ -329,10 +329,10 @@ defm FCVT_SN8_PS  : ETOpsCvt<0b1101100, 0b11011, "fcvt.sn8.ps">;
 
 def FBCI_PI : RVInstU<OPC_IMM_PI,
                       (outs FPR256:$rd),
-                      (ins simm20:$imm20),
+                      (ins uimm20_lui:$imm20),
                       "fbci.pi", "$rd, ${imm20}">;
 def FBCI_PI_EX : Pseudo<(outs FPR256:$rd),
-                        (ins FPR256:$in, simm20:$imm20, MR0:$m0), [],
+                        (ins FPR256:$in, uimm20_lui:$imm20, MR0:$m0), [],
                       "fbci.pi", "$rd, ${imm20}, $m0"> {
      let Constraints = "$rd = $in";
 }
@@ -695,8 +695,8 @@ def AMOCMPSWAPG_D : ETOpsR2R1<0b1111001, 0b011, "amocmpswapg.d">;
 
 class ETOpsR1R2S<bits<7> funct7, bits<3> funct3, string opcodestr> :
      RVInstR<funct7, funct3, OPC_OP_32, (outs),
-            (ins GPR:$rs2, GPR:$rs1), opcodestr,
-            "${rs2}, (${rs1})"> {
+            (ins GPR:$rs2, GPRMemAtomic:$rs1), opcodestr,
+            "${rs2}, ${rs1}"> {
     let rd = 0;
 }
 
@@ -769,8 +769,8 @@ def DYN : RoundingMode<0b111> ;
 
 def allLanes : OutPatFrag<(ops ), (MOV_M_X X0, 0xff)>;
 
-def : EspPat<(v8i32 (et_broadcast simm20:$e0)),
-          (FBCI_PI_EX (IMPLICIT_DEF), (LO20s $e0), (allLanes))>;
+def : EspPat<(v8i32 (et_broadcast uimm20:$e0)),
+          (FBCI_PI_EX (IMPLICIT_DEF), (LO20 $e0), (allLanes))>;
 
 def : EspPat<(v8i32 (et_broadcast GPR:$e0)),
           (FBCX_PS_EX (IMPLICIT_DEF), $e0, (allLanes))>;
