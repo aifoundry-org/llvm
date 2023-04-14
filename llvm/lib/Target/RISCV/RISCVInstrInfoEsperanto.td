@@ -695,8 +695,8 @@ def AMOCMPSWAPG_D : ETOpsR2R1<0b1111001, 0b011, "amocmpswapg.d">;
 
 class ETOpsR1R2S<bits<7> funct7, bits<3> funct3, string opcodestr> :
      RVInstR<funct7, funct3, OPC_OP_32, (outs),
-            (ins GPR:$rs2, GPR:$rs1), opcodestr,
-            "${rs2}, (${rs1})"> {
+            (ins GPR:$rs2, GPRMemAtomic:$rs1), opcodestr,
+            "${rs2}, ${rs1}"> {
     let rd = 0;
 }
 

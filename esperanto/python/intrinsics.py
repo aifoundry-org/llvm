@@ -201,6 +201,7 @@ def int_{target_prefix}_{builtinName}_m :
 
 
 intTypeMap = { "GPR" : "llvm_i64_ty" ,
+               "GPRMemAtomic" : "llvm_i64_ty",
                "MR" : "llvm_i64_ty",
                "MR0" : "llvm_i64_ty",
                "FPR32" : "llvm_f32_ty",
@@ -263,6 +264,7 @@ def getImmediates(ops):
 
 builtinIntTypeMap = {
     "GPR" : "Li" ,
+    "GPRMemAtomic" : "Li" ,
     "MR" : "Li",
     "MR0" : "Li",
     "FPR32" : "f",
