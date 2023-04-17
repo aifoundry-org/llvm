@@ -642,8 +642,8 @@ defm FAMOMAXG_PS  : ETOpsRdR1R2FG<0b1010100, 0b100, "famomaxg.ps">;
 
 class ETOpsR2R1<bits<7> funct7, bits<3> funct3, string opcodestr> :
      RVInstR<funct7, funct3, OPC_OP_32, (outs GPR:$rd),
-            (ins GPR:$rs2, GPR:$rs1), opcodestr,
-            "${rd}, ${rs2}, (${rs1})">;
+            (ins GPR:$rs2, GPRMemAtomic:$rs1), opcodestr,
+            "${rd}, ${rs2}, ${rs1}">;
 
 let mayLoad = 1, mayStore = 1 in {
 def AMOSWAPL_W : ETOpsR2R1<0b0000100, 0b010, "amoswapl.w">;
