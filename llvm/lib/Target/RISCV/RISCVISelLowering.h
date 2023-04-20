@@ -251,6 +251,11 @@ private:
 #ifdef ESPERANTO
   SDValue LowerVSELECT(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerVECTOR_SHUFFLE(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerUINT_TO_FP(SDValue Op, SDLoc loc, SelectionDAG &DAG) const;
+  SDValue LowerUINT_TO_FP(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerSINT_TO_FP(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerFP_TO_UINT(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerFP_TO_SINT(SDValue Op, SelectionDAG &DAG) const;
 #endif
 
   bool isEligibleForTailCallOptimization(
