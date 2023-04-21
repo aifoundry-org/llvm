@@ -273,17 +273,26 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
     setOperationAction(ISD::INTRINSIC_WO_CHAIN, MVT::v8i32, Custom); // iota
 
     for (unsigned Op : {
-             ISD::ADD,        ISD::AND,         ISD::BUILD_VECTOR,
-             ISD::MUL,        ISD::OR,          ISD::SDIV,
-             ISD::SETCC,      ISD::SIGN_EXTEND, ISD::SHL,
-             ISD::SMAX,       ISD::SMIN,        ISD::SRA,
-             ISD::SRL,        ISD::SREM,        ISD::SUB,
-             ISD::UDIV,       ISD::UMAX,        ISD::UMIN,
-             ISD::UREM,       ISD::XOR,         ISD::SINT_TO_FP,
-             ISD::UINT_TO_FP, ISD::FP_TO_SINT,  ISD::FP_TO_UINT,
-             ISD::MSTORE,     ISD::BITCAST,
+             ISD::ADD,    ISD::AND,     ISD::BUILD_VECTOR, ISD::MUL,  ISD::OR,
+             ISD::SDIV,   ISD::SETCC,   ISD::SIGN_EXTEND,  ISD::SHL,  ISD::SMAX,
+             ISD::SMIN,   ISD::SRA,     ISD::SRL,          ISD::SREM, ISD::SUB,
+             ISD::UDIV,   ISD::UMAX,    ISD::UMIN,         ISD::UREM, ISD::XOR,
+             ISD::MSTORE, ISD::BITCAST,
          })
       setOperationAction(Op, MVT::v8i32, Legal);
+
+    for (unsigned Op : {
+             ISD::FP_TO_SINT,
+             ISD::FP_TO_UINT,
+             ISD::SINT_TO_FP,
+             ISD::UINT_TO_FP,
+         }) {
+      setOperationAction(Op, MVT::i64, Custom);
+      setOperationAction(Op, MVT::i32, Legal);
+      setOperationAction(Op, MVT::v8i32,
+                         Legal); // TODO: we could make it custom with ETSoC1
+                                 // vector instructions
+    }
     for (unsigned Op : {
              ISD::FADD,    ISD::FSUB,         ISD::FMUL,      ISD::SETCC,
              ISD::FDIV,    ISD::FABS,         ISD::FSIN,      ISD::FLOG2,
@@ -571,6 +580,14 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
     return (validVectorIndex(Op.getOperand(2)) ? Op : SDValue());
   case ISD::VECTOR_SHUFFLE:
     return LowerVECTOR_SHUFFLE(Op, DAG);
+  case ISD::SINT_TO_FP:
+    return LowerSINT_TO_FP(Op, DAG);
+  case ISD::UINT_TO_FP:
+    return LowerUINT_TO_FP(Op, DAG);
+  case ISD::FP_TO_SINT:
+    return LowerFP_TO_SINT(Op, DAG);
+  case ISD::FP_TO_UINT:
+    return LowerFP_TO_UINT(Op, DAG);
 #endif
   }
 }
@@ -1167,6 +1184,112 @@ SDValue RISCVTargetLowering::LowerVECTOR_SHUFFLE(SDValue Op,
   });
   // Success, this is a legal swizzle
   return Op;
+}
+
+/// Implement a convert from uint64_t to float using functionality from ETSoC1
+/// rather than resorting to the standard RISCV::FCVT_S_LU machine instruction,
+/// which is not available.
+///
+/// The algorithm can be summarized with this C++ proof-of-concept code:
+///
+/// float uint64_to_float(uint64_t value) {
+///   uint32_t hi = (value >> 32) & 0xffffffff;
+///   uint32_t lo = value & 0xffffffff;
+///   return static_cast<float>(hi) * float(1ULL << 32) +
+///   static_cast<float>(lo);
+/// }
+SDValue RISCVTargetLowering::LowerUINT_TO_FP(SDValue Op, SDLoc loc,
+                                             SelectionDAG &DAG) const {
+  SDValue value = Op.getOperand(0);
+  SDValue imm32 = DAG.getConstant(32, loc, MVT::i64);
+  SDValue u64_hi = DAG.getNode(ISD::SRL, loc, MVT::i64, value, imm32);
+  SDValue hi = DAG.getNode(ISD::BITCAST, loc, MVT::i32, u64_hi);
+  SDValue lo = DAG.getNode(ISD::BITCAST, loc, MVT::i32, value);
+  SDValue roundingMode = DAG.getTargetConstant(0b111, loc, MVT::i64);
+  SDValue fp32_hi = SDValue(
+      DAG.getMachineNode(RISCV::FCVT_S_WU, loc, MVT::f32, hi, roundingMode), 0);
+  SDValue fp32_lo = SDValue(
+      DAG.getMachineNode(RISCV::FCVT_S_WU, loc, MVT::f32, lo, roundingMode), 0);
+  float floatValue = static_cast<float>(1ULL << 32);
+  uint32_t *ptr = reinterpret_cast<uint32_t *>(&floatValue);
+  SDValue w = DAG.getConstant(*ptr, loc, MVT::f32);
+  SDVTList types = DAG.getVTList(MVT::f32, MVT::f32, MVT::f32, MVT::i64);
+  SDValue ops[] = {fp32_hi, w, fp32_lo, roundingMode};
+  return SDValue(DAG.getMachineNode(RISCV::FMADD_S, loc, types, ops), 0);
+}
+
+SDValue RISCVTargetLowering::LowerUINT_TO_FP(SDValue Op,
+                                             SelectionDAG &DAG) const {
+  return LowerUINT_TO_FP(Op, SDLoc(Op), DAG);
+}
+/// Implement a convert from int64_t to float using functionality from ETSoC1
+/// rather than resorting to the standard RISCV::FCVT_S_L machine instruction,
+/// which is not available. This code uses the LowerUINT_TO_FP function for the
+/// unsigned case as a building block.
+///
+/// The algorithm can be summarized with this C++ proof-of-concept code:
+///
+/// float sint64_to_float_signed(int64_t value) {
+///   uint64_t top_bits = static_cast<uint64_t>(value) & 0x7fffffffffffffff;
+///   uint64_t neg = (value >= 0) ? 0 : 0x7fffffffffffffff;
+///   float bias = (value >= 0) ? 0.f : -1.f;
+///   float sign = (value >= 0) ? 1.f : -1.f;
+///   return uint64_to_float(top_bits ^ neg) * sign + bias;
+/// }
+SDValue RISCVTargetLowering::LowerSINT_TO_FP(SDValue Op,
+                                             SelectionDAG &DAG) const {
+  SDValue value = Op.getOperand(0);
+  SDValue imm_zero = DAG.getConstant(0, SDLoc(Op), MVT::i64);
+  SDValue imm_one = DAG.getConstant(1, SDLoc(Op), MVT::i64);
+  SDValue all_ones = DAG.getAllOnesConstant(SDLoc(Op), MVT::i64);
+  SDValue imm_63_ones =
+      DAG.getNode(ISD::SRL, SDLoc(Op), MVT::i64, all_ones, imm_one);
+  SDValue top_bits =
+      DAG.getNode(ISD::XOR, SDLoc(Op), MVT::i64, value, imm_63_ones);
+  SDValue is_positive =
+      DAG.getNode(ISD::SETCC, SDLoc(Op), MVT::i1, imm_zero, value,
+                  DAG.getCondCode(ISD::CondCode::SETGE));
+  SDValue neg = DAG.getNode(ISD::SELECT, SDLoc(Op), MVT::i64, is_positive,
+                            imm_zero, imm_63_ones);
+  SDValue top_bits_negated =
+      DAG.getNode(ISD::XOR, SDLoc(Op), MVT::i64, top_bits, neg);
+  SDValue uint64_to_float = LowerUINT_TO_FP(top_bits_negated, SDLoc(Op), DAG);
+  float fp_value;
+  uint32_t *ptr = reinterpret_cast<uint32_t *>(&fp_value);
+  fp_value = 0.f;
+  SDValue zero_fp = DAG.getConstant(*ptr, SDLoc(Op), MVT::i64);
+  fp_value = +1.f;
+  SDValue plus_one_fp = DAG.getConstant(*ptr, SDLoc(Op), MVT::i64);
+  fp_value = -1.f;
+  SDValue minus_one_fp = DAG.getConstant(*ptr, SDLoc(Op), MVT::i64);
+  SDValue bias = DAG.getNode(ISD::SELECT, SDLoc(Op), MVT::i64, is_positive,
+                             zero_fp, minus_one_fp);
+  SDValue sign = DAG.getNode(ISD::SELECT, SDLoc(Op), MVT::i64, is_positive,
+                             plus_one_fp, minus_one_fp);
+  SDValue roundingMode = DAG.getTargetConstant(0b111, SDLoc(Op), MVT::i64);
+  SDVTList types = DAG.getVTList(MVT::f32, MVT::f32, MVT::f32, MVT::i64);
+  SDValue ops[] = {uint64_to_float, sign, bias, roundingMode};
+  return SDValue(DAG.getMachineNode(RISCV::FMADD_S, SDLoc(Op), types, ops), 0);
+}
+
+SDValue RISCVTargetLowering::LowerFP_TO_SINT(SDValue Op,
+                                             SelectionDAG &DAG) const {
+  SDValue value = Op.getOperand(0);
+  SDValue lo = DAG.getNode(ISD::BITCAST, SDLoc(Op), MVT::i32, value);
+  SDValue roundingMode = DAG.getTargetConstant(0b111, SDLoc(Op), MVT::i64);
+  return SDValue(DAG.getMachineNode(RISCV::FCVT_W_S, SDLoc(Op), MVT::f32, lo,
+                                    roundingMode),
+                 0);
+}
+
+SDValue RISCVTargetLowering::LowerFP_TO_UINT(SDValue Op,
+                                             SelectionDAG &DAG) const {
+  SDValue value = Op.getOperand(0);
+  SDValue lo = DAG.getNode(ISD::BITCAST, SDLoc(Op), MVT::i32, value);
+  SDValue roundingMode = DAG.getTargetConstant(0b111, SDLoc(Op), MVT::i64);
+  return SDValue(DAG.getMachineNode(RISCV::FCVT_WU_S, SDLoc(Op), MVT::f32, lo,
+                                    roundingMode),
+                 0);
 }
 
 #endif
