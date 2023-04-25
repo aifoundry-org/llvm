@@ -152,6 +152,16 @@ private:
   bool isMR0(Register R) {
     return R && R.isVirtual() && MRI->getRegClass(R) == &RISCV::MR0RegClass;
   }
+
+  // True if R is a virtual register in class MR
+  bool isMR(Register R) {
+    return R && R.isVirtual() && MRI->getRegClass(R) == &RISCV::MRRegClass;
+  }
+
+  // True if R is a virtual register in GPR class
+  bool isGPR(Register R) {
+    return R && R.isVirtual() && MRI->getRegClass(R) == &RISCV::GPRRegClass;
+  }
 };
 
 char RISCVETMaskAllocator::ID = 0;
@@ -325,7 +335,7 @@ void RISCVETMaskAllocator::processBlock(MachineBasicBlock &MBB) {
               CurrentLanes = Lanes;
             }
           } else {
-
+            assert(isMR(CurrentSrc));
             // Copy from the unconstrained mask register to the MR0
             // register. We use  a MASKAND rather than a COPY to prevent
             // the register allocator from coalescing and which has
@@ -399,7 +409,13 @@ void RISCVETMaskAllocator::processBlock(MachineBasicBlock &MBB) {
                 .addImm(L);
             MI.removeFromParent();
           }
+        } else if (isGPR(Src)) {
+          BuildMI(MBB, &MI, MI.getDebugLoc(), TII->get(RISCV::MOV_M_X), Current)
+              .addReg(Src)
+              .addImm(0);
+          MI.removeFromParent();
         } else {
+          assert(isMR(Src));
           // Change the copy so we
           // don't allow an MR0 register to propagate its class
           BuildMI(MBB, &MI, MI.getDebugLoc(), TII->get(RISCV::MASKAND), Dst)
