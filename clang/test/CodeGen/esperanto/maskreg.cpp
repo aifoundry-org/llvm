@@ -31,7 +31,8 @@ int main2(int argc, char **argv) {
           "fadd.pi %[dst], %[src1], %[src2]\n"
           : [ dst ] "=f"(dst), [ src1 ] "=f"(src1),
             [ src2 ] "=f"(src2)
-          : [ mask0 ] "M"(mask), [ mask_any1 ] "N"(mask), [ mask_any2 ] "N"(mask), [ value1 ] "i"(1), [ value2 ] "i"(2));
+          : [ mask0 ] "M"(mask), [ mask_any1 ] "N"(mask), [ mask_any2 ] "N"(mask), [ value1 ] "i"(1), [ value2 ] "i"(2)
+          : "m3", "m4", "m5", "m6", "m7");
 
   return dst[0];
 }
