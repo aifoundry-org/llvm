@@ -1200,18 +1200,18 @@ SDValue RISCVTargetLowering::LowerVECTOR_SHUFFLE(SDValue Op,
 /// }
 SDValue RISCVTargetLowering::LowerUINT_TO_FP(SDValue Op, SDLoc Loc,
                                              SelectionDAG &DAG) const {
-  SDValue ThirtyTwoImm = DAG.getTargetConstant(32, loc, MVT::i64);
+  SDValue ThirtyTwoImm = DAG.getTargetConstant(32, Loc, MVT::i64);
   SDValue HiReg = SDValue(
-      DAG.getMachineNode(RISCV::SRLI, loc, MVT::i64, Op, ThirtyTwoImm), 0);
+      DAG.getMachineNode(RISCV::SRLI, Loc, MVT::i64, Op, ThirtyTwoImm), 0);
   SDValue TmpReg = SDValue(
-      DAG.getMachineNode(RISCV::SLLI, loc, MVT::i64, Op, ThirtyTwoImm), 0);
+      DAG.getMachineNode(RISCV::SLLI, Loc, MVT::i64, Op, ThirtyTwoImm), 0);
   SDValue LoReg = SDValue(
-      DAG.getMachineNode(RISCV::SRLI, loc, MVT::i64, TmpReg, ThirtyTwoImm), 0);
+      DAG.getMachineNode(RISCV::SRLI, Loc, MVT::i64, TmpReg, ThirtyTwoImm), 0);
   SDValue RoundingModeImm = DAG.getTargetConstant(0b111, Loc, MVT::i64);
-  SDValue HiFPReg = SDValue(DAG.getMachineNode(RISCV::FCVT_S_WU, loc, MVT::f32,
+  SDValue HiFPReg = SDValue(DAG.getMachineNode(RISCV::FCVT_S_WU, Loc, MVT::f32,
                                                HiReg, RoundingModeImm),
                             0);
-  SDValue LoFPReg = SDValue(DAG.getMachineNode(RISCV::FCVT_S_WU, loc, MVT::f32,
+  SDValue LoFPReg = SDValue(DAG.getMachineNode(RISCV::FCVT_S_WU, Loc, MVT::f32,
                                                LoReg, RoundingModeImm),
                             0);
   float FloatValue = static_cast<float>(1ULL << 32);
