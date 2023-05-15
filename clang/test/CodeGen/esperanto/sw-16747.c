@@ -51,18 +51,8 @@ unsigned long int f4(float fvalue) {
 // CHECK-NEXT: 	fmadd.s	fa0, ft0, ft2, ft1
 // CHECK-NEXT: 	ret
 // CHECK: f3:
-// CHECK: 	addi	sp, sp, -16
-// CHECK-NEXT: 	fsw	fa0, 12(sp)
-// CHECK-NEXT: 	ld	a0, 12(sp)
-// CHECK-NEXT: 	fmv.w.x	ft0, a0
-// CHECK-NEXT: 	fcvt.w.s	a0, ft0
-// CHECK-NEXT: 	addi	sp, sp, 16
+// CHECK: 	fcvt.w.s	a0, fa0, rtz
 // CHECK-NEXT: 	ret
 // CHECK: f4:
-// CHECK: 	addi	sp, sp, -16
-// CHECK-NEXT: 	fsw	fa0, 12(sp)
-// CHECK-NEXT: 	ld	a0, 12(sp)
-// CHECK-NEXT: 	fmv.w.x	ft0, a0
-// CHECK-NEXT: 	fcvt.wu.s	a0, ft0
-// CHECK-NEXT: 	addi	sp, sp, 16
+// CHECK: 	fcvt.wu.s	a0, fa0, rtz
 // CHECK-NEXT: 	ret
