@@ -1300,20 +1300,18 @@ SDValue RISCVTargetLowering::LowerSINT_TO_FP(SDValue Op,
 SDValue RISCVTargetLowering::LowerFP_TO_SINT(SDValue Op,
                                              SelectionDAG &DAG) const {
   SDValue value = Op.getOperand(0);
-  SDValue lo = DAG.getNode(ISD::BITCAST, SDLoc(Op), MVT::i32, value);
-  SDValue roundingMode = DAG.getTargetConstant(0b111, SDLoc(Op), MVT::i64);
-  return SDValue(DAG.getMachineNode(RISCV::FCVT_W_S, SDLoc(Op), MVT::f32, lo,
-                                    roundingMode),
+  SDValue roundTowardsZero = DAG.getTargetConstant(0b001, SDLoc(Op), MVT::i64);
+  return SDValue(DAG.getMachineNode(RISCV::FCVT_W_S, SDLoc(Op), MVT::f32, value,
+                                    roundTowardsZero),
                  0);
 }
 
 SDValue RISCVTargetLowering::LowerFP_TO_UINT(SDValue Op,
                                              SelectionDAG &DAG) const {
   SDValue value = Op.getOperand(0);
-  SDValue lo = DAG.getNode(ISD::BITCAST, SDLoc(Op), MVT::i32, value);
-  SDValue roundingMode = DAG.getTargetConstant(0b111, SDLoc(Op), MVT::i64);
-  return SDValue(DAG.getMachineNode(RISCV::FCVT_WU_S, SDLoc(Op), MVT::f32, lo,
-                                    roundingMode),
+  SDValue roundTowardsZero = DAG.getTargetConstant(0b001, SDLoc(Op), MVT::i64);
+  return SDValue(DAG.getMachineNode(RISCV::FCVT_WU_S, SDLoc(Op), MVT::f32,
+                                    value, roundTowardsZero),
                  0);
 }
 
