@@ -1303,7 +1303,7 @@ SDValue RISCVTargetLowering::LowerFP_TO_SINT(SDValue Op,
                                              SelectionDAG &DAG) const {
   SDValue value = Op.getOperand(0);
   SDValue roundTowardsZero = DAG.getTargetConstant(0b001, SDLoc(Op), MVT::i64);
-  return SDValue(DAG.getMachineNode(RISCV::FCVT_W_S, SDLoc(Op), MVT::f32, value,
+  return SDValue(DAG.getMachineNode(RISCV::FCVT_W_S, SDLoc(Op), MVT::i64, value,
                                     roundTowardsZero),
                  0);
 }
@@ -1312,7 +1312,7 @@ SDValue RISCVTargetLowering::LowerFP_TO_UINT(SDValue Op,
                                              SelectionDAG &DAG) const {
   SDValue value = Op.getOperand(0);
   SDValue roundTowardsZero = DAG.getTargetConstant(0b001, SDLoc(Op), MVT::i64);
-  return SDValue(DAG.getMachineNode(RISCV::FCVT_WU_S, SDLoc(Op), MVT::f32,
+  return SDValue(DAG.getMachineNode(RISCV::FCVT_WU_S, SDLoc(Op), MVT::i64,
                                     value, roundTowardsZero),
                  0);
 }
