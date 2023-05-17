@@ -1216,10 +1216,13 @@ SDValue RISCVTargetLowering::LowerUINT_TO_FP(SDValue Op, SDLoc Loc,
                             0);
   float FloatValue = static_cast<float>(1ULL << 32);
   uint32_t *Ptr = reinterpret_cast<uint32_t *>(&FloatValue);
-  SDValue WordImm = DAG.getTargetConstant(*Ptr, Loc, MVT::f32);
-  SDVTList Types = DAG.getVTList(MVT::f32, MVT::f32, MVT::f32, MVT::i64);
-  SDValue Ops[] = {HiFPReg, WordImm, LoFPReg, RoundingModeImm};
-  return SDValue(DAG.getMachineNode(RISCV::FMADD_S, Loc, Types, Ops), 0);
+  SDValue TwentyMSBImm = DAG.getTargetConstant(*Ptr >> 12, Loc, MVT::i32);
+  SDValue ConstGPReg =
+      SDValue(DAG.getMachineNode(RISCV::LUI, Loc, MVT::f32, TwentyMSBImm), 0);
+  SDValue ConstFPReg =
+      SDValue(DAG.getMachineNode(RISCV::FMV_W_X, Loc, MVT::f32, ConstGPReg), 0);
+  SDValue Ops[] = {HiFPReg, ConstFPReg, LoFPReg, RoundingModeImm};
+  return SDValue(DAG.getMachineNode(RISCV::FMADD_S, Loc, MVT::f32, Ops), 0);
 }
 
 SDValue RISCVTargetLowering::LowerUINT_TO_FP(SDValue Op,
@@ -1290,10 +1293,9 @@ SDValue RISCVTargetLowering::LowerSINT_TO_FP(SDValue Op,
       SDValue(DAG.getMachineNode(RISCV::FCVT_S_W, SDLoc(Op), MVT::f32, SignReg,
                                  RoundingModeImm),
               0);
-  SDVTList Types = DAG.getVTList(MVT::f32, MVT::f32, MVT::f32, MVT::i64);
   SDValue Ops[] = {CastFPReg, SignFPReg, BiasFPReg, RoundingModeImm};
   SDValue Result =
-      SDValue(DAG.getMachineNode(RISCV::FMADD_S, SDLoc(Op), Types, Ops), 0);
+      SDValue(DAG.getMachineNode(RISCV::FMADD_S, SDLoc(Op), MVT::f32, Ops), 0);
   return Result;
 }
 
