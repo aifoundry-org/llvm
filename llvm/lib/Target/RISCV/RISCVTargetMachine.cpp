@@ -185,5 +185,5 @@ void RISCVPassConfig::addPreEmitPass2() {
 
 void RISCVPassConfig::addPreRegAlloc() {
   addPass(createRISCVMergeBaseOffsetOptPass());
-  addPass(createRISCVETMaskAllocatorPass());
+  addPass(createRISCVETMR0CopyElisionPass());
 }

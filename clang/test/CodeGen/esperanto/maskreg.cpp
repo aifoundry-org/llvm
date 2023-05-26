@@ -37,17 +37,17 @@ int main2(int argc, char **argv) {
   return dst[0];
 }
 // CHECK: main:
-// CHECK: 	addi	a0, zero, 255
-// CHECK-NEXT: 	mov.m.x	m0, a0, 0
+// CHECK: 	mov.m.x	m0, zero, 255
 // CHECK: 	fbci.pi	ft1, 1
 // CHECK-NEXT: 	fbci.pi	ft2, 2
 // CHECK-NEXT: 	fadd.pi	ft0, ft1, ft2
 // CHECK: 	fmvs.x.ps	a0, ft0, 0
 // CHECK-NEXT: 	sext.w	a0, a0
+// CHECK-NEXT: 	addi	a1, zero, 255
 // CHECK-NEXT: 	ret
 // CHECK: _Z5main2iPPc:
 // CHECK: 	addi	a0, zero, 255
-// CHECK-NEXT: 	mov.m.x	m0, a0, 0
+// CHECK-NEXT: 	mov.m.x	m0, zero, 255
 // CHECK-NEXT: 	mov.m.x	m1, a0, 0
 // CHECK-NEXT: 	mov.m.x	m2, a0, 0
 // CHECK: 	fbci.pi	ft1, 1
