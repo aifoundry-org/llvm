@@ -21,12 +21,14 @@ unsigned long int f4(float fvalue) {
 }
 
 // CHECK: f1:
-// CHECK: 	srli	a1, a0, 32
-// CHECK-NEXT: 	fcvt.s.wu	ft0, a1
+// CHECK: 	lui	a1, 325632
+// CHECK-NEXT: 	fmv.w.x	ft0, a1
+// CHECK-NEXT: 	srli	a1, a0, 32
+// CHECK-NEXT: 	fcvt.s.wu	ft1, a1
 // CHECK-NEXT: 	slli	a0, a0, 32
 // CHECK-NEXT: 	srli	a0, a0, 32
-// CHECK-NEXT: 	fcvt.s.wu	ft1, a0
-// CHECK-NEXT: 	fmadd.s	fa0, ft0, 1333788672, ft1, dyn
+// CHECK-NEXT: 	fcvt.s.wu	ft2, a0
+// CHECK-NEXT: 	fmadd.s	fa0, ft1, ft0, ft2
 // CHECK-NEXT: 	ret
 // CHECK: f2:
 // CHECK: 	addi	a1, zero, 1
@@ -43,7 +45,9 @@ unsigned long int f4(float fvalue) {
 // CHECK-NEXT: 	slli	a1, a1, 32
 // CHECK-NEXT: 	srli	a1, a1, 32
 // CHECK-NEXT: 	fcvt.s.wu	ft1, a1
-// CHECK-NEXT: 	fmadd.s	ft0, ft0, 1333788672, ft1, dyn
+// CHECK-NEXT: 	lui	a1, 325632
+// CHECK-NEXT: 	fmv.w.x	ft2, a1
+// CHECK-NEXT: 	fmadd.s	ft0, ft0, ft2, ft1
 // CHECK-NEXT: 	fcvt.s.w	ft1, a0
 // CHECK-NEXT: 	slli	a0, a0, 1
 // CHECK-NEXT: 	addi	a0, a0, 1
