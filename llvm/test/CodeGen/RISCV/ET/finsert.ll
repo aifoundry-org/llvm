@@ -16,10 +16,9 @@ entry:
 ; CHECK-NEXT:	flw	[[V1:f(a|s|t)[0-9]+]], %lo(.LCPI0_0)([[V0]])
 ; CHECK-NEXT:	flq2	[[V4:f(a|s|t)[0-9]+]], 0([[V5:(a|s|t)[0-9]+]])
 ; CHECK-NEXT:	fmv.x.w	[[V6:(a|s|t)[0-9]+]], [[V1]]
-; CHECK-NEXT:	mov.m.x	[[V7:m[0-9]+]], zero, 16
 ; CHECK-NEXT:	fmv.x.w	[[V8:(a|s|t)[0-9]+]], [[V2:fa0]]
-; CHECK-NEXT:	mov.m.x	[[V9:m[0-9]+]], zero, 8
+; CHECK-NEXT:	mov.m.x	m0, zero, 8
 ; CHECK-NEXT:	fbcx.ps	[[V10:f(a|s|t)[0-9]+]], [[V8]]
-; CHECK-NEXT:	mov.m.x	[[V11:m[0-9]+]], zero, 16
+; CHECK-NEXT:	mov.m.x	m0, zero, 16
 ; CHECK-NEXT:	fbcx.ps	[[V12:f(a|s|t)[0-9]+]], [[V6]]
 ; CHECK-NEXT:	fsq2	[[V12]], 0([[V13:(a|s|t)[0-9]+]])

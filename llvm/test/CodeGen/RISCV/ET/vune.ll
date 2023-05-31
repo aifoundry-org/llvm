@@ -15,11 +15,9 @@ define void @une(%IVEC* %result, %VEC* %0, %VEC* %1) {
 
 ; CHECK:	flq2	[[V0:f(a|s|t)[0-9]+]], 0([[V1:(a|s|t)[0-9]+]])
 ; CHECK-NEXT:	flq2	[[V2:f(a|s|t)[0-9]+]], 0([[V3:(a|s|t)[0-9]+]])
-; CHECK-NEXT:	mov.m.x	[[V4:m[0-9]+]], zero, 255
-; CHECK-NEXT:	mov.m.x	[[V5:m[0-9]+]], zero, 255
-; CHECK-NEXT:	feqm.ps	[[V6:m[0-9]+]], [[V0]], [[V2]]
-; CHECK-NEXT:	masknot	[[V7:m[0-9]+]], [[V6]]
-; CHECK-NEXT:	fbci.pi	[[V8:f(a|s|t)[0-9]+]], 0
-; CHECK-NEXT:	maskand	[[V9:m[0-9]+]], [[V7]], [[V7]]
-; CHECK-NEXT:	fbci.pi	[[V10:f(a|s|t)[0-9]+]], -1
-; CHECK-NEXT:	fsq2	[[V10]], 0([[V11:(a|s|t)[0-9]+]])
+; CHECK-NEXT:	mov.m.x	m0, zero, 255
+; CHECK-NEXT:	feqm.ps	[[V5:m[0-9]+]], [[V0]], [[V2]]
+; CHECK-NEXT:	fbci.pi	[[V0]], 0
+; CHECK-NEXT:	masknot	m0, [[V5]]
+; CHECK-NEXT:	fbci.pi	[[V0:f(a|s|t)[0-9]+]], -1
+; CHECK-NEXT:	fsq2	[[V0]], 0([[V6:(a|s|t)[0-9]+]])

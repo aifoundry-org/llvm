@@ -50,8 +50,8 @@ void initializeRISCVExpandAtomicPseudoPass(PassRegistry &);
 FunctionPass *createRISCVOptimizeMemIntrinsicsPass(RISCVTargetMachine &TM);
 void initializeRISCVOptimizeMemIntrinsicsPass(PassRegistry &);
 
-FunctionPass *createRISCVETMaskAllocatorPass();
-void initializeRISCVETMaskAllocatorPass(PassRegistry &);
+FunctionPass *createRISCVETMR0CopyElisionPass();
+void initializeRISCVETMR0CopyElisionPass(PassRegistry &);
 #endif
 
 InstructionSelector *createRISCVInstructionSelector(const RISCVTargetMachine &,
