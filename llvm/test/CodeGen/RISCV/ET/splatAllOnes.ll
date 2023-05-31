@@ -12,4 +12,6 @@ entry:
 }
 
 ; CHECK:	mov.m.x	m0, zero, 255
-; CHECK-NEXT:	fbci.pi	ft0, -1
+; CHECK-NEXT:	addi    a1, zero, -1
+; CHECK-NEXT:	fbcx.ps ft0, a1
+; CHECK-NEXT:	fsq2    ft0, 0(a0)
