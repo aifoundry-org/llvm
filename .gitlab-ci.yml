@@ -113,7 +113,7 @@ build:conan:
 
 on_success:promote:
   extends:
-    - .pod_nano
+    - .pod_medium
     - .template_job
     - .template-conan-linux-ubuntu18.04-gcc7
   stage: deploy
@@ -124,5 +124,5 @@ on_success:promote:
   variables:
     PYTHONIOENCODING: utf-8
     CMD_BUILD: |
-      cd ci/conan
+      cd esperanto
       python3 -m ci_promote
