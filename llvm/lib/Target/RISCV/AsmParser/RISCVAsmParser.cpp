@@ -1860,15 +1860,27 @@ bool RISCVAsmParser::ParseInstruction(ParseInstructionInfo &Info,
   if (parseOperand(Operands, Name))
     return true;
 
+  // Silently ignore comments after the first operand for compatibility with gcc
+  while (getLexer().is(AsmToken::Comment))
+    getLexer().Lex();
+
   // Parse until end of statement, consuming commas between operands
   unsigned OperandIdx = 1;
   while (getLexer().is(AsmToken::Comma)) {
     // Consume comma token
     getLexer().Lex();
 
+    // Silently ignore comments before operand for compatibility with gcc
+    while (getLexer().is(AsmToken::Comment))
+      getLexer().Lex();
+
     // Parse next operand
     if (parseOperand(Operands, Name))
       return true;
+
+    // Silently ignore comments after operand for compatibility with gcc
+    while (getLexer().is(AsmToken::Comment))
+      getLexer().Lex();
 
     ++OperandIdx;
   }
