@@ -555,19 +555,18 @@ defm FLWL_PS : ETOpsFdR1<0b0001000, "flwl.ps">;
 defm FLWG_PS : ETOpsFdR1<0b0001001, "flwg.ps">;
 }
 
-multiclass ETOpsF1R2<bits<7> funct7, string opcodestr> {
+multiclass ETOpsFs3Rs1<bits<7> funct7, string opcodestr> {
     def "" : RVInstE14<funct7,0b111,OPC_MEM_PS,
-                      (outs), (ins FPR256:$rs1, GPR:$rs2),
-                      opcodestr, "$rs1, (${rs2})">;
-    def _EX : Pseudo<(outs), (ins FPR256:$rs1, GPR:$rs2, MR0:$m0), [],
-                     opcodestr, "$rs1, (${rs2}), $m0">;
+                       (outs), (ins FPR256:$fs3, GPR:$rs1),
+                       opcodestr, "$fs3, (${rs1})">;
+    def _EX : Pseudo<(outs), (ins FPR256:$fs3, GPR:$rs1, MR0:$m0), [],
+                     opcodestr, "$fs3, (${rs1}), $m0">;
 }
 
 let mayStore = 1 in {
-defm FSWL_PS : ETOpsF1R2<0b0101000, "fswl.ps">;
-defm FSWG_PS : ETOpsF1R2<0b0101001, "fswg.ps">;
+defm FSWL_PS : ETOpsFs3Rs1<0b0101000, "fswl.ps">;
+defm FSWG_PS : ETOpsFs3Rs1<0b0101001, "fswg.ps">;
 }
-
 
 multiclass ETOpsRdR1R2FG<bits<7> funct7, bits<3> funct3, string opcodestr> {
    def "" : RVInstR<funct7, funct3, OPC_MEM_PS, (outs FPR256:$rd),

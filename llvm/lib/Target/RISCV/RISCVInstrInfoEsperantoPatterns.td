@@ -340,12 +340,12 @@ def : EspPat<(int_riscv_fsub_pi (v8i32 FPR256:$in), (v8i32 FPR256:$rs1), (v8i32 
 def : EspPat<(int_riscv_fsub_pi_m (v8i32 FPR256:$in), (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2), MR0:$m0), (FSUB_PI_EX $in, $rs1, $rs2, $m0)>;
 def : EspPat<(int_riscv_fsub_ps (v8f32 FPR256:$in), (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2), timm:$rm, MR0:$m0), (FSUB_PS_EX $in, $rs1, $rs2, (LO3 $rm), $m0)>;
 def : EspPat<(int_riscv_fsub_ps_m (v8f32 FPR256:$in), (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2), timm:$rm, MR0:$m0), (FSUB_PS_EX $in, $rs1, $rs2, (LO3 $rm), $m0)>;
-def : EspPat<(int_riscv_fswg_ps (v8i32 FPR256:$rs1), GPR:$rs2, MR0:$m0), (FSWG_PS_EX $rs1, $rs2, $m0)>;
-def : EspPat<(int_riscv_fswg_ps_m (v8i32 FPR256:$rs1), GPR:$rs2, MR0:$m0), (FSWG_PS_EX $rs1, $rs2, $m0)>;
+def : EspPat<(int_riscv_fswg_ps (v8i32 FPR256:$fs3), GPR:$rs1, MR0:$m0), (FSWG_PS_EX $fs3, $rs1, $m0)>;
+def : EspPat<(int_riscv_fswg_ps_m (v8i32 FPR256:$fs3), GPR:$rs1, MR0:$m0), (FSWG_PS_EX $fs3, $rs1, $m0)>;
 def : EspPat<(int_riscv_fswizz_ps (v8i32 FPR256:$in), (v8i32 FPR256:$rs1), timm:$imm, MR0:$m0), (FSWIZZ_PS_EX $in, $rs1, (LO8 $imm), $m0)>;
 def : EspPat<(int_riscv_fswizz_ps_m (v8i32 FPR256:$in), (v8i32 FPR256:$rs1), timm:$imm, MR0:$m0), (FSWIZZ_PS_EX $in, $rs1, (LO8 $imm), $m0)>;
-def : EspPat<(int_riscv_fswl_ps (v8i32 FPR256:$rs1), GPR:$rs2, MR0:$m0), (FSWL_PS_EX $rs1, $rs2, $m0)>;
-def : EspPat<(int_riscv_fswl_ps_m (v8i32 FPR256:$rs1), GPR:$rs2, MR0:$m0), (FSWL_PS_EX $rs1, $rs2, $m0)>;
+def : EspPat<(int_riscv_fswl_ps (v8i32 FPR256:$fs3), GPR:$rs1, MR0:$m0), (FSWL_PS_EX $fs3, $rs1, $m0)>;
+def : EspPat<(int_riscv_fswl_ps_m (v8i32 FPR256:$fs3), GPR:$rs1, MR0:$m0), (FSWL_PS_EX $fs3, $rs1, $m0)>;
 def : EspPat<(int_riscv_fsw_ps (v8i32 FPR256:$rs2), timm:$imm12, GPR:$rs1, MR0:$m0), (FSW_PS_EX $rs2, (LO12s $imm12), $rs1, $m0)>;
 def : EspPat<(int_riscv_fsw_ps_m (v8i32 FPR256:$rs2), timm:$imm12, GPR:$rs1, MR0:$m0), (FSW_PS_EX $rs2, (LO12s $imm12), $rs1, $m0)>;
 def : EspPat<(int_riscv_fxor_pi (v8i32 FPR256:$in), (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2), MR0:$m0), (FXOR_PI_EX $in, $rs1, $rs2, $m0)>;
