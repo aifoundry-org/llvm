@@ -768,6 +768,9 @@ def DYN : RoundingMode<0b111> ;
 
 def allLanes : OutPatFrag<(ops ), (MOV_M_X X0, 0xff)>;
 
+def oneLane : OutPatFrag<(ops ), (MOV_M_X X0, 0x1)>;
+
+
 def : EspPat<(v8i32 (et_broadcast uimm20:$e0)),
           (FBCI_PI_EX (IMPLICIT_DEF), (LO20 $e0), (allLanes))>;
 
@@ -1260,3 +1263,48 @@ include "RISCVInstrInfoEsperantoPatterns.td"
 
 def : EspPat<(i64 (addrspacecast GPR:$in)), (COPY $in)>;
 
+def : EspPat<(f32 (fdiv FPR32:$rs1, FPR32:$rs2)),
+    (
+        f32
+        (
+            EXTRACT_SUBREG
+            (
+                FMUL_PS_EX
+                (IMPLICIT_DEF),
+                (
+                    v8f32
+                    (INSERT_SUBREG (v8f32 (IMPLICIT_DEF)), (f32 $rs1), sub_32)
+                ),
+                (
+                    FRCP_PS_EX
+                    (IMPLICIT_DEF),
+                    (
+                        v8f32
+                        (INSERT_SUBREG (v8f32 (IMPLICIT_DEF)), (f32 $rs2), sub_32)
+                    ),
+                    (oneLane)
+                ),
+                DYN.rm,
+                (oneLane)
+            ),
+            sub_32
+        )
+    )>;
+
+def : EspPat<(v8f32 (fdiv FPR256:$rs1, FPR256:$rs2)),
+    (
+        v8f32
+        (
+            FMUL_PS_EX
+            (IMPLICIT_DEF),
+            (v8f32 $rs1),
+            (
+                FRCP_PS_EX
+                (IMPLICIT_DEF),
+                (v8f32 $rs2),
+                (allLanes)
+            ),
+            DYN.rm,
+            (allLanes)
+        )
+    )>;

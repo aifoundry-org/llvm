@@ -302,6 +302,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
              ISD::MSTORE,  ISD::BUILD_VECTOR,
          })
       setOperationAction(Op, MVT::v8f32, Legal);
+
     for (unsigned Op :
          {ISD::BUILD_VECTOR, ISD::AND, ISD::OR, ISD::XOR, ISD::SETCC})
       setOperationAction(Op, MVT::v8i1, Legal);
