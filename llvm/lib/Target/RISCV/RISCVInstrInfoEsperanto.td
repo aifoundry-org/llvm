@@ -168,7 +168,6 @@ multiclass ETOpsRdR1R2Rm<bits<7> funct7, RISCVOpcode opcode,
 defm FADD_PS : ETOpsRdR1R2Rm<0b0000000, OPC_OP_PS, "fadd.ps">;
 defm FSUB_PS : ETOpsRdR1R2Rm<0b0000100, OPC_OP_PS, "fsub.ps">;
 defm FMUL_PS : ETOpsRdR1R2Rm<0b0001000, OPC_OP_PS, "fmul.ps">;
-defm FDIV_PS : ETOpsRdR1R2Rm<0b0001100, OPC_OP_PS, "fdiv.ps">;
 
 multiclass ETOpsRdR1R2<bits<7> funct7, bits<3> funct3, RISCVOpcode opcode,
                 string opcodestr> {
@@ -845,19 +844,6 @@ def : EspPat<(fsub (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
           (FSUB_PS_EX (IMPLICIT_DEF), $rs1, $rs2, DYN.rm, (allLanes))>;
 def : EspPat<(fmul (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
           (FMUL_PS_EX (IMPLICIT_DEF), $rs1, $rs2, DYN.rm, (allLanes))>;
-def : EspPat<(fdiv (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
-          (FDIV_PS_EX (IMPLICIT_DEF), $rs1, $rs2, DYN.rm, (allLanes))>;
-def : EspPat<(fdiv (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
-          (FDIV_PS_EX (IMPLICIT_DEF), $rs1, $rs2, DYN.rm, (allLanes))>;
-
-def : EspPat<(frem (v8f32 FPR256:$x), (v8f32 FPR256:$y)),
-          (FNMSUB_PS_EX
-                (IMPLICIT_DEF),
-                (FROUND_PS_EX (IMPLICIT_DEF),
-                      (FDIV_PS_EX (IMPLICIT_DEF), $x, $y, DYN.rm, (allLanes)),
-                      /*RTZ*/ 0b001, (allLanes)),
-                $y, $x, DYN.rm, (allLanes))>;
-
 
 def : EspPat<(fma (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2), (v8f32 FPR256:$rs3)),
           (FMADD_PS_EX (IMPLICIT_DEF), $rs1, $rs2, $rs3, DYN.rm,

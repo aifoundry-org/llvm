@@ -825,15 +825,6 @@ def int_riscv_fdiv_pi_m :
   Intrinsic<[llvm_v8i32_ty],
             [llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i32_ty,llvm_v8i1_ty],
             [IntrNoMem]>;
-def int_riscv_fdiv_ps :
-  GCCBuiltin<"__builtin_riscv_fdiv_ps">,
-  Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_v8f32_ty,llvm_i64_ty,llvm_i64_ty],
-            [ImmArg<ArgIndex<3>>,IntrNoMem]>;
-def int_riscv_fdiv_ps_m :
-  Intrinsic<[llvm_v8f32_ty],
-            [llvm_v8f32_ty,llvm_v8f32_ty,llvm_v8f32_ty,llvm_i64_ty,llvm_v8i1_ty],
-            [ImmArg<ArgIndex<3>>,IntrNoMem]>;
 def int_riscv_feqm_ps :
   GCCBuiltin<"__builtin_riscv_feqm_ps">,
   Intrinsic<[llvm_i64_ty],
