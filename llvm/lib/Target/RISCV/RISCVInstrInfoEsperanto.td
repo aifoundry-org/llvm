@@ -168,6 +168,7 @@ multiclass ETOpsRdR1R2Rm<bits<7> funct7, RISCVOpcode opcode,
 defm FADD_PS : ETOpsRdR1R2Rm<0b0000000, OPC_OP_PS, "fadd.ps">;
 defm FSUB_PS : ETOpsRdR1R2Rm<0b0000100, OPC_OP_PS, "fsub.ps">;
 defm FMUL_PS : ETOpsRdR1R2Rm<0b0001000, OPC_OP_PS, "fmul.ps">;
+defm FDIV_PS : ETOpsRdR1R2Rm<0b0001100, OPC_OP_PS, "fdiv.ps">;
 
 multiclass ETOpsRdR1R2<bits<7> funct7, bits<3> funct3, RISCVOpcode opcode,
                 string opcodestr> {

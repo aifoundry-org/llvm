@@ -232,6 +232,8 @@ static Optional<unsigned> getImplicitOpcode(unsigned Opcode) {
     return RISCV::FDIVU_PI;
   case RISCV::FDIV_PI_EX:
     return RISCV::FDIV_PI;
+  case RISCV::FDIV_PS_EX:
+    return RISCV::FDIV_PS;
   case RISCV::FEQM_PS_EX:
     return RISCV::FEQM_PS;
   case RISCV::FEQ_PI_EX:
