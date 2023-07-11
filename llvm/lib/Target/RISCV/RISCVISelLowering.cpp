@@ -273,11 +273,24 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
     setOperationAction(ISD::INTRINSIC_WO_CHAIN, MVT::v8i32, Custom); // iota
 
     for (unsigned Op : {
-             ISD::ADD,    ISD::AND,     ISD::BUILD_VECTOR, ISD::MUL,  ISD::OR,
-             ISD::SDIV,   ISD::SETCC,   ISD::SIGN_EXTEND,  ISD::SHL,  ISD::SMAX,
-             ISD::SMIN,   ISD::SRA,     ISD::SRL,          ISD::SREM, ISD::SUB,
-             ISD::UDIV,   ISD::UMAX,    ISD::UMIN,         ISD::UREM, ISD::XOR,
-             ISD::MSTORE, ISD::BITCAST,
+             ISD::ADD,
+             ISD::AND,
+             ISD::BUILD_VECTOR,
+             ISD::MUL,
+             ISD::OR,
+             ISD::SETCC,
+             ISD::SIGN_EXTEND,
+             ISD::SHL,
+             ISD::SMAX,
+             ISD::SMIN,
+             ISD::SRA,
+             ISD::SRL,
+             ISD::SUB,
+             ISD::UMAX,
+             ISD::UMIN,
+             ISD::XOR,
+             ISD::MSTORE,
+             ISD::BITCAST,
          })
       setOperationAction(Op, MVT::v8i32, Legal);
 
