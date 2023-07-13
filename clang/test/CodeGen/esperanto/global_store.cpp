@@ -10,20 +10,17 @@ void global_store(GLOBAL int *P, int c) { *P = c; }
 // CHECK: 	fmv.w.x	ft0, zero
 // CHECK-NEXT: 	mov.m.x	m0, zero, 1
 // CHECK-NEXT: 	fbcx.ps	ft1, a1
-// CHECK-NEXT: 	mov.m.x	m0, zero, 1
 // CHECK-NEXT: 	fscbg.ps	ft1, ft0(a0)
 // CHECK-NEXT: 	ret
 // CHECK: _Z12global_storePU3AS2ss:
 // CHECK: 	fmv.w.x	ft0, zero
 // CHECK-NEXT: 	mov.m.x	m0, zero, 1
 // CHECK-NEXT: 	fbcx.ps	ft1, a1
-// CHECK-NEXT: 	mov.m.x	m0, zero, 1
 // CHECK-NEXT: 	fschg.ps	ft1, ft0(a0)
 // CHECK-NEXT: 	ret
 // CHECK: _Z12global_storePU3AS2ii:
 // CHECK: 	fmv.w.x	ft0, zero
 // CHECK-NEXT: 	mov.m.x	m0, zero, 1
 // CHECK-NEXT: 	fbcx.ps	ft1, a1
-// CHECK-NEXT: 	mov.m.x	m0, zero, 1
 // CHECK-NEXT: 	fscwg.ps	ft1, ft0(a0)
 // CHECK-NEXT: 	ret

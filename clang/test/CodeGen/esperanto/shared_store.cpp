@@ -10,20 +10,17 @@ void shared_store(SHARED int *P, int c) { *P = c; }
 // CHECK: 	fmv.w.x	ft0, zero
 // CHECK-NEXT: 	mov.m.x	m0, zero, 1
 // CHECK-NEXT: 	fbcx.ps	ft1, a1
-// CHECK-NEXT: 	mov.m.x	m0, zero, 1
 // CHECK-NEXT: 	fscbl.ps	ft1, ft0(a0)
 // CHECK-NEXT: 	ret
 // CHECK: _Z12shared_storePU3AS1ss:
 // CHECK: 	fmv.w.x	ft0, zero
 // CHECK-NEXT: 	mov.m.x	m0, zero, 1
 // CHECK-NEXT: 	fbcx.ps	ft1, a1
-// CHECK-NEXT: 	mov.m.x	m0, zero, 1
 // CHECK-NEXT: 	fschl.ps	ft1, ft0(a0)
 // CHECK-NEXT: 	ret
 // CHECK: _Z12shared_storePU3AS1ii:
 // CHECK: 	fmv.w.x	ft0, zero
 // CHECK-NEXT: 	mov.m.x	m0, zero, 1
 // CHECK-NEXT: 	fbcx.ps	ft1, a1
-// CHECK-NEXT: 	mov.m.x	m0, zero, 1
 // CHECK-NEXT: 	fscwl.ps	ft1, ft0(a0)
 // CHECK-NEXT: 	ret
