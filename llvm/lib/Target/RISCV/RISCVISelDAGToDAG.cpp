@@ -1301,7 +1301,7 @@ void RISCVDAGToDAGISel::esperantoMemop(MemSDNode *M, SDValue Value,
                                        SDValue Addr, SDValue PassThru,
                                        SDValue Mask, ISD::LoadExtType Ext) {
   unsigned MemWidth = M->getMemoryVT().getScalarSizeInBits();
-  if (MemWidth > 32 || (M->getAddressSpace() == 0 && MemWidth == 32))
+  if (MemWidth > 32 || (M->getAddressSpace() == 0))
     return;
   unsigned Opcode;
   unsigned TruncateMask = 0; // target operations only do sign extensions so

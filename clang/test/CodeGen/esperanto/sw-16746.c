@@ -22,18 +22,11 @@ void f() {
 }
 // CHECK: f:
 // CHECK: 	addi	sp, sp, -16
-// CHECK-NEXT: 	fmv.w.x	ft0, zero
 // CHECK-NEXT: 	lui	a0, 1
 // CHECK-NEXT: 	addiw	a0, a0, 564
 // CHECK-NEXT: 	addi	a1, sp, 14
 // CHECK: 	shg	a0, (a1)
-// CHECK: 	mov.m.x	m0, zero, 1
-// CHECK-NEXT: 	fgh.ps	ft0, ft0(a1)
-// CHECK-NEXT: 	mov.m.x	m1, zero, 1
-// CHECK-NEXT: 	fmvz.x.ps	a1, ft0, 0
-// CHECK-NEXT: 	lui	a2, 16
-// CHECK-NEXT: 	addiw	a2, a2, -1
-// CHECK-NEXT: 	and	a1, a1, a2
+// CHECK: 	lhu	a1, 14(sp)
 // CHECK: 	shg	a0, (a1)
 // CHECK-NEXT: 	shg	a0, (a1)
 // CHECK: 	addi	sp, sp, 16
