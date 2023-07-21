@@ -1884,6 +1884,10 @@ def ftime_trace_granularity_EQ : Joined<["-"], "ftime-trace-granularity=">, Grou
   HelpText<"Minimum time granularity (in microseconds) traced by time profiler">,
   Flags<[CC1Option, CoreOption]>;
 def ftlsmodel_EQ : Joined<["-"], "ftls-model=">, Group<f_Group>, Flags<[CC1Option]>;
+def fextern_tls_init : Flag<["-"], "fextern-tls-init">, Group<f_Group>, Flags<[CC1Option]>,
+  HelpText<"Enable dynamic (runtime) initialization for TLS variables defined in other translation units (default)">;
+def fno_extern_tls_init : Flag<["-"], "fno-extern-tls-init">, Group<f_Group>, Flags<[CC1Option]>,
+  HelpText<"Disable dynamic (runtime) initialization for TLS variables defined in other translation units">;
 def ftrapv : Flag<["-"], "ftrapv">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Trap on integer overflow">;
 def ftrapv_handler_EQ : Joined<["-"], "ftrapv-handler=">, Group<f_Group>,

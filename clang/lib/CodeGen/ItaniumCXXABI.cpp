@@ -2815,7 +2815,7 @@ void ItaniumCXXABI::EmitThreadLocalInitFuncs(
           Fn->setCallingConv(llvm::CallingConv::CXX_FAST_TLS);
         }
       }
-    } else {
+    } else if (!CGM.getCodeGenOpts().DisableExternTlsInit) {
       // Don't know whether we have an init function. Call it if it exists.
       llvm::Value *Have = Builder.CreateIsNotNull(Init);
       llvm::BasicBlock *InitBB = llvm::BasicBlock::Create(Context, "", Wrapper);

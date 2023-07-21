@@ -69,6 +69,8 @@ CODEGENOPT(EmitCallSiteInfo, 1, 0) ///< Emit call site info only in the case of
                                    ///< '-g' + 'O>0' level.
 CODEGENOPT(IndirectTlsSegRefs, 1, 0) ///< Set when -mno-tls-direct-seg-refs
                                      ///< is specified.
+CODEGENOPT(DisableExternTlsInit, 1, 0) ///< Set when -fno-extern-tls-init
+                                       ///< is specified.
 CODEGENOPT(DisableTailCalls  , 1, 0) ///< Do not emit tail calls.
 CODEGENOPT(NoEscapingBlockTailCalls, 1, 0) ///< Do not emit tail calls from
                                            ///< escaping blocks.
