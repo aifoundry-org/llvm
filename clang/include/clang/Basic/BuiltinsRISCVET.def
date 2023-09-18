@@ -8,6 +8,7 @@
 
 BUILTIN(__builtin_riscv_iota,"v8i", "")
 BUILTIN(__builtin_riscv_hartid,"Li", "")
+BUILTIN(__builtin_riscv_fmv_x_w,"Lif", "")
 BUILTIN(__builtin_riscv_amoaddg_d,"LiLii*", "")
 BUILTIN(__builtin_riscv_amoaddg_w,"LiLii*", "")
 BUILTIN(__builtin_riscv_amoaddl_d,"LiLii*", "")

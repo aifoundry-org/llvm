@@ -25,6 +25,11 @@ def int_riscv_iota :
 def int_riscv_hartid :
   GCCBuiltin<"__builtin_riscv_hartid">,
   Intrinsic<[llvm_i64_ty],[], [IntrNoMem]>;
+def int_riscv_fmv_x_w :
+  GCCBuiltin<"__builtin_riscv_fmv_x_w">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_float_ty],
+            [IntrNoMem]>;
 
 def int_riscv_amoaddg_d :
   GCCBuiltin<"__builtin_riscv_amoaddg_d">,

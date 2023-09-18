@@ -60,6 +60,11 @@ def int_riscv_iota :
 def int_riscv_hartid :
   GCCBuiltin<"__builtin_{target_prefix}_hartid">,
   Intrinsic<[llvm_i64_ty],[], [IntrNoMem]>;
+def int_riscv_fmv_x_w :
+  GCCBuiltin<"__builtin_riscv_fmv_x_w">,
+  Intrinsic<[llvm_i64_ty],
+            [llvm_float_ty],
+            [IntrNoMem]>;
 ''', file=intrinsics)
     builtins = initOutput("BuiltinsRISCVET.def")
     print(f'''\
@@ -71,8 +76,12 @@ def int_riscv_hartid :
 #endif
 
 BUILTIN(__builtin_riscv_iota,"v8i", "")
-BUILTIN(__builtin_riscv_hartid,"Li", "")''', file=builtins)
+BUILTIN(__builtin_riscv_hartid,"Li", "")
+BUILTIN(__builtin_riscv_fmv_x_w,"Lif", "")''', file=builtins)
     patterns = initOutput("RISCVInstrInfoEsperantoPatterns.td")
+    print(f'''\
+
+def : EspPat<(int_riscv_fmv_x_w FPR32:$rs1), (FMV_X_W $rs1)>;''', file=patterns)
 
 
     records = getRecords();
