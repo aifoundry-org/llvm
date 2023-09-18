@@ -849,7 +849,7 @@ static SDValue buildComplexIntegerVector(SDNode *N, SelectionDAG *CurDAG) {
       for (auto &Pair : Immediates) {
         assert(isIntN(10, Pair.second));
         Value = SDValue(CurDAG->getMachineNode(
-                            RISCV::FBCI_PI_EX, SDLoc(N), VT, Value,
+                            RISCV::FBCI_PI_PASSTHRU_EX, SDLoc(N), VT, Value,
                             CurDAG->getTargetConstant(Pair.first, DL, MVT::i32),
                             mask(Pair.second)),
                         0);
@@ -861,13 +861,13 @@ static SDValue buildComplexIntegerVector(SDNode *N, SelectionDAG *CurDAG) {
     // Initialize the value to Min in all lanes
     Value =
         SDValue(CurDAG->getMachineNode(
-                    RISCV::FBCI_PI_EX, SDLoc(N), VT, Value,
+                    RISCV::FBCI_PI_PASSTHRU_EX, SDLoc(N), VT, Value,
                     CurDAG->getTargetConstant(*Min, DL, MVT::i32), mask(0xff)),
                 0);
     // Now build remaining values a few bits at a time
     for (Bit2LaneElt &Bits : Bits2Lanes)
       Value = SDValue(CurDAG->getMachineNode(
-                          RISCV::FADDI_PI_EX, DL, VT,
+                          RISCV::FADDI_PI_PASSTHRU_EX, DL, VT,
                           {Value, Value,
                            CurDAG->getTargetConstant(Bits.Value, DL, MVT::i32),
                            mask(Bits.Lanes)}),
@@ -877,7 +877,7 @@ static SDValue buildComplexIntegerVector(SDNode *N, SelectionDAG *CurDAG) {
   // Now broadcast other immediates fitting as 20 bits unsigned integer
   for (auto &Pair : OtherUint20Immediates) {
     SDValue v0 = CurDAG->getTargetConstant(Pair.first, DL, MVT::i32);
-    Value = SDValue(CurDAG->getMachineNode(RISCV::FBCI_PI_EX, SDLoc(N), VT,
+    Value = SDValue(CurDAG->getMachineNode(RISCV::FBCI_PI_PASSTHRU_EX, SDLoc(N), VT,
                                            Value, v0, mask(Pair.second)),
                     0);
   }
@@ -895,33 +895,33 @@ static SDValue buildComplexIntegerVector(SDNode *N, SelectionDAG *CurDAG) {
     SDValue ten = CurDAG->getTargetConstant(10, DL, MVT::i32);
     SDValue two = CurDAG->getTargetConstant(2, DL, MVT::i32);
 
-    Value = SDValue(CurDAG->getMachineNode(RISCV::FBCI_PI_EX, SDLoc(N), VT,
+    Value = SDValue(CurDAG->getMachineNode(RISCV::FBCI_PI_PASSTHRU_EX, SDLoc(N), VT,
                                            Value, v0, mask(Pair.second)),
                     0);
     if (bits0) {
       Value = SDValue(
-          CurDAG->getMachineNode(RISCV::FSLLI_PI_EX, DL, VT,
+          CurDAG->getMachineNode(RISCV::FSLLI_PI_PASSTHRU_EX, DL, VT,
                                  {Value, Value, ten, mask(Pair.second)}),
           0);
     }
 
     if (bits1) {
       Value =
-          SDValue(CurDAG->getMachineNode(RISCV::FADDI_PI_EX, DL, VT,
+          SDValue(CurDAG->getMachineNode(RISCV::FADDI_PI_PASSTHRU_EX, DL, VT,
                                          {Value, Value, v1, mask(Pair.second)}),
                   0);
     }
 
     if (bits0 or bits1) {
       Value = SDValue(
-          CurDAG->getMachineNode(RISCV::FSLLI_PI_EX, DL, VT,
+          CurDAG->getMachineNode(RISCV::FSLLI_PI_PASSTHRU_EX, DL, VT,
                                  {Value, Value, two, mask(Pair.second)}),
           0);
     }
 
     if (bits2) {
       Value =
-          SDValue(CurDAG->getMachineNode(RISCV::FADDI_PI_EX, DL, VT,
+          SDValue(CurDAG->getMachineNode(RISCV::FADDI_PI_PASSTHRU_EX, DL, VT,
                                          {Value, Value, v2, mask(Pair.second)}),
                   0);
     }
@@ -931,7 +931,7 @@ static SDValue buildComplexIntegerVector(SDNode *N, SelectionDAG *CurDAG) {
   // value spanning multiple lanes.
   for (auto &Pair : NonImmediateLanes)
     Value =
-        SDValue(CurDAG->getMachineNode(RISCV::FBCX_PS_EX, SDLoc(N), VT, Value,
+        SDValue(CurDAG->getMachineNode(RISCV::FBCX_PS_PASSTHRU_EX, SDLoc(N), VT, Value,
                                        Pair.first, mask(Pair.second)),
                 0);
 
@@ -997,7 +997,7 @@ void RISCVDAGToDAGISel::esperantoBUILD_VECTOR(SDNode *N) {
       return false;
     SDValue NewC = CurDAG->getTargetConstant(V20, SDLoc(N), MVT::i64);
     SDNode *NewN = CurDAG->getMachineNode(
-        RISCV::FBCI_PS_EX, SDLoc(N), N->getVTList(), {Input, NewC, M0Mask});
+        RISCV::FBCI_PS_PASSTHRU_EX, SDLoc(N), N->getVTList(), {Input, NewC, M0Mask});
     ReplaceNode(N, NewN);
     return true;
   };
@@ -1065,7 +1065,7 @@ void RISCVDAGToDAGISel::esperantoBUILD_VECTOR(SDNode *N) {
         CurDAG->getMachineNode(RISCV::FMV_X_W, SDLoc(N), MVT::i64, Model), 0);
   }
 
-  SDNode *NewN = CurDAG->getMachineNode(RISCV::FBCX_PS_EX, SDLoc(N),
+  SDNode *NewN = CurDAG->getMachineNode(RISCV::FBCX_PS_PASSTHRU_EX, SDLoc(N),
                                         N->getVTList(), {Input, Model, M0Mask});
   ReplaceNode(N, NewN);
 }
@@ -1112,7 +1112,7 @@ void RISCVDAGToDAGISel::esperantoINSERT_VECTOR_ELT(SDNode *I) {
   if (auto *C = dyn_cast<ConstantSDNode>(InputElt)) {
     if (isInt<20>(C->getSExtValue())) {
       SDNode *NewN = CurDAG->getMachineNode(
-          RISCV::FBCI_PI_EX, DL, I->getValueType(0), InputVec,
+          RISCV::FBCI_PI_PASSTHRU_EX, DL, I->getValueType(0), InputVec,
           CurDAG->getTargetConstant(C->getSExtValue(), DL, MVT::i32), Mask);
       ReplaceNode(I, NewN);
       return;
@@ -1123,7 +1123,7 @@ void RISCVDAGToDAGISel::esperantoINSERT_VECTOR_ELT(SDNode *I) {
         CurDAG->getMachineNode(RISCV::FMV_X_W, DL, MVT::i32, InputElt), 0);
   // TODO -- handle FBCI_PS
   SDNode *NewN = CurDAG->getMachineNode(
-      RISCV::FBCX_PS_EX, DL, I->getValueType(0), InputVec, InputElt, Mask);
+      RISCV::FBCX_PS_PASSTHRU_EX, DL, I->getValueType(0), InputVec, InputElt, Mask);
   ReplaceNode(I, NewN);
 }
 
@@ -1146,7 +1146,7 @@ void RISCVDAGToDAGISel::esperantoVECTOR_SHUFFLE(SDNode *N) {
                           0);
   SDValue AllLanes = CurDAG->getConstant(1, SDLoc(N), MVT::v8i1);
   SDNode *NewN = CurDAG->getMachineNode(
-      RISCV::FSWIZZ_PS_EX, SDLoc(N), N->getValueType(0),
+      RISCV::FSWIZZ_PS_PASSTHRU_EX, SDLoc(N), N->getValueType(0),
       {Input, N->getOperand(0),
        CurDAG->getTargetConstant(MaskValue, SDLoc(N), MVT::i32),
        AllLanes}); // All Lanes Mask
@@ -1249,9 +1249,9 @@ static void getLoadParams(MemSDNode *M, ISD::LoadExtType Ext, unsigned *Opcode,
                           unsigned *TruncateMask) {
   unsigned AddrSpace = M->getAddressSpace();
   static unsigned OpMap[9] = {
-      RISCV::FGB_PS_EX, RISCV::FGBL_PS_EX, RISCV::FGBG_PS_EX,
-      RISCV::FGH_PS_EX, RISCV::FGHL_PS_EX, RISCV::FGHG_PS_EX,
-      RISCV::FGW_PS_EX, RISCV::FGWL_PS_EX, RISCV::FGWG_PS_EX,
+      RISCV::FGB_PS_PASSTHRU_EX, RISCV::FGBL_PS_PASSTHRU_EX, RISCV::FGBG_PS_PASSTHRU_EX,
+      RISCV::FGH_PS_PASSTHRU_EX, RISCV::FGHL_PS_PASSTHRU_EX, RISCV::FGHG_PS_PASSTHRU_EX,
+      RISCV::FGW_PS_PASSTHRU_EX, RISCV::FGWL_PS_PASSTHRU_EX, RISCV::FGWG_PS_PASSTHRU_EX,
   };
 
   switch (M->getMemoryVT().getScalarSizeInBits()) {
@@ -1337,7 +1337,7 @@ void RISCVDAGToDAGISel::esperantoMemop(MemSDNode *M, SDValue Value,
   SDValue IndexVec;
   if (isVector) {
     IndexVec = SDValue(CurDAG->getMachineNode(
-                           RISCV::FBCX_PS_EX, SDLoc(M), MVT::v8i32,
+                           RISCV::FBCX_PS_PASSTHRU_EX, SDLoc(M), MVT::v8i32,
                            {UndefVec, ZeroReg, mask(isVector ? 0xff : 0x1)}),
                        0);
     // This is generally done earlier in RISCVOPtimizeMemIntrinsics but
@@ -1346,7 +1346,7 @@ void RISCVDAGToDAGISel::esperantoMemop(MemSDNode *M, SDValue Value,
     // (TODO: one example Jira ESP-462)
     for (unsigned Idx = 1; Idx < 8; Idx++)
       IndexVec = SDValue(
-          CurDAG->getMachineNode(RISCV::FBCI_PI_EX, SDLoc(M), MVT::v8i32,
+          CurDAG->getMachineNode(RISCV::FBCI_PI_PASSTHRU_EX, SDLoc(M), MVT::v8i32,
                                  {IndexVec, constant(Idx), mask(1 << Idx)}),
           0);
     if (MemWidth > 8)
@@ -1418,7 +1418,7 @@ void RISCVDAGToDAGISel::esperantoMemop(MemSDNode *M, SDValue Value,
       } else {
         // Copy the value into the vector register file
         Value =
-            SDValue(CurDAG->getMachineNode(RISCV::FBCX_PS_EX, SDLoc(M),
+            SDValue(CurDAG->getMachineNode(RISCV::FBCX_PS_PASSTHRU_EX, SDLoc(M),
                                            MVT::v8i32, {UndefVec, Value, Mask}),
                     0);
       }
@@ -1634,7 +1634,7 @@ private:
         continue;
       }
 
-      if (MI.getOpcode() == RISCV::FCMOV_PS_EX)
+      if (MI.getOpcode() == RISCV::FCMOV_PS_PASSTHRU_EX)
         continue;
       if (MI.getOpcode() == RISCV::FCMOVM_PS_EX)
         continue;

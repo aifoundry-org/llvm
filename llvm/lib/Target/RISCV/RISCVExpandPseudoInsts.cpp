@@ -102,71 +102,139 @@ static Optional<unsigned> getImplicitOpcode(unsigned Opcode) {
     return None;
   case RISCV::CUBEFACEIDX_PS_EX:
     return RISCV::CUBEFACEIDX_PS;
+  case RISCV::CUBEFACEIDX_PS_PASSTHRU_EX:
+    return RISCV::CUBEFACEIDX_PS;
   case RISCV::CUBEFACE_PS_EX:
+    return RISCV::CUBEFACE_PS;
+  case RISCV::CUBEFACE_PS_PASSTHRU_EX:
     return RISCV::CUBEFACE_PS;
   case RISCV::CUBESGNSC_PS_EX:
     return RISCV::CUBESGNSC_PS;
+  case RISCV::CUBESGNSC_PS_PASSTHRU_EX:
+    return RISCV::CUBESGNSC_PS;
   case RISCV::CUBESGNTC_PS_EX:
+    return RISCV::CUBESGNTC_PS;
+  case RISCV::CUBESGNTC_PS_PASSTHRU_EX:
     return RISCV::CUBESGNTC_PS;
   case RISCV::FADDI_PI_EX:
     return RISCV::FADDI_PI;
+  case RISCV::FADDI_PI_PASSTHRU_EX:
+    return RISCV::FADDI_PI;
   case RISCV::FADD_PI_EX:
+    return RISCV::FADD_PI;
+  case RISCV::FADD_PI_PASSTHRU_EX:
     return RISCV::FADD_PI;
   case RISCV::FADD_PS_EX:
     return RISCV::FADD_PS;
+  case RISCV::FADD_PS_PASSTHRU_EX:
+    return RISCV::FADD_PS;
   case RISCV::FAMOADDG_PI_EX:
+    return RISCV::FAMOADDG_PI;
+  case RISCV::FAMOADDG_PI_PASSTHRU_EX:
     return RISCV::FAMOADDG_PI;
   case RISCV::FAMOADDL_PI_EX:
     return RISCV::FAMOADDL_PI;
+  case RISCV::FAMOADDL_PI_PASSTHRU_EX:
+    return RISCV::FAMOADDL_PI;
   case RISCV::FAMOANDG_PI_EX:
+    return RISCV::FAMOANDG_PI;
+  case RISCV::FAMOANDG_PI_PASSTHRU_EX:
     return RISCV::FAMOANDG_PI;
   case RISCV::FAMOANDL_PI_EX:
     return RISCV::FAMOANDL_PI;
+  case RISCV::FAMOANDL_PI_PASSTHRU_EX:
+    return RISCV::FAMOANDL_PI;
   case RISCV::FAMOMAXG_PI_EX:
+    return RISCV::FAMOMAXG_PI;
+  case RISCV::FAMOMAXG_PI_PASSTHRU_EX:
     return RISCV::FAMOMAXG_PI;
   case RISCV::FAMOMAXG_PS_EX:
     return RISCV::FAMOMAXG_PS;
+  case RISCV::FAMOMAXG_PS_PASSTHRU_EX:
+    return RISCV::FAMOMAXG_PS;
   case RISCV::FAMOMAXL_PI_EX:
+    return RISCV::FAMOMAXL_PI;
+  case RISCV::FAMOMAXL_PI_PASSTHRU_EX:
     return RISCV::FAMOMAXL_PI;
   case RISCV::FAMOMAXL_PS_EX:
     return RISCV::FAMOMAXL_PS;
+  case RISCV::FAMOMAXL_PS_PASSTHRU_EX:
+    return RISCV::FAMOMAXL_PS;
   case RISCV::FAMOMAXUG_PI_EX:
+    return RISCV::FAMOMAXUG_PI;
+  case RISCV::FAMOMAXUG_PI_PASSTHRU_EX:
     return RISCV::FAMOMAXUG_PI;
   case RISCV::FAMOMAXUL_PI_EX:
     return RISCV::FAMOMAXUL_PI;
+  case RISCV::FAMOMAXUL_PI_PASSTHRU_EX:
+    return RISCV::FAMOMAXUL_PI;
   case RISCV::FAMOMING_PI_EX:
+    return RISCV::FAMOMING_PI;
+  case RISCV::FAMOMING_PI_PASSTHRU_EX:
     return RISCV::FAMOMING_PI;
   case RISCV::FAMOMING_PS_EX:
     return RISCV::FAMOMING_PS;
+  case RISCV::FAMOMING_PS_PASSTHRU_EX:
+    return RISCV::FAMOMING_PS;
   case RISCV::FAMOMINL_PI_EX:
+    return RISCV::FAMOMINL_PI;
+  case RISCV::FAMOMINL_PI_PASSTHRU_EX:
     return RISCV::FAMOMINL_PI;
   case RISCV::FAMOMINL_PS_EX:
     return RISCV::FAMOMINL_PS;
+  case RISCV::FAMOMINL_PS_PASSTHRU_EX:
+    return RISCV::FAMOMINL_PS;
   case RISCV::FAMOMINUG_PI_EX:
+    return RISCV::FAMOMINUG_PI;
+  case RISCV::FAMOMINUG_PI_PASSTHRU_EX:
     return RISCV::FAMOMINUG_PI;
   case RISCV::FAMOMINUL_PI_EX:
     return RISCV::FAMOMINUL_PI;
+  case RISCV::FAMOMINUL_PI_PASSTHRU_EX:
+    return RISCV::FAMOMINUL_PI;
   case RISCV::FAMOORG_PI_EX:
+    return RISCV::FAMOORG_PI;
+  case RISCV::FAMOORG_PI_PASSTHRU_EX:
     return RISCV::FAMOORG_PI;
   case RISCV::FAMOORL_PI_EX:
     return RISCV::FAMOORL_PI;
+  case RISCV::FAMOORL_PI_PASSTHRU_EX:
+    return RISCV::FAMOORL_PI;
   case RISCV::FAMOSWAPG_PI_EX:
+    return RISCV::FAMOSWAPG_PI;
+  case RISCV::FAMOSWAPG_PI_PASSTHRU_EX:
     return RISCV::FAMOSWAPG_PI;
   case RISCV::FAMOSWAPL_PI_EX:
     return RISCV::FAMOSWAPL_PI;
+  case RISCV::FAMOSWAPL_PI_PASSTHRU_EX:
+    return RISCV::FAMOSWAPL_PI;
   case RISCV::FAMOXORG_PI_EX:
+    return RISCV::FAMOXORG_PI;
+  case RISCV::FAMOXORG_PI_PASSTHRU_EX:
     return RISCV::FAMOXORG_PI;
   case RISCV::FAMOXORL_PI_EX:
     return RISCV::FAMOXORL_PI;
+  case RISCV::FAMOXORL_PI_PASSTHRU_EX:
+    return RISCV::FAMOXORL_PI;
   case RISCV::FANDI_PI_EX:
+    return RISCV::FANDI_PI;
+  case RISCV::FANDI_PI_PASSTHRU_EX:
     return RISCV::FANDI_PI;
   case RISCV::FAND_PI_EX:
     return RISCV::FAND_PI;
+  case RISCV::FAND_PI_PASSTHRU_EX:
+    return RISCV::FAND_PI;
   case RISCV::FBCI_PI_EX:
+    return RISCV::FBCI_PI;
+  case RISCV::FBCI_PI_PASSTHRU_EX:
     return RISCV::FBCI_PI;
   case RISCV::FBCI_PS_EX:
     return RISCV::FBCI_PS;
+  case RISCV::FBCI_PS_PASSTHRU_EX:
+    return RISCV::FBCI_PS;
   case RISCV::FBCX_PS_EX:
+    return RISCV::FBCX_PS;
+  case RISCV::FBCX_PS_PASSTHRU_EX:
     return RISCV::FBCX_PS;
   case RISCV::FBC_PS_EX:
     return RISCV::FBC_PS;
@@ -176,73 +244,143 @@ static Optional<unsigned> getImplicitOpcode(unsigned Opcode) {
     return RISCV::FCMOVM_PS;
   case RISCV::FCMOV_PS_EX:
     return RISCV::FCMOV_PS;
+  case RISCV::FCMOV_PS_PASSTHRU_EX:
+    return RISCV::FCMOV_PS;
   case RISCV::FCVT_F10_PS_EX:
+    return RISCV::FCVT_F10_PS;
+  case RISCV::FCVT_F10_PS_PASSTHRU_EX:
     return RISCV::FCVT_F10_PS;
   case RISCV::FCVT_F11_PS_EX:
     return RISCV::FCVT_F11_PS;
+  case RISCV::FCVT_F11_PS_PASSTHRU_EX:
+    return RISCV::FCVT_F11_PS;
   case RISCV::FCVT_F16_PS_EX:
+    return RISCV::FCVT_F16_PS;
+  case RISCV::FCVT_F16_PS_PASSTHRU_EX:
     return RISCV::FCVT_F16_PS;
   case RISCV::FCVT_PS_F10_EX:
     return RISCV::FCVT_PS_F10;
+  case RISCV::FCVT_PS_F10_PASSTHRU_EX:
+    return RISCV::FCVT_PS_F10;
   case RISCV::FCVT_PS_F11_EX:
+    return RISCV::FCVT_PS_F11;
+  case RISCV::FCVT_PS_F11_PASSTHRU_EX:
     return RISCV::FCVT_PS_F11;
   case RISCV::FCVT_PS_F16_EX:
     return RISCV::FCVT_PS_F16;
+  case RISCV::FCVT_PS_F16_PASSTHRU_EX:
+    return RISCV::FCVT_PS_F16;
   case RISCV::FCVT_PS_PWU_EX:
+    return RISCV::FCVT_PS_PWU;
+  case RISCV::FCVT_PS_PWU_PASSTHRU_EX:
     return RISCV::FCVT_PS_PWU;
   case RISCV::FCVT_PS_PW_EX:
     return RISCV::FCVT_PS_PW;
+  case RISCV::FCVT_PS_PW_PASSTHRU_EX:
+    return RISCV::FCVT_PS_PW;
   case RISCV::FCVT_PS_RAST_EX:
+    return RISCV::FCVT_PS_RAST;
+  case RISCV::FCVT_PS_RAST_PASSTHRU_EX:
     return RISCV::FCVT_PS_RAST;
   case RISCV::FCVT_PS_SN16_EX:
     return RISCV::FCVT_PS_SN16;
+  case RISCV::FCVT_PS_SN16_PASSTHRU_EX:
+    return RISCV::FCVT_PS_SN16;
   case RISCV::FCVT_PS_SN8_EX:
+    return RISCV::FCVT_PS_SN8;
+  case RISCV::FCVT_PS_SN8_PASSTHRU_EX:
     return RISCV::FCVT_PS_SN8;
   case RISCV::FCVT_PS_UN10_EX:
     return RISCV::FCVT_PS_UN10;
+  case RISCV::FCVT_PS_UN10_PASSTHRU_EX:
+    return RISCV::FCVT_PS_UN10;
   case RISCV::FCVT_PS_UN16_EX:
+    return RISCV::FCVT_PS_UN16;
+  case RISCV::FCVT_PS_UN16_PASSTHRU_EX:
     return RISCV::FCVT_PS_UN16;
   case RISCV::FCVT_PS_UN24_EX:
     return RISCV::FCVT_PS_UN24;
+  case RISCV::FCVT_PS_UN24_PASSTHRU_EX:
+    return RISCV::FCVT_PS_UN24;
   case RISCV::FCVT_PS_UN2_EX:
+    return RISCV::FCVT_PS_UN2;
+  case RISCV::FCVT_PS_UN2_PASSTHRU_EX:
     return RISCV::FCVT_PS_UN2;
   case RISCV::FCVT_PS_UN8_EX:
     return RISCV::FCVT_PS_UN8;
+  case RISCV::FCVT_PS_UN8_PASSTHRU_EX:
+    return RISCV::FCVT_PS_UN8;
   case RISCV::FCVT_PWU_PS_EX:
+    return RISCV::FCVT_PWU_PS;
+  case RISCV::FCVT_PWU_PS_PASSTHRU_EX:
     return RISCV::FCVT_PWU_PS;
   case RISCV::FCVT_PW_PS_EX:
     return RISCV::FCVT_PW_PS;
+  case RISCV::FCVT_PW_PS_PASSTHRU_EX:
+    return RISCV::FCVT_PW_PS;
   case RISCV::FCVT_RAST_PS_EX:
+    return RISCV::FCVT_RAST_PS;
+  case RISCV::FCVT_RAST_PS_PASSTHRU_EX:
     return RISCV::FCVT_RAST_PS;
   case RISCV::FCVT_SN16_PS_EX:
     return RISCV::FCVT_SN16_PS;
+  case RISCV::FCVT_SN16_PS_PASSTHRU_EX:
+    return RISCV::FCVT_SN16_PS;
   case RISCV::FCVT_SN8_PS_EX:
+    return RISCV::FCVT_SN8_PS;
+  case RISCV::FCVT_SN8_PS_PASSTHRU_EX:
     return RISCV::FCVT_SN8_PS;
   case RISCV::FCVT_UN10_PS_EX:
     return RISCV::FCVT_UN10_PS;
+  case RISCV::FCVT_UN10_PS_PASSTHRU_EX:
+    return RISCV::FCVT_UN10_PS;
   case RISCV::FCVT_UN16_PS_EX:
+    return RISCV::FCVT_UN16_PS;
+  case RISCV::FCVT_UN16_PS_PASSTHRU_EX:
     return RISCV::FCVT_UN16_PS;
   case RISCV::FCVT_UN24_PS_EX:
     return RISCV::FCVT_UN24_PS;
+  case RISCV::FCVT_UN24_PS_PASSTHRU_EX:
+    return RISCV::FCVT_UN24_PS;
   case RISCV::FCVT_UN2_PS_EX:
+    return RISCV::FCVT_UN2_PS;
+  case RISCV::FCVT_UN2_PS_PASSTHRU_EX:
     return RISCV::FCVT_UN2_PS;
   case RISCV::FCVT_UN8_PS_EX:
     return RISCV::FCVT_UN8_PS;
+  case RISCV::FCVT_UN8_PS_PASSTHRU_EX:
+    return RISCV::FCVT_UN8_PS;
   case RISCV::FDIVU_PI_EX:
+    return RISCV::FDIVU_PI;
+  case RISCV::FDIVU_PI_PASSTHRU_EX:
     return RISCV::FDIVU_PI;
   case RISCV::FDIV_PI_EX:
     return RISCV::FDIV_PI;
+  case RISCV::FDIV_PI_PASSTHRU_EX:
+    return RISCV::FDIV_PI;
   case RISCV::FDIV_PS_EX:
+    return RISCV::FDIV_PS;
+  case RISCV::FDIV_PS_PASSTHRU_EX:
     return RISCV::FDIV_PS;
   case RISCV::FEQM_PS_EX:
     return RISCV::FEQM_PS;
+  case RISCV::FEQM_PS_PASSTHRU_EX:
+    return RISCV::FEQM_PS;
   case RISCV::FEQ_PI_EX:
+    return RISCV::FEQ_PI;
+  case RISCV::FEQ_PI_PASSTHRU_EX:
     return RISCV::FEQ_PI;
   case RISCV::FEQ_PS_EX:
     return RISCV::FEQ_PS;
+  case RISCV::FEQ_PS_PASSTHRU_EX:
+    return RISCV::FEQ_PS;
   case RISCV::FEXP_PS_EX:
     return RISCV::FEXP_PS;
+  case RISCV::FEXP_PS_PASSTHRU_EX:
+    return RISCV::FEXP_PS;
   case RISCV::FFRC_PS_EX:
+    return RISCV::FFRC_PS;
+  case RISCV::FFRC_PS_PASSTHRU_EX:
     return RISCV::FFRC_PS;
   case RISCV::FG32B_PS_EX:
     return RISCV::FG32B_PS;
@@ -252,39 +390,75 @@ static Optional<unsigned> getImplicitOpcode(unsigned Opcode) {
     return RISCV::FG32W_PS;
   case RISCV::FGBG_PS_EX:
     return RISCV::FGBG_PS;
+  case RISCV::FGBG_PS_PASSTHRU_EX:
+    return RISCV::FGBG_PS;
   case RISCV::FGBL_PS_EX:
+    return RISCV::FGBL_PS;
+  case RISCV::FGBL_PS_PASSTHRU_EX:
     return RISCV::FGBL_PS;
   case RISCV::FGB_PS_EX:
     return RISCV::FGB_PS;
+  case RISCV::FGB_PS_PASSTHRU_EX:
+    return RISCV::FGB_PS;
   case RISCV::FGHG_PS_EX:
+    return RISCV::FGHG_PS;
+  case RISCV::FGHG_PS_PASSTHRU_EX:
     return RISCV::FGHG_PS;
   case RISCV::FGHL_PS_EX:
     return RISCV::FGHL_PS;
+  case RISCV::FGHL_PS_PASSTHRU_EX:
+    return RISCV::FGHL_PS;
   case RISCV::FGH_PS_EX:
+    return RISCV::FGH_PS;
+  case RISCV::FGH_PS_PASSTHRU_EX:
     return RISCV::FGH_PS;
   case RISCV::FGWG_PS_EX:
     return RISCV::FGWG_PS;
+  case RISCV::FGWG_PS_PASSTHRU_EX:
+    return RISCV::FGWG_PS;
   case RISCV::FGWL_PS_EX:
+    return RISCV::FGWL_PS;
+  case RISCV::FGWL_PS_PASSTHRU_EX:
     return RISCV::FGWL_PS;
   case RISCV::FGW_PS_EX:
     return RISCV::FGW_PS;
+  case RISCV::FGW_PS_PASSTHRU_EX:
+    return RISCV::FGW_PS;
   case RISCV::FLEM_PS_EX:
+    return RISCV::FLEM_PS;
+  case RISCV::FLEM_PS_PASSTHRU_EX:
     return RISCV::FLEM_PS;
   case RISCV::FLE_PI_EX:
     return RISCV::FLE_PI;
+  case RISCV::FLE_PI_PASSTHRU_EX:
+    return RISCV::FLE_PI;
   case RISCV::FLE_PS_EX:
+    return RISCV::FLE_PS;
+  case RISCV::FLE_PS_PASSTHRU_EX:
     return RISCV::FLE_PS;
   case RISCV::FLOG_PS_EX:
     return RISCV::FLOG_PS;
+  case RISCV::FLOG_PS_PASSTHRU_EX:
+    return RISCV::FLOG_PS;
   case RISCV::FLTM_PI_EX:
+    return RISCV::FLTM_PI;
+  case RISCV::FLTM_PI_PASSTHRU_EX:
     return RISCV::FLTM_PI;
   case RISCV::FLTM_PS_EX:
     return RISCV::FLTM_PS;
+  case RISCV::FLTM_PS_PASSTHRU_EX:
+    return RISCV::FLTM_PS;
   case RISCV::FLTU_PI_EX:
+    return RISCV::FLTU_PI;
+  case RISCV::FLTU_PI_PASSTHRU_EX:
     return RISCV::FLTU_PI;
   case RISCV::FLT_PI_EX:
     return RISCV::FLT_PI;
+  case RISCV::FLT_PI_PASSTHRU_EX:
+    return RISCV::FLT_PI;
   case RISCV::FLT_PS_EX:
+    return RISCV::FLT_PS;
+  case RISCV::FLT_PS_PASSTHRU_EX:
     return RISCV::FLT_PS;
   case RISCV::FLWG_PS_EX:
     return RISCV::FLWG_PS;
@@ -292,57 +466,109 @@ static Optional<unsigned> getImplicitOpcode(unsigned Opcode) {
     return RISCV::FLWL_PS;
   case RISCV::FLW_PS_EX:
     return RISCV::FLW_PS;
+  case RISCV::FLW_PS_PASSTHRU_EX:
+    return RISCV::FLW_PS;
   case RISCV::FMADD_PS_EX:
+    return RISCV::FMADD_PS;
+  case RISCV::FMADD_PS_PASSTHRU_EX:
     return RISCV::FMADD_PS;
   case RISCV::FMAXU_PI_EX:
     return RISCV::FMAXU_PI;
+  case RISCV::FMAXU_PI_PASSTHRU_EX:
+    return RISCV::FMAXU_PI;
   case RISCV::FMAX_PI_EX:
+    return RISCV::FMAX_PI;
+  case RISCV::FMAX_PI_PASSTHRU_EX:
     return RISCV::FMAX_PI;
   case RISCV::FMAX_PS_EX:
     return RISCV::FMAX_PS;
+  case RISCV::FMAX_PS_PASSTHRU_EX:
+    return RISCV::FMAX_PS;
   case RISCV::FMINU_PI_EX:
+    return RISCV::FMINU_PI;
+  case RISCV::FMINU_PI_PASSTHRU_EX:
     return RISCV::FMINU_PI;
   case RISCV::FMIN_PI_EX:
     return RISCV::FMIN_PI;
+  case RISCV::FMIN_PI_PASSTHRU_EX:
+    return RISCV::FMIN_PI;
   case RISCV::FMIN_PS_EX:
+    return RISCV::FMIN_PS;
+  case RISCV::FMIN_PS_PASSTHRU_EX:
     return RISCV::FMIN_PS;
   case RISCV::FMSUB_PS_EX:
     return RISCV::FMSUB_PS;
+  case RISCV::FMSUB_PS_PASSTHRU_EX:
+    return RISCV::FMSUB_PS;
   case RISCV::FMULHU_PI_EX:
+    return RISCV::FMULHU_PI;
+  case RISCV::FMULHU_PI_PASSTHRU_EX:
     return RISCV::FMULHU_PI;
   case RISCV::FMULH_PI_EX:
     return RISCV::FMULH_PI;
+  case RISCV::FMULH_PI_PASSTHRU_EX:
+    return RISCV::FMULH_PI;
   case RISCV::FMUL_PI_EX:
+    return RISCV::FMUL_PI;
+  case RISCV::FMUL_PI_PASSTHRU_EX:
     return RISCV::FMUL_PI;
   case RISCV::FMUL_PS_EX:
     return RISCV::FMUL_PS;
+  case RISCV::FMUL_PS_PASSTHRU_EX:
+    return RISCV::FMUL_PS;
   case RISCV::FNMADD_PS_EX:
+    return RISCV::FNMADD_PS;
+  case RISCV::FNMADD_PS_PASSTHRU_EX:
     return RISCV::FNMADD_PS;
   case RISCV::FNMSUB_PS_EX:
     return RISCV::FNMSUB_PS;
+  case RISCV::FNMSUB_PS_PASSTHRU_EX:
+    return RISCV::FNMSUB_PS;
   case RISCV::FNOT_PI_EX:
+    return RISCV::FNOT_PI;
+  case RISCV::FNOT_PI_PASSTHRU_EX:
     return RISCV::FNOT_PI;
   case RISCV::FOR_PI_EX:
     return RISCV::FOR_PI;
+  case RISCV::FOR_PI_PASSTHRU_EX:
+    return RISCV::FOR_PI;
   case RISCV::FPACKREPB_PI_EX:
+    return RISCV::FPACKREPB_PI;
+  case RISCV::FPACKREPB_PI_PASSTHRU_EX:
     return RISCV::FPACKREPB_PI;
   case RISCV::FPACKREPH_PI_EX:
     return RISCV::FPACKREPH_PI;
+  case RISCV::FPACKREPH_PI_PASSTHRU_EX:
+    return RISCV::FPACKREPH_PI;
   case RISCV::FRCP_FIX_RAST_EX:
+    return RISCV::FRCP_FIX_RAST;
+  case RISCV::FRCP_FIX_RAST_PASSTHRU_EX:
     return RISCV::FRCP_FIX_RAST;
   case RISCV::FRCP_PS_EX:
     return RISCV::FRCP_PS;
+  case RISCV::FRCP_PS_PASSTHRU_EX:
+    return RISCV::FRCP_PS;
   case RISCV::FREMU_PI_EX:
     return RISCV::FREMU_PI;
+  case RISCV::FREMU_PI_PASSTHRU_EX:
+    return RISCV::FREMU_PI;
   case RISCV::FREM_PI_EX:
+    return RISCV::FREM_PI;
+  case RISCV::FREM_PI_PASSTHRU_EX:
     return RISCV::FREM_PI;
   case RISCV::FROUND_PS_EX:
     return RISCV::FROUND_PS;
   case RISCV::FRSQ_PS_EX:
     return RISCV::FRSQ_PS;
+  case RISCV::FRSQ_PS_PASSTHRU_EX:
+    return RISCV::FRSQ_PS;
   case RISCV::FSAT8_PI_EX:
     return RISCV::FSAT8_PI;
+  case RISCV::FSAT8_PI_PASSTHRU_EX:
+    return RISCV::FSAT8_PI;
   case RISCV::FSATU8_PI_EX:
+    return RISCV::FSATU8_PI;
+  case RISCV::FSATU8_PI_PASSTHRU_EX:
     return RISCV::FSATU8_PI;
   case RISCV::FSC32B_PS_EX:
     return RISCV::FSC32B_PS;
@@ -370,41 +596,73 @@ static Optional<unsigned> getImplicitOpcode(unsigned Opcode) {
     return RISCV::FSCW_PS;
   case RISCV::FSETM_PI_EX:
     return RISCV::FSETM_PI;
+  case RISCV::FSETM_PI_PASSTHRU_EX:
+    return RISCV::FSETM_PI;
   case RISCV::FSGNJN_PS_EX:
+    return RISCV::FSGNJN_PS;
+  case RISCV::FSGNJN_PS_PASSTHRU_EX:
     return RISCV::FSGNJN_PS;
   case RISCV::FSGNJX_PS_EX:
     return RISCV::FSGNJX_PS;
+  case RISCV::FSGNJX_PS_PASSTHRU_EX:
+    return RISCV::FSGNJX_PS;
   case RISCV::FSGNJ_PS_EX:
+    return RISCV::FSGNJ_PS;
+  case RISCV::FSGNJ_PS_PASSTHRU_EX:
     return RISCV::FSGNJ_PS;
   case RISCV::FSIN_PS_EX:
     return RISCV::FSIN_PS;
+  case RISCV::FSIN_PS_PASSTHRU_EX:
+    return RISCV::FSIN_PS;
   case RISCV::FSLLI_PI_EX:
+    return RISCV::FSLLI_PI;
+  case RISCV::FSLLI_PI_PASSTHRU_EX:
     return RISCV::FSLLI_PI;
   case RISCV::FSLL_PI_EX:
     return RISCV::FSLL_PI;
+  case RISCV::FSLL_PI_PASSTHRU_EX:
+    return RISCV::FSLL_PI;
   case RISCV::FSQRT_PS_EX:
+    return RISCV::FSQRT_PS;
+  case RISCV::FSQRT_PS_PASSTHRU_EX:
     return RISCV::FSQRT_PS;
   case RISCV::FSRAI_PI_EX:
     return RISCV::FSRAI_PI;
+  case RISCV::FSRAI_PI_PASSTHRU_EX:
+    return RISCV::FSRAI_PI;
   case RISCV::FSRA_PI_EX:
+    return RISCV::FSRA_PI;
+  case RISCV::FSRA_PI_PASSTHRU_EX:
     return RISCV::FSRA_PI;
   case RISCV::FSRLI_PI_EX:
     return RISCV::FSRLI_PI;
+  case RISCV::FSRLI_PI_PASSTHRU_EX:
+    return RISCV::FSRLI_PI;
   case RISCV::FSRL_PI_EX:
+    return RISCV::FSRL_PI;
+  case RISCV::FSRL_PI_PASSTHRU_EX:
     return RISCV::FSRL_PI;
   case RISCV::FSUB_PI_EX:
     return RISCV::FSUB_PI;
+  case RISCV::FSUB_PI_PASSTHRU_EX:
+    return RISCV::FSUB_PI;
   case RISCV::FSUB_PS_EX:
+    return RISCV::FSUB_PS;
+  case RISCV::FSUB_PS_PASSTHRU_EX:
     return RISCV::FSUB_PS;
   case RISCV::FSWG_PS_EX:
     return RISCV::FSWG_PS;
   case RISCV::FSWIZZ_PS_EX:
+    return RISCV::FSWIZZ_PS;
+  case RISCV::FSWIZZ_PS_PASSTHRU_EX:
     return RISCV::FSWIZZ_PS;
   case RISCV::FSWL_PS_EX:
     return RISCV::FSWL_PS;
   case RISCV::FSW_PS_EX:
     return RISCV::FSW_PS;
   case RISCV::FXOR_PI_EX:
+    return RISCV::FXOR_PI;
+  case RISCV::FXOR_PI_PASSTHRU_EX:
     return RISCV::FXOR_PI;
   }
 }

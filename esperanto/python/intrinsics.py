@@ -96,6 +96,8 @@ def : EspPat<(int_riscv_fmv_x_w FPR32:$rs1), (FMV_X_W $rs1)>;''', file=patterns)
         # Exclude the MOVA operation as they are not modeled fully
         if any([r.name.startswith(p) for p in ["Stack", "MOVA"]]):
             continue
+        if any([r.name.endswith("_PASSTHRU_EX")]):
+            continue
         name = r.name.lower()
         isExplicit = r.name.endswith("_EX")
         builtinName = name[:-3] if isExplicit else name
@@ -188,10 +190,10 @@ def int_{target_prefix}_{builtinName}_m :
                 return f"({tx} {n})"
             return n
         intr_args = [ addType(op) for op in in_ops ]
-        if name.startswith("fcvt_ps_pw"):
-            intr_args[1] = "(v8i32 FPR256:$rs1)"
-        elif name.startswith("fcvt_pw"):
-            intr_args[0] = "(v8i32 FPR256:$in)"
+        # if name.startswith("fcvt_ps_pw"):
+        #     intr_args[1] = "(v8i32 FPR256:$rs1)"
+        # elif name.startswith("fcvt_pw"):
+        #     intr_args[0] = "(v8i32 FPR256:$in)"
         intr_args = ", ".join(intr_args)
         intr_out = [ addTX(op) for op in in_ops ]
         intr_out = ", ".join(intr_out)
