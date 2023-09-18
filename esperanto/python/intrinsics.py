@@ -190,10 +190,8 @@ def int_{target_prefix}_{builtinName}_m :
                 return f"({tx} {n})"
             return n
         intr_args = [ addType(op) for op in in_ops ]
-        # if name.startswith("fcvt_ps_pw"):
-        #     intr_args[1] = "(v8i32 FPR256:$rs1)"
-        # elif name.startswith("fcvt_pw"):
-        #     intr_args[0] = "(v8i32 FPR256:$in)"
+        if name.startswith("fcvt_ps_pw"):
+            intr_args[0] = "(v8i32 FPR256:$rs1)"
         intr_args = ", ".join(intr_args)
         intr_out = [ addTX(op) for op in in_ops ]
         intr_out = ", ".join(intr_out)
@@ -258,8 +256,6 @@ def getTypes(iname, ops, isFloat, maskType):
             typeList = ["llvm_v8i32_ty"]
     else: # inputs
         if iname.startswith("fcvt_ps_pw"):
-            typeList[1] = "llvm_v8i32_ty"
-        elif iname.startswith("fcvt_pw"):
             typeList[0] = "llvm_v8i32_ty"
     return typeList
 
@@ -308,8 +304,6 @@ def getBuiltinTypes(iname, ops, isFloat):
             typeList = ["V8i"]
     else: # inputs
         if iname.startswith("fcvt_ps_pw"):
-            typeList[1] = "V8i"
-        elif iname.startswith("fcvt_pw"):
             typeList[0] = "V8i"
 
     return "".join(typeList)
