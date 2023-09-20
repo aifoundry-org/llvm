@@ -48,7 +48,6 @@ def remove_prefix(text, prefix):
 
 class EsperantoLlvmConan(ConanFile):
     name = "esperanto-llvm"
-    version = "11.1.0"
     description = "The LLVM Project is a collection of modular and reusable compiler and toolchain technologies"
     url = "git@gitlab.com:esperantotech/software/esperanto-llvm.git"
     homepage = "https://gitlab.com/esperantotech/software/esperanto-llvm"
