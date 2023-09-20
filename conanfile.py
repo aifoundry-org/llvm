@@ -117,6 +117,23 @@ class EsperantoLlvmConan(ConanFile):
 
     python_requires = "conan-common/[>=1.1.0 <2.0.0]"
 
+    def set_version(self):
+        get_version_from_tag = self.python_requires["conan-common"].module.get_version_from_tag
+        gitlab_version_tag = get_version_from_tag()
+
+        cmake_llvm_version = "11.1.0" # DO NOT TOUCH THIS - SHOULD MATCH llvm/CMakeLists (LLVM_VERSION_MAJOR.LLVM_VERSION_MINOR.LLVM_VERSION_PATCH)
+        
+        upstream_version = Version(cmake_llvm_version)
+        
+        ############# <-----
+        esperanto_micro_version = "1" # EDIT THIS TO relase new esperanto-llvm versions
+        ############# <-----
+
+        pre = "-alpha" if gitlab_version_tag is None else ""
+        
+        esperanto_llvm_version = f"{upstream_version.major}.{upstream_version.minor}.{upstream_version.patch}.{esperanto_micro_version}{pre}"
+        self.version = Version(esperanto_llvm_version)
+    
     def export(self):
         register_scm_coordinates = self.python_requires["conan-common"].module.register_scm_coordinates
         register_scm_coordinates(self)
