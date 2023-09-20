@@ -5,6 +5,7 @@ include:
       - /rules/generic-workflow-conan.yaml
       - /jobs/generic-k8s-job.yaml
       - /pods/medium-pod.yaml
+      - /pods/large-pod.yaml
       - /jobs/check-top-of-master-template.yaml
       - /jobs/sw-platform-trigger-template.yaml
 
@@ -19,10 +20,8 @@ stages:
   - test
   - deploy
 
-
 variables:
   GIT_SUBMODULE_STRATEGY: none
-
 
 # Only run job in these cases:
 # - if it's a tag pipeline
@@ -55,12 +54,15 @@ variables:
 ###############################################################################
 
 check-on-top-of-master:
-  extends: .check-on-top-of-master
+  extends:
+    - .check-on-top-of-master
+    - .development_job
   stage: .pre
   needs: []
   rules:
     - *development_job_rule
-
+  variables:
+    TIMEOUT: 60m
 
 generate_build:conan:
   extends:
@@ -112,6 +114,94 @@ build:conan:
 ###############################################################################
 ###############################################################################
 
+.invoke_unit_tests:
+  extends:
+    - .pod_large
+    - .template_job
+    - .template-conan-linux-ubuntu18.04-gcc7
+  stage: test
+  needs:
+    - job: check-on-top-of-master
+      optional: true
+  rules:
+    - *development_job_rule
+  variables:
+    KUBERNETES_MEMORY_LIMIT: 128Gi
+    TIMEOUT: 2h
+
+test:llvm:
+  extends:
+    - .invoke_unit_tests
+  stage: test
+  parallel:
+    matrix:
+      - BUILD_TYPE:
+        - Debug
+        - Release
+  script:
+    - echo BUILD_TYPE=$BUILD_TYPE
+    - mkdir build
+    - cd build
+    - cmake ../llvm -G Ninja
+      -DLLVM_ENABLE_PROJECTS="clang;compiler-rt"
+      -DCMAKE_INSTALL_PREFIX=$HOME/opt/llvm
+      -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+      -DCMAKE_C_COMPILER=gcc
+      -DCMAKE_CXX_COMPILER=g++
+      -DCMAKE_CXX_FLAGS=-DESPERANTO
+      -DLLVM_TARGET_ARCH=riscv64
+      -DLLVM_TARGETS_TO_BUILD="RISCV"
+    - cmake --build .
+    - cmake --build . --target check-llvm-analysis-costmodel-riscv
+    # - cmake --build . --target check-llvm-codegen-riscv # SW-18612: uncomment when the bug is fixed
+    - cmake --build . --target check-llvm-debuginfo-riscv
+    - cmake --build . --target check-llvm-mc-disassembler-riscv
+    - cmake --build . --target check-llvm-mc-riscv
+    - cmake --build . --target check-llvm-object-riscv
+    - cmake --build . --target check-llvm-tools-llvm-dwarfdump-riscv
+    - cmake --build . --target check-llvm-tools-llvm-objdump-elf-riscv
+    - cmake --build . --target check-llvm-tools-llvm-readobj-elf-riscv
+    - cmake --build . --target check-llvm-transforms-atomicexpand-riscv
+    - cmake --build . --target check-llvm-transforms-constanthoisting-riscv
+    - cmake --build . --target check-llvm-transforms-simplifycfg-riscv
+
+###############################################################################
+###############################################################################
+###############################################################################
+
+test:conan:
+  extends:
+    - .invoke_unit_tests
+  stage: test
+  script:
+    - conan install . -pr:b default -pr:h
+      linux-ubuntu18.04-x86_64-gcc7-release
+      --build missing
+      -o esperanto-llvm:with_clang=True
+      -o esperanto-llvm:with_compiler-rt=True
+      -o esperanto-llvm:targets=RISCV
+    - echo Hello Pau! Put here your build and test recipe
+    #- cmake --preset release
+    #- cmake --build --preset release
+    #- cmake --build .
+    #- cmake --build . --target check-llvm-analysis-costmodel-riscv
+    #### - cmake --build . --target check-llvm-codegen-riscv # SW-18612: uncomment when the bug is fixed
+    #- cmake --build . --target check-llvm-debuginfo-riscv
+    #- cmake --build . --target check-llvm-mc-disassembler-riscv
+    #- cmake --build . --target check-llvm-mc-riscv
+    #- cmake --build . --target check-llvm-object-riscv
+    #- cmake --build . --target check-llvm-tools-llvm-dwarfdump-riscv
+    #- cmake --build . --target check-llvm-tools-llvm-objdump-elf-riscv
+    #- cmake --build . --target check-llvm-tools-llvm-readobj-elf-riscv
+    #- cmake --build . --target check-llvm-transforms-atomicexpand-riscv
+    #- cmake --build . --target check-llvm-transforms-constanthoisting-riscv
+    #- cmake --build . --target check-llvm-transforms-simplifycfg-riscv
+
+
+###############################################################################
+###############################################################################
+###############################################################################
+
 on_success:promote:
   extends:
     - .pod_medium
@@ -120,6 +210,10 @@ on_success:promote:
   stage: deploy
   needs:
     - build:conan
+    - job: test:conan
+      optional: true
+    - job: test:llvm
+      optional: true
   rules:
     - *release_job_rule
   variables:
