@@ -101,14 +101,12 @@ define i64 @_Z19inf_Float_To_Signedv() #0 {
 }
 
 ; Function Attrs: noinline nounwind optnone
-define i64 @_Z22negInf_Float_To_Signedf(float %0) #0 {
-  %2 = alloca float, align 4
-  %3 = alloca float, align 4
-  store float %0, float* %2, align 4
-  store float 0xFFF0000000000000, float* %3, align 4
-  %4 = load float, float* %3, align 4
-  %5 = fptosi float %4 to i64
-  ret i64 %5
+define i64 @_Z22negInf_Float_To_Signedv() #0 {
+  %1 = alloca float, align 4
+  store float 0xFFF0000000000000, float* %1, align 4
+  %2 = load float, float* %1, align 4
+  %3 = fptosi float %2 to i64
+  ret i64 %3
 }
 
 ; Function Attrs: noinline nounwind optnone
@@ -157,14 +155,12 @@ define i64 @_Z21inf_Float_To_Unsignedv() #0 {
 }
 
 ; Function Attrs: noinline nounwind optnone
-define i64 @_Z24negInf_Float_To_Unsignedf(float %0) #0 {
-  %2 = alloca float, align 4
-  %3 = alloca float, align 4
-  store float %0, float* %2, align 4
-  store float 0xFFF0000000000000, float* %3, align 4
-  %4 = load float, float* %3, align 4
-  %5 = fptoui float %4 to i64
-  ret i64 %5
+define i64 @_Z24negInf_Float_To_Unsignedv() #0 {
+  %1 = alloca float, align 4
+  store float 0xFFF0000000000000, float* %1, align 4
+  %2 = load float, float* %1, align 4
+  %3 = fptoui float %2 to i64
+  ret i64 %3
 }
 
 ; Function Attrs: noinline nounwind optnone
@@ -422,16 +418,15 @@ attributes #0 = { noinline nounwind optnone "correctly-rounded-divide-sqrt-fp-ma
 ; CHECK-NEXT: 	ld	ra, 24(sp)
 ; CHECK-NEXT: 	addi	sp, sp, 32
 ; CHECK-NEXT: 	ret
-; CHECK: 	_Z22negInf_Float_To_Signedf:
+; CHECK: 	_Z22negInf_Float_To_Signedv:
 ; CHECK: 	addi	sp, sp, -32
 ; CHECK-NEXT: 	sd	ra, 24(sp)
 ; CHECK-NEXT: 	sd	s0, 16(sp)
 ; CHECK-NEXT: 	addi	s0, sp, 32
-; CHECK-NEXT: 	fsw	fa0, -20(s0)
 ; CHECK-NEXT: 	addi	a0, zero, 511
 ; CHECK-NEXT: 	slli	a0, a0, 23
-; CHECK-NEXT: 	sw	a0, -24(s0)
-; CHECK-NEXT: 	flw	ft0, -24(s0)
+; CHECK-NEXT: 	sw	a0, -20(s0)
+; CHECK-NEXT: 	flw	ft0, -20(s0)
 ; CHECK-NEXT: 	fcvt.w.s	a0, ft0, rtz
 ; CHECK-NEXT: 	ld	s0, 16(sp)
 ; CHECK-NEXT: 	ld	ra, 24(sp)
@@ -503,16 +498,15 @@ attributes #0 = { noinline nounwind optnone "correctly-rounded-divide-sqrt-fp-ma
 ; CHECK-NEXT: 	ld	ra, 24(sp)
 ; CHECK-NEXT: 	addi	sp, sp, 32
 ; CHECK-NEXT: 	ret
-; CHECK: 	_Z24negInf_Float_To_Unsignedf:
+; CHECK: 	_Z24negInf_Float_To_Unsignedv:
 ; CHECK: 	addi	sp, sp, -32
 ; CHECK-NEXT: 	sd	ra, 24(sp)
 ; CHECK-NEXT: 	sd	s0, 16(sp)
 ; CHECK-NEXT: 	addi	s0, sp, 32
-; CHECK-NEXT: 	fsw	fa0, -20(s0)
 ; CHECK-NEXT: 	addi	a0, zero, 511
 ; CHECK-NEXT: 	slli	a0, a0, 23
-; CHECK-NEXT: 	sw	a0, -24(s0)
-; CHECK-NEXT: 	flw	ft0, -24(s0)
+; CHECK-NEXT: 	sw	a0, -20(s0)
+; CHECK-NEXT: 	flw	ft0, -20(s0)
 ; CHECK-NEXT: 	fcvt.wu.s	a0, ft0, rtz
 ; CHECK-NEXT: 	ld	s0, 16(sp)
 ; CHECK-NEXT: 	ld	ra, 24(sp)
