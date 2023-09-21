@@ -24,7 +24,7 @@ define float @_Z15signed_To_Floatm(i64 %0) #0 {
   %2 = alloca i64, align 8
   store i64 %0, i64* %2, align 8
   %3 = load i64, i64* %2, align 8
-  %4 = uitofp i64 %3 to float
+  %4 = sitofp i64 %3 to float
   ret float %4
 }
 
@@ -69,7 +69,7 @@ define float @_Z27unsigned_To_Float_Underflowv() #0 {
   %1 = alloca i64, align 8
   store i64 0, i64* %1, align 8
   %2 = load i64, i64* %1, align 8
-  %3 = sitofp i64 %2 to float
+  %3 = uitofp i64 %2 to float
   ret float %3
 }
 
@@ -223,14 +223,28 @@ attributes #0 = { noinline nounwind optnone "correctly-rounded-divide-sqrt-fp-ma
 ; CHECK-NEXT: 	addi	s0, sp, 32
 ; CHECK-NEXT: 	sd	a0, -24(s0)
 ; CHECK-NEXT: 	ld	a0, -24(s0)
-; CHECK-NEXT: 	lui	a1, 325632
-; CHECK-NEXT: 	fmv.w.x	ft0, a1
-; CHECK-NEXT: 	srli	a1, a0, 32
+; CHECK-NEXT: 	addi	a1, zero, 1
+; CHECK-NEXT: 	neg	a2, a1
+; CHECK-NEXT: 	srli	a2, a2, 1
+; CHECK-NEXT: 	and	a2, a2, a0
+; CHECK-NEXT: 	slli	a1, a1, 63
+; CHECK-NEXT: 	and	a0, a0, a1
+; CHECK-NEXT: 	srai	a0, a0, 63
+; CHECK-NEXT: 	srli	a1, a0, 1
+; CHECK-NEXT: 	xor	a1, a1, a2
+; CHECK-NEXT: 	srli	a2, a1, 32
+; CHECK-NEXT: 	fcvt.s.wu	ft0, a2
+; CHECK-NEXT: 	slli	a1, a1, 32
+; CHECK-NEXT: 	srli	a1, a1, 32
 ; CHECK-NEXT: 	fcvt.s.wu	ft1, a1
-; CHECK-NEXT: 	slli	a0, a0, 32
-; CHECK-NEXT: 	srli	a0, a0, 32
-; CHECK-NEXT: 	fcvt.s.wu	ft2, a0
-; CHECK-NEXT: 	fmadd.s	fa0, ft1, ft0, ft2
+; CHECK-NEXT: 	lui	a1, 325632
+; CHECK-NEXT: 	fmv.w.x	ft2, a1
+; CHECK-NEXT: 	fmadd.s	ft0, ft0, ft2, ft1
+; CHECK-NEXT: 	fcvt.s.w	ft1, a0
+; CHECK-NEXT: 	slli	a0, a0, 1
+; CHECK-NEXT: 	addi	a0, a0, 1
+; CHECK-NEXT: 	fcvt.s.w	ft2, a0
+; CHECK-NEXT: 	fmadd.s	fa0, ft0, ft2, ft1
 ; CHECK-NEXT: 	ld	s0, 16(sp)
 ; CHECK-NEXT: 	ld	ra, 24(sp)
 ; CHECK-NEXT: 	addi	sp, sp, 32
@@ -352,28 +366,14 @@ attributes #0 = { noinline nounwind optnone "correctly-rounded-divide-sqrt-fp-ma
 ; CHECK-NEXT: 	addi	s0, sp, 32
 ; CHECK-NEXT: 	sd	zero, -24(s0)
 ; CHECK-NEXT: 	ld	a0, -24(s0)
-; CHECK-NEXT: 	addi	a1, zero, 1
-; CHECK-NEXT: 	neg	a2, a1
-; CHECK-NEXT: 	srli	a2, a2, 1
-; CHECK-NEXT: 	and	a2, a2, a0
-; CHECK-NEXT: 	slli	a1, a1, 63
-; CHECK-NEXT: 	and	a0, a0, a1
-; CHECK-NEXT: 	srai	a0, a0, 63
-; CHECK-NEXT: 	srli	a1, a0, 1
-; CHECK-NEXT: 	xor	a1, a1, a2
-; CHECK-NEXT: 	srli	a2, a1, 32
-; CHECK-NEXT: 	fcvt.s.wu	ft0, a2
-; CHECK-NEXT: 	slli	a1, a1, 32
-; CHECK-NEXT: 	srli	a1, a1, 32
-; CHECK-NEXT: 	fcvt.s.wu	ft1, a1
 ; CHECK-NEXT: 	lui	a1, 325632
-; CHECK-NEXT: 	fmv.w.x	ft2, a1
-; CHECK-NEXT: 	fmadd.s	ft0, ft0, ft2, ft1
-; CHECK-NEXT: 	fcvt.s.w	ft1, a0
-; CHECK-NEXT: 	slli	a0, a0, 1
-; CHECK-NEXT: 	addi	a0, a0, 1
-; CHECK-NEXT: 	fcvt.s.w	ft2, a0
-; CHECK-NEXT: 	fmadd.s	fa0, ft0, ft2, ft1
+; CHECK-NEXT: 	fmv.w.x	ft0, a1
+; CHECK-NEXT: 	srli	a1, a0, 32
+; CHECK-NEXT: 	fcvt.s.wu	ft1, a1
+; CHECK-NEXT: 	slli	a0, a0, 32
+; CHECK-NEXT: 	srli	a0, a0, 32
+; CHECK-NEXT: 	fcvt.s.wu	ft2, a0
+; CHECK-NEXT: 	fmadd.s	fa0, ft1, ft0, ft2
 ; CHECK-NEXT: 	ld	s0, 16(sp)
 ; CHECK-NEXT: 	ld	ra, 24(sp)
 ; CHECK-NEXT: 	addi	sp, sp, 32
