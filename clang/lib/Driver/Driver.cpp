@@ -583,6 +583,10 @@ static llvm::Triple computeTargetTriple(const Driver &D,
 // based on which -f(no-)?lto(=.*)? option occurs last.
 void Driver::setLTOMode(const llvm::opt::ArgList &Args) {
   LTOMode = LTOK_None;
+#if ESPERANTO
+  // SW-18766: LTO can only work if LLD is enabled
+  // Re-enable LTO here when LLD is enabled
+#else
   if (!Args.hasFlag(options::OPT_flto, options::OPT_flto_EQ,
                     options::OPT_fno_lto, false))
     return;
@@ -603,6 +607,7 @@ void Driver::setLTOMode(const llvm::opt::ArgList &Args) {
     Diag(diag::err_drv_unsupported_option_argument) << A->getOption().getName()
                                                     << A->getValue();
   }
+#endif
 }
 
 /// Compute the desired OpenMP runtime from the flags provided.
