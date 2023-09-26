@@ -2,7 +2,7 @@
 target triple = "riscv64-unknown-unknown-elf"
 
 ; Function Attrs: noinline nounwind optnone
-define i64 @_Z15float_To_Signedf(float %0) #0 {
+define i64 @_Z15floatToSignedf(float %0) #0 {
   %2 = alloca float, align 4
   store float %0, float* %2, align 4
   %3 = load float, float* %2, align 4
@@ -11,7 +11,7 @@ define i64 @_Z15float_To_Signedf(float %0) #0 {
 }
 
 ; Function Attrs: noinline nounwind optnone
-define i64 @_Z17float_To_Unsignedf(float %0) #0 {
+define i64 @_Z17floatToUnsignedf(float %0) #0 {
   %2 = alloca float, align 4
   store float %0, float* %2, align 4
   %3 = load float, float* %2, align 4
@@ -20,7 +20,7 @@ define i64 @_Z17float_To_Unsignedf(float %0) #0 {
 }
 
 ; Function Attrs: noinline nounwind optnone
-define float @_Z15signed_To_Floatm(i64 %0) #0 {
+define float @_Z15signedToFloatm(i64 %0) #0 {
   %2 = alloca i64, align 8
   store i64 %0, i64* %2, align 8
   %3 = load i64, i64* %2, align 8
@@ -29,7 +29,7 @@ define float @_Z15signed_To_Floatm(i64 %0) #0 {
 }
 
 ; Function Attrs: noinline nounwind optnone
-define float @_Z17unsigned_To_Floatm(i64 %0) #0 {
+define float @_Z17unsignedToFloatm(i64 %0) #0 {
   %2 = alloca i64, align 8
   store i64 %0, i64* %2, align 8
   %3 = load i64, i64* %2, align 8
@@ -48,7 +48,7 @@ attributes #0 = { noinline nounwind optnone "correctly-rounded-divide-sqrt-fp-ma
 !3 = !{i32 1, !"SmallDataLimit", i32 0}
 !4 = !{!"clang version 11.1.0 (git@gitlab.com:esperantotech/software/esperanto-llvm.git 153ef510907a8b3de94af9367b97a6cd20439f78)"}
 
-; CHECK: 	_Z15float_To_Signedf:
+; CHECK: 	_Z15floatToSignedf:
 ; CHECK: 	addi	sp, sp, -32
 ; CHECK-NEXT: 	sd	ra, 24(sp)
 ; CHECK-NEXT: 	sd	s0, 16(sp)
@@ -60,7 +60,7 @@ attributes #0 = { noinline nounwind optnone "correctly-rounded-divide-sqrt-fp-ma
 ; CHECK-NEXT: 	ld	ra, 24(sp)
 ; CHECK-NEXT: 	addi	sp, sp, 32
 ; CHECK-NEXT: 	ret
-; CHECK: 	_Z17float_To_Unsignedf:
+; CHECK: 	_Z17floatToUnsignedf:
 ; CHECK: 	addi	sp, sp, -32
 ; CHECK-NEXT: 	sd	ra, 24(sp)
 ; CHECK-NEXT: 	sd	s0, 16(sp)
@@ -72,7 +72,7 @@ attributes #0 = { noinline nounwind optnone "correctly-rounded-divide-sqrt-fp-ma
 ; CHECK-NEXT: 	ld	ra, 24(sp)
 ; CHECK-NEXT: 	addi	sp, sp, 32
 ; CHECK-NEXT: 	ret
-; CHECK: 	_Z15signed_To_Floatm:
+; CHECK: 	_Z15signedToFloatm:
 ; CHECK: 	addi	sp, sp, -32
 ; CHECK-NEXT: 	sd	ra, 24(sp)
 ; CHECK-NEXT: 	sd	s0, 16(sp)
@@ -105,7 +105,7 @@ attributes #0 = { noinline nounwind optnone "correctly-rounded-divide-sqrt-fp-ma
 ; CHECK-NEXT: 	ld	ra, 24(sp)
 ; CHECK-NEXT: 	addi	sp, sp, 32
 ; CHECK-NEXT: 	ret
-; CHECK: 	_Z17unsigned_To_Floatm:
+; CHECK: 	_Z17unsignedToFloatm:
 ; CHECK: 	addi	sp, sp, -32
 ; CHECK-NEXT: 	sd	ra, 24(sp)
 ; CHECK-NEXT: 	sd	s0, 16(sp)
