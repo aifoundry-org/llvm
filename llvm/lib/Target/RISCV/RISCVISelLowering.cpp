@@ -307,12 +307,13 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
                                  // vector instructions
     }
     for (unsigned Op : {
-             ISD::FADD,    ISD::FSUB,         ISD::FMUL,      ISD::SETCC,
-             ISD::FDIV,    ISD::FABS,         ISD::FSIN,      ISD::FLOG2,
-             ISD::FEXP2,   ISD::FSQRT,        ISD::FMINIMUM,  ISD::FMAXIMUM,
-             ISD::FMA,     ISD::FMAD,         ISD::FNEG,      ISD::BUILD_VECTOR,
-             ISD::BITCAST, ISD::FREM,         ISD::FCOPYSIGN, ISD::MLOAD,
-             ISD::MSTORE,  ISD::BUILD_VECTOR,
+             ISD::FADD,         ISD::FSUB,     ISD::FMUL,
+             ISD::SETCC,        ISD::FDIV,     ISD::FABS,
+             ISD::FSIN,         ISD::FLOG2,    ISD::FEXP2,
+             ISD::FSQRT,        ISD::FMINIMUM, ISD::FMAXIMUM,
+             ISD::FMA,          ISD::FMAD,     ISD::FNEG,
+             ISD::BUILD_VECTOR, ISD::BITCAST,  ISD::FCOPYSIGN,
+             ISD::MLOAD,        ISD::MSTORE,   ISD::BUILD_VECTOR,
          })
       setOperationAction(Op, MVT::v8f32, Legal);
 

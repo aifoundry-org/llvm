@@ -14,5 +14,10 @@ entry:
   ret void
 }
 
-; CHECK:	mov.m.x	m0, zero, 255
-; CHECK-NEXT:	fdiv.ps	ft0, ft1, ft0
+; CHECK:	           flq2    ft0, 0(a1)
+; CHECK-NEXT:        flq2    ft1, 0(a2)
+; CHECK-NEXT:        mov.m.x m0, zero, 255
+; CHECK-NEXT:        frcp.ps ft0, ft0
+; CHECK-NEXT:        fmul.ps ft0, ft1, ft0, dyn
+; CHECK-NEXT:        fsq2    ft0, 0(a0)
+; CHECK-NEXT:        ret
