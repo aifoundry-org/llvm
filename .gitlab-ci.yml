@@ -153,7 +153,7 @@ test:llvm:
       -DLLVM_TARGETS_TO_BUILD="RISCV"
     - cmake --build .
     - cmake --build . --target check-llvm-analysis-costmodel-riscv
-    # - cmake --build . --target check-llvm-codegen-riscv # SW-18612: uncomment when the bug is fixed
+    - cmake --build . --target check-llvm-codegen-riscv
     - cmake --build . --target check-llvm-debuginfo-riscv
     - cmake --build . --target check-llvm-mc-disassembler-riscv
     - cmake --build . --target check-llvm-mc-riscv
@@ -185,7 +185,7 @@ test:conan:
     #- cmake --build --preset release
     #- cmake --build .
     #- cmake --build . --target check-llvm-analysis-costmodel-riscv
-    #### - cmake --build . --target check-llvm-codegen-riscv # SW-18612: uncomment when the bug is fixed
+    #- cmake --build . --target check-llvm-codegen-riscv
     #- cmake --build . --target check-llvm-debuginfo-riscv
     #- cmake --build . --target check-llvm-mc-disassembler-riscv
     #- cmake --build . --target check-llvm-mc-riscv
