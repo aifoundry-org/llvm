@@ -162,6 +162,9 @@ def FeatureEsperanto
 def HasEsperanto : Predicate<"Subtarget->hasEsperanto()">,
                            AssemblerPredicate<(all_of FeatureEsperanto),
                            "'X' (Esperanto Instructions)">;
+def HasNotEsperanto : Predicate<"not Subtarget->hasEsperanto()">,
+                           AssemblerPredicate<(all_of FeatureEsperanto),
+                           "'X' (Esperanto Instructions are NOT available)">;
 
 def Feature64Bit
     : SubtargetFeature<"64bit", "HasRV64", "true", "Implements RV64">;

@@ -315,6 +315,9 @@ def : Pat<(bitconvert FPR32:$rs1), (FMV_X_W FPR32:$rs1)>;
 def : PatFpr32Fpr32DynFrm<fadd, FADD_S>;
 def : PatFpr32Fpr32DynFrm<fsub, FSUB_S>;
 def : PatFpr32Fpr32DynFrm<fmul, FMUL_S>;
+def : PatFpr32Fpr32DynFrm<fdiv, FDIV_S> {
+  let Predicates = [HasNotEsperanto];
+}
 
 def : Pat<(fsqrt FPR32:$rs1), (FSQRT_S FPR32:$rs1, 0b111)>;
 
