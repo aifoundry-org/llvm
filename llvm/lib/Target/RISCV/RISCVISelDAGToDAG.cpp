@@ -1301,8 +1301,27 @@ void RISCVDAGToDAGISel::esperantoMemop(MemSDNode *M, SDValue Value,
                                        SDValue Addr, SDValue PassThru,
                                        SDValue Mask, ISD::LoadExtType Ext) {
   unsigned MemWidth = M->getMemoryVT().getScalarSizeInBits();
-  if (MemWidth > 32 || (M->getAddressSpace() == 0))
+  bool isVector =
+      (Value ? Value.getValueType() : M->getValueType(0)).isVector();
+
+  // The case of scalars and address space zero gets ISelected
+  // by the generic RISC-V backend code
+  if (not isVector and M->getAddressSpace() == 0)
     return;
+
+  // The case of vectors with 32 bits elements and address space zero,
+  // gets ISelected with Esperanto TableGen patterns
+  if (isVector and MemWidth == 32 and M->getAddressSpace() == 0)
+    return;
+
+  // This function should only do rewrites for vectors or address spaces
+  // other than zero
+  assert(isVector or M->getAddressSpace() != 0);
+
+  // SW-18822: The case of 64 bits and address space other than zero is not yet handled
+  // but it should
+  assert(not(MemWidth > 32 and M->getAddressSpace() != 0));
+
   unsigned Opcode;
   unsigned TruncateMask = 0; // target operations only do sign extensions so
                              // we may need to truncate the result
@@ -1325,8 +1344,6 @@ void RISCVDAGToDAGISel::esperantoMemop(MemSDNode *M, SDValue Value,
 
   SDValue Chain = M->getOperand(0);
 
-  bool isVector =
-      (Value ? Value.getValueType() : M->getValueType(0)).isVector();
   SDValue ZeroReg = CurDAG->getRegister(RISCV::X0, MVT::i64);
   if (!Mask)
     Mask = mask(isVector ? 0xff : 0x01);
