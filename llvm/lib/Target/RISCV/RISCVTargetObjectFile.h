@@ -18,8 +18,11 @@ class RISCVELFTargetObjectFile : public TargetLoweringObjectFileELF {
   MCSection *SmallDataSection;
   MCSection *SmallBSSSection;
   unsigned SSThreshold = 8;
+  bool staticTLS = false;
 
 public:
+  RISCVELFTargetObjectFile(bool staticTLS) : staticTLS(staticTLS) { }
+
   void Initialize(MCContext &Ctx, const TargetMachine &TM) override;
 
   /// Return true if this global address should be placed into small data/bss

@@ -22,6 +22,14 @@ void RISCVELFTargetObjectFile::Initialize(MCContext &Ctx,
       ".sdata", ELF::SHT_PROGBITS, ELF::SHF_WRITE | ELF::SHF_ALLOC);
   SmallBSSSection = getContext().getELFSection(".sbss", ELF::SHT_NOBITS,
                                                ELF::SHF_WRITE | ELF::SHF_ALLOC);
+  if (staticTLS) {
+    // A static TLS model as used by some RISC-V environments (like ET-SoC1's
+    // compute kernels runtime) is not compatible with the DW_at_location
+    // expressions emitted by linker for variables in the TLS. By disabling
+    // SupportDebugThreadLocalLocation the DW_at_location expression is not
+    // included and that works around the problem.
+    SupportDebugThreadLocalLocation = false;
+  }
 }
 
 // A address must be loaded from a small section if its size is less than the

@@ -64,8 +64,15 @@ RISCVTargetMachine::RISCVTargetMachine(const Target &T, const Triple &TT,
                                        CodeGenOpt::Level OL, bool JIT)
     : LLVMTargetMachine(T, computeDataLayout(TT), TT, CPU, FS, Options,
                         getEffectiveRelocModel(TT, RM),
-                        getEffectiveCodeModel(CM, CodeModel::Small), OL),
-      TLOF(std::make_unique<RISCVELFTargetObjectFile>()) {
+                        getEffectiveCodeModel(CM, CodeModel::Small), OL) {
+
+  // Compute kernels for ET-SoC-1's runtime use a static TLS
+  bool staticTLS = false;
+  if (CPU == "et-soc1-min")
+    staticTLS = true;
+
+  TLOF = std::make_unique<RISCVELFTargetObjectFile>(staticTLS);
+
   initAsmInfo();
 
   // RISC-V supports the MachineOutliner.
