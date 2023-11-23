@@ -5,7 +5,7 @@ from conan.tools.build import cross_building, check_min_cppstd
 from conan.tools.cmake import CMake, CMakeDeps, CMakeToolchain, cmake_layout
 from conan.tools.env import VirtualBuildEnv
 from conan.tools.files import apply_conandata_patches, load, save, rmdir
-from conan.tools.scm import Version
+from conan.tools.scm import Git, Version
 import os
 import re
 import json
@@ -33,7 +33,10 @@ projects = [
 
 default_projects = [
     'clang',
-    'clang-tools-extra'
+    'clang-tools-extra',
+    'compiler-rt',
+    'openmp',
+    'lld',
 ]
 
 
@@ -95,7 +98,7 @@ class EsperantoLlvmConan(ConanFile):
         'shared_components': False,
         'fPIC': True,
         'components': 'all',
-        'targets': 'RISCV',
+        'targets': 'X86;RISCV',
         'exceptions': True,
         'rtti': True,
         'threads': True,
@@ -192,6 +195,21 @@ class EsperantoLlvmConan(ConanFile):
     def _enabled_projects(self):
         return [project for project in projects if getattr(self.options, 'with_' + project)]
 
+    @property
+    def _clang_repository_string(self):
+        clang_repository_string = f"et-version: {self.version}"
+        if not self.conan_data or "sources" not in self.conan_data:
+            return clang_repository_string
+
+        # get commit+url from conandata
+        conan_data = self.conan_data["sources"]
+        scm_url, scm_commit, is_dirty = conan_data["url"], conan_data["commit"], conan_data["is_dirty"]
+
+        built_with_msg = "built with conan"
+        built_with_msg += " from sources" if not is_dirty else " from dirty sources!"
+        clang_repository_string += f" {built_with_msg}: commit: {scm_commit} url: {scm_url}"
+        return clang_repository_string
+
     def generate(self):
         enabled_projects = self._enabled_projects()
         self.output.info('Enabled LLVM subprojects: {}'.format(', '.join(enabled_projects)))
@@ -218,7 +236,7 @@ class EsperantoLlvmConan(ConanFile):
         tc.variables['BUILD_SHARED_LIBS'] = self.options.shared and self.options.shared_components
 
         tc.variables['LLVM_DYLIB_COMPONENTS'] = self.options.components
-        tc.variables['LLVM_ENABLE_PIC'] = self.options.get_safe('fPIC', default=False)
+        tc.variables['LLVM_ENABLE_PIC'] = self.options.get_safe('fPIC', default=False) or self.options.shared
 
         if self.settings.compiler == 'Visual Studio':
             build_type = str(self.settings.build_type).upper()
@@ -272,6 +290,8 @@ class EsperantoLlvmConan(ConanFile):
         tc.variables['LLVM_ENABLE_LIBXML2'] = self.options.get_safe('with_xml2', False)
 
         tc.variables["LLVM_ENABLE_PROJECTS"] = ";".join(enabled_projects)
+
+        tc.variables["CLANG_REPOSITORY_STRING"] = self._clang_repository_string
 
         tc.variables["CONAN_PROVIDED_LIBXML2"] = "TRUE" if self.options.get_safe('with_xml2', False) else "FALSE"
 
