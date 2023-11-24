@@ -34,9 +34,6 @@ projects = [
 default_projects = [
     'clang',
     'clang-tools-extra',
-    'compiler-rt',
-    'openmp',
-    'lld',
 ]
 
 
@@ -98,7 +95,7 @@ class EsperantoLlvmConan(ConanFile):
         'shared_components': False,
         'fPIC': True,
         'components': 'all',
-        'targets': 'X86;RISCV',
+        'targets': 'RISCV',
         'exceptions': True,
         'rtti': True,
         'threads': True,
