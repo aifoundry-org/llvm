@@ -708,6 +708,10 @@ endfunction()
         if self.options.define_cxx:
             self.runenv_info.define("CXX", os.path.join(bin_path, "clang++"))
 
+        # Advertise esperanto-llvm with the LLVM_RVET env that neuralizer knows
+        self.output.info(f"Exporting LLVM_RVET on run env: {self.package_folder}")
+        self.runenv_info.define("LLVM_RVET", self.package_folder)
+
         # this will survive in v2?
         self.output.info("Appending PATH environment variable: {}".format(bin_path))
         self.env_info.PATH.append(bin_path)
