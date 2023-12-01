@@ -53,17 +53,6 @@ variables:
 ###############################################################################
 ###############################################################################
 
-check-on-top-of-master:
-  extends:
-    - .check-on-top-of-master
-    - .development_job
-  stage: .pre
-  needs: []
-  rules:
-    - *development_job_rule
-  variables:
-    TIMEOUT: 60m
-
 generate_build:conan:
   extends:
     - .pod_nano
@@ -127,7 +116,7 @@ build:conan:
     - *development_job_rule
   variables:
     KUBERNETES_MEMORY_LIMIT: 128Gi
-    TIMEOUT: 2h
+    TIMEOUT: 3h
 
 test:llvm:
   extends:
