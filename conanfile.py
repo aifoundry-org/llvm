@@ -125,7 +125,7 @@ class EsperantoLlvmConan(ConanFile):
         upstream_version = Version(cmake_llvm_version)
         
         ############# <-----
-        esperanto_micro_version = "2" # EDIT THIS TO relase new esperanto-llvm versions
+        esperanto_micro_version = "3" # EDIT THIS TO relase new esperanto-llvm versions
         ############# <-----
 
         pre = "-alpha" if gitlab_version_tag is None else ""
