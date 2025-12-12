@@ -1,10 +1,10 @@
-Notes on the Esperanto llvm target
+Notes on the ET llvm target
 
 1. The target is a variant of RISCV enabled with the
    target triple riscv64-unknown-elf (the default target
    in the usual build).
 
-   The usual build is performed setup by "esperanto/build.sh"
+   The usual build is performed setup by "et/build.sh"
 
 
 2. The MC layer is complete for Minion (no support for Maxion yet)
@@ -72,7 +72,7 @@ def int_riscv_fadd_ps :
    "FADD_PS" is the opcode for the fadd.ps instruction and
    "FADD_PS_EX" is the explicit pseudo instruction opcode.
 
-6. Supporting scripts are in esperanto/python
+6. Supporting scripts are in et/python
 
    intrinsics.py -- read tblgen spec and builts specs for builtins,
        intrinsic definitions, and intrinsic DAG Isel patterns. The outputs
