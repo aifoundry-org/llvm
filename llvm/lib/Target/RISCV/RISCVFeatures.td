@@ -1931,7 +1931,7 @@ def HasVendorXSMTVDotII
 
 def FeatureVendorXAIFET
     : RISCVExtension<1, 0, "AI Foundry ET Extension", [FeatureStdExtF]>;
-def HasXAIFET : Predicate<"Subtarget->hasXAIFET()">,
+def HasXAIFET : Predicate<"Subtarget->hasVendorXAIFET()">,
                           AssemblerPredicate<(all_of FeatureVendorXAIFET),
                           "'XAIFET' (AI Foundry ET Extension)">;
 
