@@ -31,7 +31,7 @@
 //       implicitly using M0 register for masking out destination register
 //       elements.
 //
-//     - <INST>_EX: masked vector pseudo-instruction explictly accepting M0 as
+//     - <INST>_EX: masked vector pseudo-instruction explicitly accepting M0 as
 //       its last operand, as opposed to <INST> where the register dependency
 //       is just implicit. In addition to the explicit operands accepted by
 //       <INST>, we must add m0 as the last operand.
@@ -59,26 +59,26 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
 
   let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in
   def AIF_FLQ2 : RVInstI<0b101, OPC_LOAD_FP,
-                        (outs FPR256:$rd),
-                        (ins simm12_lo:$imm12, GPR:$rs1),
-                        "aif.flq2", "$rd, ${imm12}(${rs1})">;
+                         (outs FPR256:$rd),
+                         (ins GPR:$rs1, simm12_lo:$imm12),
+                         "aif.flq2", "$rd, ${imm12}(${rs1})">;
 
   let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in
   def AIF_FSQ2 : RVInstS<0b101, OPC_STORE_FP,
                          (outs),
-                         (ins FPR256:$rs2, simm12_lo:$imm12, GPR:$rs1),
+                         (ins FPR256:$rs2, GPR:$rs1, simm12_lo:$imm12),
                          "aif.fsq2", "$rs2, ${imm12}(${rs1})">;
 
   let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in {
     def AIF_FLW_PS : RVInstI<0b010, OPC_ET_MEM_PS,
                             (outs FPR256:$rd),
-                            (ins simm12_lo:$imm12, GPR:$rs1),
+                            (ins GPR:$rs1, simm12_lo:$imm12),
                             "aif.flw.ps", "$rd, ${imm12}(${rs1})">;
     def AIF_FLW_PS_EX : Pseudo<(outs FPR256:$rd),
-                               (ins simm12_lo:$imm12, GPR:$rs1, MR0:$m0), [],
+                               (ins GPR:$rs1, simm12_lo:$imm12, MR0:$m0), [],
                                "aif.flw.ps", "$rd, ${imm12}(${rs1}), $m0">;
     def AIF_FLW_PS_PASSTHRU_EX : Pseudo<(outs FPR256:$rd),
-                                        (ins FPR256:$in, simm12_lo:$imm12, GPR:$rs1, MR0:$m0), [],
+                                        (ins FPR256:$in, GPR:$rs1, simm12_lo:$imm12, MR0:$m0), [],
                                         "aif.flw.ps", "$rd, ${imm12}(${rs1}), $m0"> {
       let Constraints = "$rd = $in";
     }
@@ -87,21 +87,26 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
   let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in {
     def AIF_FSW_PS : RVInstS<0b110, OPC_ET_MEM_PS,
                              (outs),
-                             (ins FPR256:$rs2, simm12_lo:$imm12, GPR:$rs1),
+                             (ins FPR256:$rs2, GPR:$rs1, simm12_lo:$imm12),
                              "aif.fsw.ps", "$rs2, ${imm12}(${rs1})">;
     def AIF_FSW_PS_EX : Pseudo<(outs),
-                               (ins FPR256:$rs2, simm12_lo:$imm12, GPR:$rs1, MR0:$m0),
+                               (ins FPR256:$rs2, GPR:$rs1, simm12_lo:$imm12, MR0:$m0),
                                [], "aif.fsw.ps", "$rs2, ${imm12}(${rs1}), $m0">;
   }
 
   let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in {
     def AIF_FBC_PS : RVInstI<0b000, OPC_ET_MEM_PS,
                              (outs FPR256:$rd),
-                             (ins simm12_lo:$imm12, GPR:$rs1),
+                             (ins GPR:$rs1, simm12_lo:$imm12),
                              "aif.fbc.ps", "$rd, ${imm12}(${rs1})">;
     def AIF_FBC_PS_EX : Pseudo<(outs FPR256:$rd),
-                               (ins simm12_lo:$imm12, GPR:$rs1, MR0:$m0), [],
+                               (ins GPR:$rs1, simm12_lo:$imm12, MR0:$m0), [],
                                "aif.fbc.ps", "$rd, ${imm12}(${rs1}), $m0">;
+    def AIF_FBC_PS_PASSTHRU_EX : Pseudo<(outs FPR256:$rd),
+                                        (ins FPR256:$in, GPR:$rs1, simm12_lo:$imm12, MR0:$m0), [],
+                                        "aif.fbc.ps", "$rd, ${imm12}(${rs1}), $m0"> {
+      let Constraints = "$rd = $in";
+    }
   }
 
   let hasSideEffects = 0, mayLoad = 0, mayStore = 0 in {
@@ -336,7 +341,7 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
         let rs2 = funct5;
       }
       def _EX : Pseudo<(outs FPR256:$rd),
-                       (ins FPR256:$in, FPR256:$rs1, MR0:$m0), [],
+                       (ins FPR256:$rs1, MR0:$m0), [],
                        opcodestr, "$rd, $rs1, $m0">;
       def _PASSTHRU_EX : Pseudo<(outs FPR256:$rd),
                                 (ins FPR256:$in, FPR256:$rs1, MR0:$m0), [],
@@ -440,7 +445,7 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
                          (ins FPR256:$rs1, simm10:$imm),
                          opcodestr, "$rd, $rs1, ${imm}">;
       def _EX : Pseudo<(outs FPR256:$rd),
-                       (ins FPR256:$in, FPR256:$rs1, simm10:$imm, MR0:$m0), [],
+                       (ins FPR256:$rs1, simm10:$imm, MR0:$m0), [],
                        opcodestr, "$rd, $rs1, ${imm}, $m0">;
       def _PASSTHRU_EX : Pseudo<(outs FPR256:$rd),
                                 (ins FPR256:$in, FPR256:$rs1, simm10:$imm, MR0:$m0), [],
@@ -458,7 +463,7 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
                          (ins FPR256:$rs1, uimm5:$imm),
                          opcodestr, "$rd, $rs1, ${imm}">;
       def _EX : Pseudo<(outs FPR256:$rd),
-                       (ins FPR256:$in, FPR256:$rs1, uimm5:$imm, MR0:$m0), [],
+                       (ins FPR256:$rs1, uimm5:$imm, MR0:$m0), [],
                        opcodestr, "$rd, $rs1, ${imm}, $m0">;
       def _PASSTHRU_EX : Pseudo<(outs FPR256:$rd),
                                 (ins FPR256:$in, FPR256:$rs1, uimm5:$imm, MR0:$m0), [],
@@ -483,6 +488,11 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
     def AIF_FROUND_PS_EX : Pseudo<(outs FPR256:$rd),
                                   (ins FPR256:$rs1, frmarg:$rm, MR0:$m0),
                                   [], "aif.fround.ps", "$rd, $rs1$rm, $m0">;
+    def AIF_FROUND_PS_PASSTHRU_EX : Pseudo<(outs FPR256:$rd),
+                                           (ins FPR256:$in, FPR256:$rs1, frmarg:$rm, MR0:$m0),
+                                           [], "aif.fround.ps", "$rd, $rs1$rm, $m0"> {
+      let Constraints = "$rd = $in";
+    }
 
     defm AIF_FSQRT_PS : ETOpsRdR1<0b0101100, 0b00000, 0b000, OPC_ET_OP_PS, "aif.fsqrt.ps">;
     defm AIF_FRCP_PS  : ETOpsRdR1<0b0101100, 0b00111, 0b000, OPC_ET_OP_PS, "aif.frcp.ps">;
@@ -500,6 +510,7 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
                                 (outs MR:$rd),
                                 (ins GPR:$rs1, uimm8:$imm),
                                 "aif.mov.m.x", "$rd, $rs1, $imm">;
+    let Uses = [M0, M1, M2, M3, M4, M5, M6, M7] in
     def AIF_MOVA_X_M : RVInstR<0b1101011, 0b000, OPC_ET_OP_PS,
                                (outs GPR:$rd),
                                (ins),
@@ -508,6 +519,7 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
       let rs2 = 0;
     }
 
+    let Defs = [M0, M1, M2, M3, M4, M5, M6, M7] in
     def AIF_MOVA_M_X : RVInstR<0b1101011, 0b001, OPC_ET_OP_PS,
                                (outs),
                                (ins GPR:$rs1),
@@ -552,7 +564,12 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
                        opcodestr, "$rd, ${rs1}, ${rs2}">;
       def _EX : Pseudo<(outs FPR256:$rd),
                        (ins GPR:$rs1, GPRMemZeroOffset:$rs2, MR0:$m0), [],
-                       opcodestr, "$rd, ${rs1}, ${rs2}, m0">;
+                       opcodestr, "$rd, ${rs1}, ${rs2}, $m0">;
+      def _PASSTHRU_EX : Pseudo<(outs FPR256:$rd),
+                                (ins FPR256:$in, GPR:$rs1, GPRMemZeroOffset:$rs2, MR0:$m0), [],
+                                opcodestr, "$rd, ${rs1}, ${rs2}, $m0"> {
+        let Constraints = "$rd = $in";
+      }
     }
 
     let mayLoad = 1 in {
@@ -577,7 +594,7 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
       defm AIF_FSC32B_PS : ETOpsR3R1R2SC32<0b1000100, "aif.fsc32b.ps">;
     }
 
-    // Specialse FCMOVM has no implicit input since all of output
+    // Specialise FCMOVM has no implicit input since all of output
     // is defined.
     def AIF_FCMOVM_PS : RVInstR<0b0000000, 0b000, OPC_ET_CVT_PS,
                                 (outs FPR256:$rd),
@@ -602,6 +619,11 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
       def _EX : Pseudo<(outs FPR256:$rd),
                        (ins GPR:$rs1, MR0:$m0), [],
                        opcodestr, "$rd, (${rs1}), $m0">;
+      def _PASSTHRU_EX : Pseudo<(outs FPR256:$rd),
+                                  (ins FPR256:$in, GPR:$rs1, MR0:$m0), [],
+                                  opcodestr, "$rd, (${rs1}), $m0"> {
+        let Constraints = "$rd = $in";
+      }
     }
 
     let mayLoad = 1 in {
@@ -748,30 +770,16 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
     } // let mayLoad = 1, mayStore =1 in
 
     class ETOpsR1R2S<bits<7> funct7, bits<3> funct3, string opcodestr> :
-      RVInstR<funct7, funct3, OPC_OP_32, (outs),
-              (ins GPR:$rs2, GPRMemZeroOffset:$rs1), opcodestr,
-              "${rs2}, ${rs1}"> {
-      let rd = 0;
-    }
+      RVInstET13<funct7, funct3, OPC_OP_32, (outs),
+                 (ins GPR:$rs2, GPRMemZeroOffset:$rs1), opcodestr,
+                 "${rs2}, ${rs1}">;
 
-    let mayLoad = 1 in {
+    let mayStore = 1 in {
       def AIF_SBL : ETOpsR1R2S<0b0001000, 0b011, "aif.sbl">;
       def AIF_SHL : ETOpsR1R2S<0b0001100, 0b011, "aif.shl">;
       def AIF_SBG : ETOpsR1R2S<0b0001001, 0b011, "aif.sbg">;
       def AIF_SHG : ETOpsR1R2S<0b0001101, 0b011, "aif.shg">;
     }
-
-    // These pseudo-instructions are used for stack references
-    // where various places assume the offset immediate follows
-    // the address operand.
-    let mayStore = 1 in
-    def AIF_StackFSQ2 : Pseudo<(outs),
-                               (ins FPR256:$rs2, GPR:$rs1, simm12_lo:$imm), [],
-                               "aif.fsq2", "$rs2, ${imm}(${rs1})">;
-    let mayLoad = 1 in
-    def AIF_StackFLQ2 : Pseudo<(outs FPR256:$rd),
-                               (ins GPR:$rs1, simm12_lo:$imm), [],
-                               "aif.flq2", "$rd, ${imm}(${rs1})">;
 
     // These pseudo-instructions are used for spill and reload
     // of mask registers
