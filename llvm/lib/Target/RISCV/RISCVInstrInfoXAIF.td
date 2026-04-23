@@ -795,3 +795,14 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
   } // let hasSideEffects = 0, mayLoad = 0, mayStore = 0
 
 } // let Predicates = [HasXAIFET], DecoderNamespace = "XAIF"
+
+let Predicates = [HasXAIFET] in {
+  foreach vt = [v8i32, v8f32] in {
+    def : Pat<(vt (load GPR:$rs1)), (AIF_FLQ2 GPR:$rs1, 0)>;
+    def : Pat<(vt (load (add GPR:$rs1, simm12_lo:$imm))), (AIF_FLQ2 GPR:$rs1, simm12_lo:$imm)>;
+
+    def : Pat<(store (vt FPR256:$rs2), GPR:$rs1), (AIF_FSQ2 FPR256:$rs2, GPR:$rs1, 0)>;
+    def : Pat<(store (vt FPR256:$rs2), (add GPR:$rs1, simm12_lo:$imm)), 
+              (AIF_FSQ2 FPR256:$rs2, GPR:$rs1, simm12_lo:$imm)>;
+  }
+}

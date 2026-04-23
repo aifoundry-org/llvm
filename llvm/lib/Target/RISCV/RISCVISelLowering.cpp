@@ -190,8 +190,10 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
       addRegisterClass(MVT::f64, &RISCV::GPRPairRegClass);
   }
   if (Subtarget.hasVendorXAIFET()) {
-    for (MVT VT : {MVT::v8i32, MVT::v8f32})
+    for (MVT VT : {MVT::v8i32, MVT::v8f32}) {
       addRegisterClass(VT, &RISCV::FPR256RegClass);
+      setOperationAction(ISD::BUILD_VECTOR, VT, Custom);
+    }
   }
 
   static const MVT::SimpleValueType BoolVecVTs[] = {
@@ -3440,6 +3442,9 @@ static MVT getContainerForFixedLengthVector(MVT VT,
 }
 
 MVT RISCVTargetLowering::getContainerForFixedLengthVector(MVT VT) const {
+  if (Subtarget.hasVendorXAIFET() && (VT == MVT::v8i32 || VT == MVT::v8f32))
+    return VT;
+  
   return ::getContainerForFixedLengthVector(VT, getSubtarget());
 }
 
@@ -8942,6 +8947,41 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
     return lowerVECTOR_SPLICE(Op, DAG);
   case ISD::BUILD_VECTOR: {
     MVT VT = Op.getSimpleValueType();
+    // Use SDLoc instead of DebugLoc to satisfy the getLoad API
+    SDLoc DL(Op);
+
+    // --- XAIFET Constant Vector Handling ---
+    if (Subtarget.hasVendorXAIFET() && (VT == MVT::v8i32 || VT == MVT::v8f32)) {
+      if (BuildVectorSDNode *BVN = dyn_cast<BuildVectorSDNode>(Op)) {
+        // Check if all elements are constants
+        if (BVN->isConstant()) {
+          SmallVector<Constant *, 8> CV;
+          for (unsigned i = 0, e = VT.getVectorNumElements(); i != e; ++i) {
+            SDValue V = Op.getOperand(i);
+            if (auto *CFP = dyn_cast<ConstantFPSDNode>(V))
+              CV.push_back(const_cast<ConstantFP *>(CFP->getConstantFPValue()));
+            else if (auto *CINT = dyn_cast<ConstantSDNode>(V))
+              CV.push_back(
+                  const_cast<ConstantInt *>(CINT->getConstantIntValue()));
+          }
+
+          if (CV.size() == VT.getVectorNumElements()) {
+            Constant *CPV = ConstantVector::get(CV);
+            // Constant pool addresses must use the target's pointer type (XLen)
+            SDValue CP =
+                DAG.getConstantPool(CPV, getPointerTy(DAG.getDataLayout()));
+
+            // Now passing SDLoc (DL) correctly matches candidate 1 of getLoad
+            return DAG.getLoad(
+                VT, DL, DAG.getEntryNode(), CP,
+                MachinePointerInfo::getConstantPool(DAG.getMachineFunction()));
+          }
+        }
+      }
+    }
+    // ----------------------------------------
+
+    // Standard RISC-V logic
     MVT EltVT = VT.getVectorElementType();
     if (!Subtarget.is64Bit() && EltVT == MVT::i64)
       return lowerBuildVectorViaVID(Op, DAG, Subtarget);
