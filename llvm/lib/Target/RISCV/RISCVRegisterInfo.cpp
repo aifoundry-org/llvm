@@ -595,6 +595,109 @@ static unsigned getXqciloWideOpcode(unsigned Opc) {
   }
 }
 
+// Expand XAIFET mask load/store code-only pseudo-instructions
+//
+// These are not regular pseudo-instructions that assembly programmers would
+// use, but instructions generated only by the compiler during spill/refill.
+//
+// The reasons why these instructions are expanded here and not during any of
+// the two other expansion passes in RISCVExpandPseudoInst.cpp are that:
+//
+// - Require the allocation of a scratch GPR, which is a possibility no longer
+//   available during RISCVExpandPseudo.
+//
+// - Must happen during or after register allocation and not any earlier. The
+//   expansion can only happen once the mask spill/refill code is generated,
+//   discarding the suitability of RISCVPreRAExpandPseudo.
+static void expandXAIFETMaskLoadStore(MachineInstr *MI,
+                                      Register FrameReg, StackOffset Offset,
+                                      int SPAdj, RegScavenger *RS,
+                                      const RISCVInstrInfo *TII) {
+  assert(RS && "Register scavenger required for XAIFET mask spill/reload");
+  assert(!Offset.getScalable() && "XAIFET has no scalable vector spills");
+
+  MachineBasicBlock &MBB = *MI->getParent();
+  DebugLoc DL = MI->getDebugLoc();
+  MachineBasicBlock::iterator II = MI->getIterator();
+  int64_t FixedOffset = Offset.getFixed();
+  bool IsLoad = (MI->getOpcode() == RISCV::AIF_StackML);
+  Register M = MI->getOperand(0).getReg();
+
+  // Fast path: Offset fits in 12-bit signed immediate. Only 1 scratch GPR needed.
+  if (isInt<12>(FixedOffset)) {
+    Register TmpReg = RS->scavengeRegisterBackwards(
+        RISCV::GPRRegClass, II, true, SPAdj, true);
+    assert(TmpReg && "Failed to scavenge scratch register");
+
+    if (IsLoad) {
+      BuildMI(MBB, II, DL, TII->get(RISCV::LBU), TmpReg)
+          .addReg(FrameReg)
+          .addImm(FixedOffset)
+          .cloneMemRefs(*MI);
+      TII->copyPhysReg(MBB, II, DL, M, TmpReg, true);
+    } else {
+      TII->copyPhysReg(MBB, II, DL, TmpReg, M, MI->getOperand(0).isKill());
+      BuildMI(MBB, II, DL, TII->get(RISCV::SB))
+          .addReg(TmpReg, RegState::Kill)
+          .addReg(FrameReg)
+          .addImm(FixedOffset)
+          .cloneMemRefs(*MI);
+    }
+    MI->eraseFromParent();
+    return;
+  }
+
+  // Large offset path (> 2KB)
+  assert(isInt<32>(FixedOffset) && "Stack offset exceeds 32-bit range");
+
+  if (IsLoad) {
+    // For loads, we still only need 1 scratch register:
+    // AddrReg can be reused as the destination for LBU.
+    Register AddrReg = RS->scavengeRegisterBackwards(
+        RISCV::GPRRegClass, II, true, SPAdj, true);
+    assert(AddrReg && "Failed to scavenge scratch register");
+
+    uint32_t Hi20 = ((FixedOffset + 0x800) >> 12) & 0xfffff;
+    int64_t Lo12 = SignExtend64<12>(FixedOffset);
+
+    BuildMI(MBB, II, DL, TII->get(RISCV::LUI), AddrReg).addImm(Hi20);
+    BuildMI(MBB, II, DL, TII->get(RISCV::ADD), AddrReg)
+        .addReg(AddrReg, RegState::Kill)
+        .addReg(FrameReg);
+    BuildMI(MBB, II, DL, TII->get(RISCV::LBU), AddrReg)
+        .addReg(AddrReg, RegState::Kill)
+        .addImm(Lo12)
+        .cloneMemRefs(*MI);
+    TII->copyPhysReg(MBB, II, DL, M, AddrReg, true);
+  } else {
+    // For stores with large offsets, scavenge 2 distinct registers.
+    Register AddrReg = RS->scavengeRegisterBackwards(
+        RISCV::GPRRegClass, II, true, SPAdj, true);
+    RS->setRegUsed(AddrReg); // Mark AddrReg busy so TmpReg gets a distinct register
+    Register TmpReg = RS->scavengeRegisterBackwards(
+        RISCV::GPRRegClass, II, true, SPAdj, true);
+    assert(AddrReg && TmpReg && AddrReg != TmpReg &&
+           "Failed to scavenge distinct scratch registers");
+
+    uint32_t Hi20 = ((FixedOffset + 0x800) >> 12) & 0xfffff;
+    int64_t Lo12 = SignExtend64<12>(FixedOffset);
+
+    BuildMI(MBB, II, DL, TII->get(RISCV::LUI), AddrReg).addImm(Hi20);
+    BuildMI(MBB, II, DL, TII->get(RISCV::ADD), AddrReg)
+        .addReg(AddrReg, RegState::Kill)
+        .addReg(FrameReg);
+
+    TII->copyPhysReg(MBB, II, DL, TmpReg, M, MI->getOperand(0).isKill());
+    BuildMI(MBB, II, DL, TII->get(RISCV::SB))
+        .addReg(TmpReg, RegState::Kill)
+        .addReg(AddrReg, RegState::Kill)
+        .addImm(Lo12)
+        .cloneMemRefs(*MI);
+  }
+
+  MI->eraseFromParent();
+}
+
 bool RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
                                             int SPAdj, unsigned FIOperandNum,
                                             RegScavenger *RS) const {
@@ -619,6 +722,15 @@ bool RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   if (!Is64Bit && !isInt<32>(Offset.getFixed())) {
     reportFatalUsageError("Frame offsets outside of the signed 32-bit range "
                           "not supported on RV32");
+  }
+
+  // XAIFET mask load/store code-only pseudo-instructions are expanded here
+  if (MI.getOpcode() == RISCV::AIF_StackML ||
+      MI.getOpcode() == RISCV::AIF_StackMS) {
+    const RISCVSubtarget &RVST = MF.getSubtarget<RISCVSubtarget>();
+    const RISCVInstrInfo *RVTII = RVST.getInstrInfo();
+    expandXAIFETMaskLoadStore(&MI, FrameReg, Offset, SPAdj, RS, RVTII);
+    return true;
   }
 
   if (!IsRVVSpill) {
@@ -1231,4 +1343,25 @@ RISCVRegisterInfo::findVRegWithEncoding(const TargetRegisterClass &RegClass,
   if (RISCVRI::getLMul(RegClass.TSFlags) == RISCVVType::LMUL_1)
     return Reg;
   return getMatchingSuperReg(Reg, RISCV::sub_vrm1_0, &RegClass);
+}
+
+bool RISCVRegisterInfo::requiresFrameIndexReplacementScavenging(
+    const MachineFunction &MF) const {
+  const RISCVSubtarget &STI = MF.getSubtarget<RISCVSubtarget>();
+
+  // XAIFET mask registers (m0-m7) have no direct stack load/store instructions,
+  // and its spill and reload pseudos (AIF_StackMS / AIF_StackML) require scavenging
+  // one or two scratch GPRs to perform intermediate data movement. To avoid the
+  // compile-time overhead of a conservative approach and requesting it for all
+  // XAIFET code, we only request the scavenger if the function actually has
+  // stack objects and uses mask registers.
+  if (STI.hasVendorXAIFET()) {
+    const MachineRegisterInfo &MRI = MF.getRegInfo();
+    for (MCPhysReg Reg : RISCV::MRRegClass) {
+      if (MRI.isPhysRegUsed(Reg))
+        return true;
+    }
+  }
+
+  return TargetRegisterInfo::requiresFrameIndexReplacementScavenging(MF);
 }

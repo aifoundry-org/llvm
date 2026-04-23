@@ -1051,13 +1051,18 @@ foreach Index = 0-7 in
   def M#Index : RISCVReg<Index, "m"#Index, ["m"#Index]>,
                          DwarfRegNum<[!add(Index, 4020)]>;
 
-// Allowing i8 in addition to v8i1 simplifies the handling of builtins
-def MR : RISCVRegisterClass<[i8, v8i1], 8,
+// Allowing i8 in addition to v8i1 simplifies the handling of builtins,
+// and XLenVT exists to cover type promotion of integer expressions in
+// inline assembly
+let RegInfos = RegInfoByHwMode<[RV32, RV64],
+                               [RegInfo<8, 8, 8>, RegInfo<8, 8, 8>]> in {
+  def MR : RISCVRegisterClass<[v8i1, i8, XLenVT], 8,
                             (add (sequence "M%u", 1, 7), M0)> {
-  let DecoderMethod = "DecodeSimpleRegisterClass<RISCV::M0, 8>";
-}
+    let DecoderMethod = "DecodeSimpleRegisterClass<RISCV::M0, 8>";
+  }
 
-def MR0 : RISCVRegisterClass<[i8, v8i1], 8, (add M0)>;
+  def MR0 : RISCVRegisterClass<[v8i1, i8, XLenVT], 8, (add M0)>;
+}
 
 //===----------------------------------------------------------------------===//
 // Register categories.
