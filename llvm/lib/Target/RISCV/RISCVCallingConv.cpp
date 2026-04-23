@@ -433,6 +433,34 @@ static bool CC_RISCV_Impl(unsigned ValNo, MVT ValVT, MVT LocVT,
     }
   }
 
+  // Access the Subtarget via the MachineFunction stored in State
+  const RISCVSubtarget &STI =
+      State.getMachineFunction().getSubtarget<RISCVSubtarget>();
+
+  if (STI.hasVendorXAIFET()) {
+    // Handle XAIFET 256-bit vectors (v8i32, v8f32)
+    if (ValVT == MVT::v8i32 || ValVT == MVT::v8f32) {
+      static const MCPhysReg RegList[] = {
+          RISCV::F0_Q2, RISCV::F1_Q2, RISCV::F2_Q2, RISCV::F3_Q2,
+          RISCV::F4_Q2, RISCV::F5_Q2, RISCV::F6_Q2, RISCV::F7_Q2};
+      if (unsigned Reg = State.AllocateReg(RegList)) {
+        State.addLoc(CCValAssign::getReg(ValNo, ValVT, Reg, LocVT, LocInfo));
+        return false;
+      }
+    }
+
+    // Handle XAIFET Mask registers (v8i1)
+    if (ValVT == MVT::v8i1) {
+      static const MCPhysReg MaskRegs[] = {RISCV::M1, RISCV::M2, RISCV::M3,
+                                           RISCV::M4, RISCV::M5, RISCV::M6,
+                                           RISCV::M7};
+      if (unsigned Reg = State.AllocateReg(MaskRegs)) {
+        State.addLoc(CCValAssign::getReg(ValNo, ValVT, Reg, LocVT, LocInfo));
+        return false;
+      }
+    }
+  }
+
   // Any return value split in to more than two values can't be returned
   // directly. Vectors are returned via the available vector registers.
   if ((!LocVT.isVector() || Subtarget.isPExtPackedType(LocVT)) && IsRet &&
