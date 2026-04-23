@@ -139,6 +139,9 @@ struct RISCVRegisterInfo : public RISCVGenRegisterInfo {
     return true;
   }
 
+  bool requiresFrameIndexReplacementScavenging(
+      const MachineFunction &MF) const override;
+
   const TargetRegisterClass *
   getLargestLegalSuperClass(const TargetRegisterClass *RC,
                             const MachineFunction &) const override;

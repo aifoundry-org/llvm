@@ -112,6 +112,10 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
     else
       addRegisterClass(MVT::f64, &RISCV::GPRPairRegClass);
   }
+  if (Subtarget.hasVendorXAIFET()) {
+    for (MVT VT : {MVT::v8i32, MVT::v8f32})
+      addRegisterClass(VT, &RISCV::FPR256RegClass);
+  }
 
   static const MVT::SimpleValueType BoolVecVTs[] = {
       MVT::nxv1i1,  MVT::nxv2i1,  MVT::nxv4i1, MVT::nxv8i1,
@@ -29561,6 +29565,8 @@ RISCVTargetLowering::getConstraintType(StringRef Constraint) const {
     default:
       break;
     case 'f':
+    case 'M':
+    case 'N':
     case 'R':
       return C_RegisterClass;
     case 'I':
@@ -29601,6 +29607,18 @@ RISCVTargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
       if (VT == MVT::f64 && Subtarget.hasStdExtZdinx() && !Subtarget.is64Bit())
         return std::make_pair(0U, &RISCV::GPRPairNoX0RegClass);
       return std::make_pair(0U, &RISCV::GPRNoX0RegClass);
+    case 'M':
+      if (VT == MVT::v8i1 || VT == MVT::i8 || VT == Subtarget.getXLenVT()) {
+        if (Subtarget.hasVendorXAIFET())
+          return std::make_pair(RISCV::M0, &RISCV::MR0RegClass);
+      }
+      break;
+    case 'N':
+      if (VT == MVT::v8i1 || VT == MVT::i8 || VT == Subtarget.getXLenVT()) {
+        if (Subtarget.hasVendorXAIFET())
+          return std::make_pair(0U, &RISCV::MRRegClass);
+      }
+      break;
     case 'f':
       if (VT == MVT::f16) {
         if (Subtarget.hasStdExtZfhmin())
@@ -29621,6 +29639,9 @@ RISCVTargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
           return std::make_pair(0U, &RISCV::GPRPairNoX0RegClass);
         if (Subtarget.hasStdExtZdinx() && Subtarget.is64Bit())
           return std::make_pair(0U, &RISCV::GPRNoX0RegClass);
+      } else if (VT == MVT::v8i32 || VT == MVT::v8f32) {
+        if (Subtarget.hasVendorXAIFET())
+          return std::make_pair(0U, &RISCV::FPR256RegClass);
       }
       break;
     case 'R':

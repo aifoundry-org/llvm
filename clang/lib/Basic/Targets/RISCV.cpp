@@ -44,6 +44,9 @@ ArrayRef<const char *> RISCVTargetInfo::getGCCRegNames() const {
       "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23",
       "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31",
 
+      // XAIFET vector mask registers
+      "m0",  "m1",  "m2",  "m3",  "m4",  "m5",  "m6",  "m7",
+
       // CSRs
       "fflags", "frm", "vtype", "vl", "vxsat", "vxrm", "sf.vcix_state"
     };
@@ -111,6 +114,12 @@ bool RISCVTargetInfo::validateAsmConstraint(
     return false;
   case 'R':
     // An even-odd GPR pair
+    Info.setAllowsRegister();
+    return true;
+  case 'M':
+    // XAIFET implicit mask register (m0)
+  case 'N':
+    // XAIFET aNy mask register (m0 or otherwise)
     Info.setAllowsRegister();
     return true;
   case 'v':
