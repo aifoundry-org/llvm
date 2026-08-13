@@ -59,6 +59,12 @@ class RISCVExpandPseudoPreEmitImpl final : public RISCVExpandPseudoImplBase {
 
   bool expandPseudoClearFPR64(MachineBasicBlock &MBB,
                               MachineBasicBlock::iterator MBBI) const;
+
+  bool expandXAIFETGenericPseudo(MachineBasicBlock &MBB,
+                                 MachineBasicBlock::iterator MBBI) const;
+
+  bool expandXAIFETStorePseudo(MachineBasicBlock &MBB,
+                               MachineBasicBlock::iterator MBBI) const;
 };
 
 class RISCVExpandPseudoPreEmitLegacy : public MachineFunctionPass {
@@ -167,6 +173,35 @@ bool RISCVExpandPseudoPreEmitImpl::expandMI(
     return expandPseudoReadVLENBViaVSETVLIX0(MBB, MBBI);
   case RISCV::PseudoClearFPR64:
     return expandPseudoClearFPR64(MBB, MBBI);
+  
+  // XAIFET Load, Arithmetic, and Comparison Pseudos (Instructions with a Dest)
+  case RISCV::AIF_FLW_PS_EX:
+  case RISCV::AIF_FLW_PS_PASSTHRU_EX:
+  case RISCV::AIF_FBCX_PS_PASSTHRU_EX:
+  case RISCV::AIF_FBCI_PS_PASSTHRU_EX:
+  case RISCV::AIF_FADD_PS_PASSTHRU_EX:
+  case RISCV::AIF_FSUB_PS_PASSTHRU_EX:
+  case RISCV::AIF_FMUL_PS_PASSTHRU_EX:
+  case RISCV::AIF_FDIV_PS_PASSTHRU_EX:
+  case RISCV::AIF_FADD_PI_PASSTHRU_EX:
+  case RISCV::AIF_FGW_PS_PASSTHRU_EX:
+  case RISCV::AIF_FGH_PS_PASSTHRU_EX:
+  case RISCV::AIF_FGB_PS_PASSTHRU_EX:
+  case RISCV::AIF_FEQM_PS_PASSTHRU_EX: // SETCC Float
+  case RISCV::AIF_FLTM_PS_PASSTHRU_EX: // SETCC Float
+  case RISCV::AIF_FLEM_PS_PASSTHRU_EX: // SETCC Float
+  case RISCV::AIF_FLTM_PI_PASSTHRU_EX: // SETCC Integer
+  case RISCV::AIF_FSETM_PI_PASSTHRU_EX:
+    return expandXAIFETGenericPseudo(MBB, MBBI);
+
+  // XAIFET Store and Scatter Pseudos (Instructions without a Dest)
+  case RISCV::AIF_FSW_PS_EX:
+  case RISCV::AIF_FSCW_PS_EX:
+  case RISCV::AIF_FSCH_PS_EX:
+  case RISCV::AIF_FSCB_PS_EX:
+  case RISCV::AIF_FSCBG_PS_EX:
+  case RISCV::AIF_FSCWG_PS_EX:
+    return expandXAIFETStorePseudo(MBB, MBBI);
   }
 
   return false;

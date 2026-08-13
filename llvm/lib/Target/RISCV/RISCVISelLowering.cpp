@@ -190,9 +190,18 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
       addRegisterClass(MVT::f64, &RISCV::GPRPairRegClass);
   }
   if (Subtarget.hasVendorXAIFET()) {
+    addRegisterClass(MVT::v8i1, &RISCV::MRRegClass);
+    setOperationAction(ISD::SETCC, MVT::v8i1, Custom);
+    setOperationAction(ISD::BUILD_VECTOR, MVT::v8i1, Custom);
+    setOperationAction(ISD::BITCAST, MVT::v8i1, Legal);
     for (MVT VT : {MVT::v8i32, MVT::v8f32}) {
       addRegisterClass(VT, &RISCV::FPR256RegClass);
       setOperationAction(ISD::BUILD_VECTOR, VT, Custom);
+      setOperationAction(ISD::MLOAD,  VT, Legal);
+      setOperationAction(ISD::MSTORE, VT, Legal);
+      setOperationAction(ISD::VSELECT, VT, Legal);
+      setOperationAction(ISD::INSERT_VECTOR_ELT, VT, Expand);
+      setOperationAction(ISD::EXTRACT_VECTOR_ELT, VT, Expand);
     }
   }
 
@@ -8949,6 +8958,37 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
     MVT VT = Op.getSimpleValueType();
     // Use SDLoc instead of DebugLoc to satisfy the getLoad API
     SDLoc DL(Op);
+    
+    // Custom lowering for XAIFET v8i1 mask vector builds
+    if (Subtarget.hasVendorXAIFET() && VT == MVT::v8i1) {
+      SDLoc DL(Op);
+      MVT XLenVT = Subtarget.getXLenVT();
+      
+      // Initialize the packed integer to 0
+      SDValue Packed = DAG.getConstant(0, DL, XLenVT);
+      
+      for (unsigned i = 0; i < 8; ++i) {
+        SDValue Elt = Op.getOperand(i);
+        if (Elt.isUndef())
+          continue;
+        
+        // Zero-extend or truncate the i1/i64 boolean element to XLenVT
+        SDValue Val = DAG.getZExtOrTrunc(Elt, DL, XLenVT);
+        
+        // Mask the lowest bit
+        Val = DAG.getNode(ISD::AND, DL, XLenVT, Val, DAG.getConstant(1, DL, XLenVT));
+        
+        // Shift left by its vector index lane position
+        if (i > 0)
+          Val = DAG.getNode(ISD::SHL, DL, XLenVT, Val, DAG.getConstant(i, DL, XLenVT));
+        
+        // Accumulate into the packed scalar integer
+        Packed = DAG.getNode(ISD::OR, DL, XLenVT, Packed, Val);
+      }
+      
+      // Bitcast the packed scalar GPR to the v8i1 mask register
+      return DAG.getNode(ISD::BITCAST, DL, VT, Packed);
+    }
 
     // --- XAIFET Constant Vector Handling ---
     if (Subtarget.hasVendorXAIFET() && (VT == MVT::v8i32 || VT == MVT::v8f32)) {
@@ -28933,6 +28973,12 @@ bool RISCVTargetLowering::isMulAddWithConstProfitable(SDValue AddNode,
 bool RISCVTargetLowering::allowsMisalignedMemoryAccesses(
     EVT VT, unsigned AddrSpace, Align Alignment, MachineMemOperand::Flags Flags,
     unsigned *Fast) const {
+  if (Subtarget.hasVendorXAIFET() && VT.isVector()) {
+    if (Fast) 
+      *Fast = 1;
+    return true;
+  }
+    
   if (!VT.isVector() || Subtarget.hasStdExtP()) {
     if (Fast)
       *Fast = Subtarget.enableUnalignedScalarMem();

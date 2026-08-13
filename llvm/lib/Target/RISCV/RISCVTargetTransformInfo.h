@@ -278,6 +278,16 @@ public:
   }
 
   bool isLegalMaskedLoadStore(Type *DataType, Align Alignment) const {
+    if (ST->hasVendorXAIFET()) {
+      if (auto *VTy = dyn_cast<FixedVectorType>(DataType)) {
+        unsigned TotalWidth = VTy->getNumElements() * VTy->getElementType()->getScalarSizeInBits();
+        unsigned ScalarWidth = VTy->getElementType()->getScalarSizeInBits();
+        if (TotalWidth == 256 && ScalarWidth == 32) {
+          return true;
+        }
+      }
+    }
+
     if (!ST->hasVInstructions())
       return false;
 

@@ -55,6 +55,23 @@
 
 def simm10 : RISCVSImmOp<10>, ImmLeaf<XLenVT, "return isInt<10>(Imm);">;
 
+/*def SDTMLoad : SDTypeProfile<1, 3, [SDTCisVec<0>, SDTCisPtrTy<1>, 
+                                   SDTCisVec<2>, SDTCisSameAs<0, 3>]>;
+def SDTMStore : SDTypeProfile<0, 3, [SDTCisVec<0>, SDTCisPtrTy<1>, 
+                                    SDTCisVec<2>]>;
+
+// Define the Nodes
+def mload  : SDNode<"ISD::MLOAD",  SDTMLoad,
+                    [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def mstore : SDNode<"ISD::MSTORE", SDTMStore,
+                    [SDNPHasChain, SDNPMayStore, SDNPMemOperand]>;
+
+// Map the names to the internal LLVM Opcodes
+def masked_load : SDNode<"ISD::MASKED_LOAD", SDT_AIFMaskedLoad,
+                         [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def masked_store : SDNode<"ISD::MASKED_STORE", SDT_AIFMaskedStore,
+                          [SDNPHasChain, SDNPMayStore, SDNPMemOperand]>;*/
+
 let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
 
   let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in
@@ -798,11 +815,138 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
 
 let Predicates = [HasXAIFET] in {
   foreach vt = [v8i32, v8f32] in {
+    // 1. Standard Unmasked Load & Store Patterns
     def : Pat<(vt (load GPR:$rs1)), (AIF_FLQ2 GPR:$rs1, 0)>;
     def : Pat<(vt (load (add GPR:$rs1, simm12_lo:$imm))), (AIF_FLQ2 GPR:$rs1, simm12_lo:$imm)>;
 
     def : Pat<(store (vt FPR256:$rs2), GPR:$rs1), (AIF_FSQ2 FPR256:$rs2, GPR:$rs1, 0)>;
     def : Pat<(store (vt FPR256:$rs2), (add GPR:$rs1, simm12_lo:$imm)), 
               (AIF_FSQ2 FPR256:$rs2, GPR:$rs1, simm12_lo:$imm)>;
+
+    // 2. Masked Load: (masked_ld base, offset, mask, passthru)
+    // We explicitly cast the undef offset operand to (XLenVT undef)
+    def : Pat<(vt (masked_ld GPR:$rs1, (XLenVT undef), v8i1:$m0, vt:$passthru)),
+          (AIF_FLW_PS_PASSTHRU_EX vt:$passthru, GPR:$rs1, 0, MR0:$m0)>;
+    def : Pat<(vt (masked_ld (add GPR:$rs1, simm12_lo:$imm), (XLenVT undef), v8i1:$m0, vt:$passthru)),
+          (AIF_FLW_PS_PASSTHRU_EX vt:$passthru, GPR:$rs1, simm12_lo:$imm, MR0:$m0)>;
+
+    // 3. Masked Store: (masked_st val, base, offset, mask)
+    // We explicitly cast the undef offset operand to (XLenVT undef)
+    def : Pat<(masked_st (vt FPR256:$rs2), GPR:$rs1, (XLenVT undef), v8i1:$m0),
+          (AIF_FSW_PS_EX FPR256:$rs2, GPR:$rs1, 0, MR0:$m0)>;
+    def : Pat<(masked_st (vt FPR256:$rs2), (add GPR:$rs1, simm12_lo:$imm), (XLenVT undef), v8i1:$m0),
+          (AIF_FSW_PS_EX FPR256:$rs2, GPR:$rs1, simm12_lo:$imm, MR0:$m0)>;
   }
+  
+  // Multiclass for Floating Point Masked Ops (PS suffix - has rounding mode)
+  multiclass PatMaskedBinaryPS<SDNode Op, Instruction Inst, ValueType vt> {
+    // 1. Standard Case: vselect(mask, op(rs1, rs2), passthru)
+    def : Pat<(vt (vselect v8i1:$m0, (Op vt:$rs1, vt:$rs2), vt:$passthru)),
+              (Inst vt:$passthru, vt:$rs1, vt:$rs2, 7, MR0:$m0)>;
+
+    // 2. Optimized Case: When passthru is undefined, let the allocator pick
+    def : Pat<(vt (vselect v8i1:$m0, (Op vt:$rs1, vt:$rs2), (undef))),
+              (Inst (vt (IMPLICIT_DEF)), vt:$rs1, vt:$rs2, 7, MR0:$m0)>;
+  }
+
+// Multiclass for Integer Masked Ops
+  multiclass PatMaskedBinaryPI<SDNode Op, Instruction Inst, ValueType vt> {
+    def : Pat<(vt (vselect v8i1:$m0, (Op vt:$rs1, vt:$rs2), vt:$passthru)),
+              (Inst vt:$passthru, vt:$rs1, vt:$rs2, MR0:$m0)>;
+
+    def : Pat<(vt (vselect v8i1:$m0, (Op vt:$rs1, vt:$rs2), (undef))),
+              (Inst (vt (IMPLICIT_DEF)), vt:$rs1, vt:$rs2, MR0:$m0)>;
+  }
+
+  // Instantiate Float Masked Ops
+  defm : PatMaskedBinaryPS<fadd, AIF_FADD_PS_PASSTHRU_EX, v8f32>;
+  defm : PatMaskedBinaryPS<fsub, AIF_FSUB_PS_PASSTHRU_EX, v8f32>;
+  defm : PatMaskedBinaryPS<fmul, AIF_FMUL_PS_PASSTHRU_EX, v8f32>;
+  defm : PatMaskedBinaryPS<fdiv, AIF_FDIV_PS_PASSTHRU_EX, v8f32>;
+  //defm : PatMaskedBinaryPS<fma, AIF_FMADD_PS_PASSTHRU_EX, v8f32>;
+
+  // Instantiate Integer Masked Ops
+  defm : PatMaskedBinaryPI<add, AIF_FADD_PI_PASSTHRU_EX, v8i32>;
+  defm : PatMaskedBinaryPI<sub, AIF_FSUB_PI_PASSTHRU_EX, v8i32>;
+  defm : PatMaskedBinaryPI<and, AIF_FAND_PI_PASSTHRU_EX, v8i32>;
+  defm : PatMaskedBinaryPI<or, AIF_FOR_PI_PASSTHRU_EX, v8i32>;
+  defm : PatMaskedBinaryPI<xor, AIF_FXOR_PI_PASSTHRU_EX, v8i32>;
+  
+  def : Pat<(v8f32 (vector_insert (v8f32 FPR256:$rs1), (f32 FPR32:$rs2), (XLenVT 0))),
+            (v8f32 (INSERT_SUBREG FPR256:$rs1, FPR32:$rs2, sub_32))>;
+
+  // Pattern for v8i32: index 0 insertion
+  // Since i32 lives in GPR, we must first move it to the FPR bank using fmv.w.x
+  def : Pat<(v8i32 (vector_insert (v8i32 FPR256:$rs1), (i32 GPR:$rs2), (XLenVT 0))),
+            (v8i32 (INSERT_SUBREG FPR256:$rs1, (FMV_W_X GPR:$rs2), sub_32))>;
+
+  // Handle the 'undef' case (creating a new vector where only element 0 is defined)
+  def : Pat<(v8f32 (vector_insert (v8f32 (undef)), (f32 FPR32:$rs2), (XLenVT 0))),
+            (v8f32 (INSERT_SUBREG (v8f32 (IMPLICIT_DEF)), FPR32:$rs2, sub_32))>;
+
+  def : Pat<(v8i32 (vector_insert (v8i32 (undef)), (i32 GPR:$rs2), (XLenVT 0))),
+            (v8i32 (INSERT_SUBREG (v8i32 (IMPLICIT_DEF)), (FMV_W_X GPR:$rs2), sub_32))>;
+  
+  // --- Floating Point Comparisons (v8f32 -> v8i1) ---
+  def : Pat<(v8i1 (setcc (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2), SETEQ)),
+            (AIF_FEQM_PS FPR256:$rs1, FPR256:$rs2)>;
+  def : Pat<(v8i1 (setcc (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2), SETLT)),
+            (AIF_FLTM_PS FPR256:$rs1, FPR256:$rs2)>;
+  def : Pat<(v8i1 (setcc (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2), SETGT)),
+          (AIF_FLTM_PS FPR256:$rs2, FPR256:$rs1)>;
+  def : Pat<(v8i1 (setcc (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2), SETLE)),
+            (AIF_FLEM_PS FPR256:$rs1, FPR256:$rs2)>;
+  def : Pat<(v8i1 (setcc (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2), SETGE)),
+            (AIF_FLEM_PS FPR256:$rs2, FPR256:$rs1)>;
+
+  // --- Integer Comparisons (v8i32 -> v8i1) ---
+  def : Pat<(v8i1 (setcc (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2), SETLT)),
+            (AIF_FLTM_PI FPR256:$rs1, FPR256:$rs2)>;
+  def : Pat<(v8i1 (setcc (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2), SETGT)),
+            (AIF_FLTM_PI FPR256:$rs2, FPR256:$rs1)>;
+  
+  // --- Floating Point Arithmetic (v8f32) ---
+  // Note: 7 is the RISC-V constant for 'dyn' (dynamic rounding mode)
+  def : Pat<(fadd (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
+            (AIF_FADD_PS FPR256:$rs1, FPR256:$rs2, 7)>;
+  def : Pat<(fsub (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
+            (AIF_FSUB_PS FPR256:$rs1, FPR256:$rs2, 7)>;
+  def : Pat<(fmul (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
+            (AIF_FMUL_PS FPR256:$rs1, FPR256:$rs2, 7)>;
+  def : Pat<(fdiv (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
+            (AIF_FDIV_PS FPR256:$rs1, FPR256:$rs2, 7)>;
+  def : Pat<(fma (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2), (v8f32 FPR256:$rs3)),
+            (AIF_FMADD_PS FPR256:$rs1, FPR256:$rs2, FPR256:$rs3, 7)>;
+  
+  // --- Integer Arithmetic & Logic (v8i32) ---
+  def : Pat<(add (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
+            (AIF_FADD_PI FPR256:$rs1, FPR256:$rs2)>;
+  def : Pat<(sub (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
+            (AIF_FSUB_PI FPR256:$rs1, FPR256:$rs2)>;
+  def : Pat<(and (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
+            (AIF_FAND_PI FPR256:$rs1, FPR256:$rs2)>;
+  def : Pat<(or  (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
+            (AIF_FOR_PI  FPR256:$rs1, FPR256:$rs2)>;
+  def : Pat<(xor (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
+            (AIF_FXOR_PI FPR256:$rs1, FPR256:$rs2)>;
+
+  /*// Store mask: (store v8i1, address)
+  def : Pat<(store v8i1:$rs2, GPR:$rs1), 
+            (AIF_StackMS MR:$rs2, GPR:$rs1, 0)>;
+  def : Pat<(store v8i1:$rs2, (add GPR:$rs1, simm12_lo:$imm)), 
+            (AIF_StackMS MR:$rs2, GPR:$rs1, simm12_lo:$imm)>;
+
+  // Load mask: (load address) -> v8i1
+  def : Pat<(v8i1 (load GPR:$rs1)), 
+            (AIF_StackML GPR:$rs1, 0)>;
+  def : Pat<(v8i1 (load (add GPR:$rs1, simm12_lo:$imm))), 
+            (AIF_StackML GPR:$rs1, simm12_lo:$imm)>;*/
+            
+  // Bitcast GPR <-> Mask (Required for ISel to move values between classes)
+ // Move all masks to a GPR (aif.mova.x.m)
+  //def : Pat<(XLenVT (bitconvert v8i1:$src)), (AIF_MOVA_X_M $src)>;
+  
+  // Move a GPR to a mask register (aif.mov.m.x)
+  // Note: This sets m0 based on the GPR value
+  def : Pat<(v8i1 (bitconvert (XLenVT GPR:$src))), (AIF_MOV_M_X GPR:$src, 0)>;
 }
