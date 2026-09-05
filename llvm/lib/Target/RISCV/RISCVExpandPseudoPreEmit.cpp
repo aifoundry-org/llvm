@@ -65,6 +65,9 @@ class RISCVExpandPseudoPreEmitImpl final : public RISCVExpandPseudoImplBase {
 
   bool expandXAIFETStorePseudo(MachineBasicBlock &MBB,
                                MachineBasicBlock::iterator MBBI) const;
+
+  bool expandXAIFETMovXMPseudo(MachineBasicBlock &MBB,
+                         MachineBasicBlock::iterator MBBI) const;
 };
 
 class RISCVExpandPseudoPreEmitLegacy : public MachineFunctionPass {
@@ -202,9 +205,112 @@ bool RISCVExpandPseudoPreEmitImpl::expandMI(
   case RISCV::AIF_FSCBG_PS_EX:
   case RISCV::AIF_FSCWG_PS_EX:
     return expandXAIFETStorePseudo(MBB, MBBI);
+  
+  case RISCV::AIF_MOV_X_M:
+    return expandXAIFETMovXMPseudo(MBB, MBBI);
   }
 
   return false;
+}
+
+bool RISCVExpandPseudoPreEmitImpl::expandXAIFETGenericPseudo(MachineBasicBlock &MBB,
+                                                  MachineBasicBlock::iterator MBBI) const {
+  MachineInstr &MI = *MBBI;
+  unsigned Opc = MI.getOpcode();
+  DebugLoc DL = MI.getDebugLoc();
+
+  // 1. Map Pseudo Opcode to the Real Hardware Opcode
+  unsigned RealOpc;
+  switch (Opc) {
+  case RISCV::AIF_FLW_PS_EX:
+  case RISCV::AIF_FLW_PS_PASSTHRU_EX:  RealOpc = RISCV::AIF_FLW_PS; break;
+  case RISCV::AIF_FBCX_PS_PASSTHRU_EX: RealOpc = RISCV::AIF_FBCX_PS; break;
+  case RISCV::AIF_FBCI_PS_PASSTHRU_EX: RealOpc = RISCV::AIF_FBCI_PS; break;
+  case RISCV::AIF_FADD_PS_PASSTHRU_EX:  RealOpc = RISCV::AIF_FADD_PS; break;
+  case RISCV::AIF_FSUB_PS_PASSTHRU_EX:  RealOpc = RISCV::AIF_FSUB_PS; break;
+  case RISCV::AIF_FMUL_PS_PASSTHRU_EX:  RealOpc = RISCV::AIF_FMUL_PS; break;
+  case RISCV::AIF_FDIV_PS_PASSTHRU_EX:  RealOpc = RISCV::AIF_FDIV_PS; break;
+  case RISCV::AIF_FADD_PI_PASSTHRU_EX:  RealOpc = RISCV::AIF_FADD_PI; break;
+  case RISCV::AIF_FGW_PS_PASSTHRU_EX:   RealOpc = RISCV::AIF_FGW_PS; break;
+  case RISCV::AIF_FGH_PS_PASSTHRU_EX:   RealOpc = RISCV::AIF_FGH_PS; break;
+  case RISCV::AIF_FGB_PS_PASSTHRU_EX:   RealOpc = RISCV::AIF_FGB_PS; break;
+  case RISCV::AIF_FEQM_PS_PASSTHRU_EX:  RealOpc = RISCV::AIF_FEQM_PS; break;
+  case RISCV::AIF_FLTM_PS_PASSTHRU_EX:  RealOpc = RISCV::AIF_FLTM_PS; break;
+  case RISCV::AIF_FLEM_PS_PASSTHRU_EX:  RealOpc = RISCV::AIF_FLEM_PS; break;
+  case RISCV::AIF_FLTM_PI_PASSTHRU_EX:  RealOpc = RISCV::AIF_FLTM_PI; break;
+  case RISCV::AIF_FSETM_PI_PASSTHRU_EX: RealOpc = RISCV::AIF_FSETM_PI; break;
+  default: llvm_unreachable("Unknown XAIFET generic pseudo");
+  }
+
+  // 2. Build Hardware Instruction
+  auto MIB = BuildMI(MBB, MBBI, DL, TII->get(RealOpc));
+
+  // Add the Destination (Operand 0)
+  MIB.add(MI.getOperand(0));
+
+  // 3. Handle Sources and Passthru
+  // If it's a _PASSTHRU_EX variant, operand 1 is the tied passthru input.
+  // We skip it and start copying from operand 2. 
+  // Otherwise (just _EX), we start from operand 1.
+  bool IsPassthru = (Opc != RISCV::AIF_FLW_PS_EX); 
+  unsigned FirstSrcIdx = IsPassthru ? 2 : 1;
+  unsigned LastSrcIdx = MI.getNumOperands() - 1; // Last op is the M0 mask
+
+  for (unsigned i = FirstSrcIdx; i < LastSrcIdx; ++i)
+    MIB.add(MI.getOperand(i));
+
+  // 4. Propagate Memory Operands (for Loads/Gathers)
+  MIB.cloneMemRefs(MI);
+
+  MBBI->eraseFromParent();
+  return true;
+}
+
+bool RISCVExpandPseudoPreEmitImpl::expandXAIFETStorePseudo(MachineBasicBlock &MBB,
+                                                MachineBasicBlock::iterator MBBI) const {
+  MachineInstr &MI = *MBBI;
+  unsigned Opc = MI.getOpcode();
+  DebugLoc DL = MI.getDebugLoc();
+
+  // 1. Map Pseudo Opcode to Real Store Opcode
+  unsigned RealOpc;
+  switch (Opc) {
+  case RISCV::AIF_FSW_PS_EX:   RealOpc = RISCV::AIF_FSW_PS; break;
+  case RISCV::AIF_FSCW_PS_EX:  RealOpc = RISCV::AIF_FSCW_PS; break;
+  case RISCV::AIF_FSCH_PS_EX:  RealOpc = RISCV::AIF_FSCH_PS; break;
+  case RISCV::AIF_FSCB_PS_EX:  RealOpc = RISCV::AIF_FSCB_PS; break;
+  case RISCV::AIF_FSCBG_PS_EX: RealOpc = RISCV::AIF_FSCBG_PS; break;
+  case RISCV::AIF_FSCWG_PS_EX: RealOpc = RISCV::AIF_FSCWG_PS; break;
+  default: llvm_unreachable("Unknown XAIFET store pseudo");
+  }
+
+  // 2. Build Hardware Instruction
+  auto MIB = BuildMI(MBB, MBBI, DL, TII->get(RealOpc));
+
+  // Stores in XAIFET have no Defs. All operands are sources.
+  // Last operand is the explicit Mask (M0), which we skip.
+  for (unsigned i = 0, e = MI.getNumOperands() - 1; i < e; ++i)
+    MIB.add(MI.getOperand(i));
+
+  // 3. Propagate Memory Operands
+  MIB.cloneMemRefs(MI);
+
+  MBBI->eraseFromParent();
+  return true;
+}
+
+bool RISCVExpandPseudoPreEmitImpl::expandXAIFETMovXMPseudo(MachineBasicBlock &MBB,
+                                          MachineBasicBlock::iterator MBBI) const {
+  MachineInstr &MI = *MBBI;
+  DebugLoc DL = MI.getDebugLoc();
+  Register DstReg = MI.getOperand(0).getReg();
+  Register SrcReg = MI.getOperand(1).getReg();
+  bool IsKill = MI.getOperand(1).isKill();
+
+  // Reuses the existing copyPhysReg logic: aif.mova.x.m + srli + andi
+  TII->copyPhysReg(MBB, MBBI, DL, DstReg, SrcReg, IsKill);
+  MBBI->eraseFromParent();
+  return true;
 }
 
 bool RISCVExpandPseudoPreEmitImpl::expandCCOp(
