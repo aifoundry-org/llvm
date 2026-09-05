@@ -946,6 +946,7 @@ let Predicates = [HasXAIFET] in {
   // Bitcast GPR <-> Mask (Required for ISel to move values between classes)
   // Move all masks to a GPR (aif.mova.x.m)
   def : Pat<(XLenVT (bitconvert v8i1:$src)), (AIF_MOV_X_M $src)>;
+  def : Pat<(and (XLenVT (bitconvert (v8i1 MR:$src))), 0xff), (AIF_MOV_X_M MR:$src)>;
   
   // Move a GPR to a mask register (aif.mov.m.x)
   // Note: This sets m0 based on the GPR value

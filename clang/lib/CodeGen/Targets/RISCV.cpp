@@ -715,6 +715,15 @@ ABIArgInfo RISCVABIInfo::classifyArgumentType(QualType Ty, bool IsFixed,
   assert(ArgGPRsLeft <= NumArgGPRs && "Arg GPR tracking underflow");
   Ty = useFirstFieldIfTransparentUnion(Ty);
 
+  // XAIFET vector types (256-bit FPR vectors) are passed directly in registers
+  if (getTarget().hasFeature("xaifet")) {
+    if (const auto *VT = Ty->getAs<VectorType>()) {
+      uint64_t Size = getContext().getTypeSize(VT);
+      if (Size == 256  || (Size == 8 && VT->getElementType()->isBooleanType()))
+        return ABIArgInfo::getDirect();
+    }
+  }
+
   // Structures with either a non-trivial destructor or a non-trivial
   // copy constructor are always passed indirectly.
   if (CGCXXABI::RecordArgABI RAA = getRecordArgABI(Ty, getCXXABI())) {

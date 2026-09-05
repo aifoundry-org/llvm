@@ -1356,10 +1356,12 @@ bool RISCVRegisterInfo::requiresFrameIndexReplacementScavenging(
   // XAIFET code, we only request the scavenger if the function actually has
   // stack objects and uses mask registers.
   if (STI.hasVendorXAIFET()) {
-    const MachineRegisterInfo &MRI = MF.getRegInfo();
-    for (MCPhysReg Reg : RISCV::MRRegClass) {
-      if (MRI.isPhysRegUsed(Reg))
-        return true;
+    for (const MachineBasicBlock &MBB : MF) {
+      for (const MachineInstr &MI : MBB) {
+        if (MI.getOpcode() == RISCV::AIF_StackMS ||
+            MI.getOpcode() == RISCV::AIF_StackML)
+          return true;
+      }
     }
   }
 
