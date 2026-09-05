@@ -193,6 +193,8 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
     addRegisterClass(MVT::v8i1, &RISCV::MRRegClass);
     setOperationAction(ISD::SETCC, MVT::v8i1, Custom);
     setOperationAction(ISD::BUILD_VECTOR, MVT::v8i1, Custom);
+    setOperationAction(ISD::LOAD,  MVT::v8i1, Custom);
+    setOperationAction(ISD::STORE, MVT::v8i1, Custom);
     setOperationAction(ISD::BITCAST, MVT::v8i1, Legal);
     for (MVT VT : {MVT::v8i32, MVT::v8f32}) {
       addRegisterClass(VT, &RISCV::FPR256RegClass);
@@ -9095,6 +9097,16 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
   case ISD::LOAD: {
     auto *Load = cast<LoadSDNode>(Op);
     EVT VT = Load->getValueType(0);
+    if (Subtarget.hasVendorXAIFET() && VT == MVT::v8i1) {
+      SDLoc DL(Op);
+      SDValue LBU = DAG.getExtLoad(ISD::ZEXTLOAD, DL, Subtarget.getXLenVT(),
+                                   Load->getChain(), Load->getBasePtr(),
+                                   Load->getPointerInfo(), MVT::i8,
+                                   Load->getBaseAlign(),
+                                   Load->getMemOperand()->getFlags());
+      SDValue Mask = DAG.getNode(ISD::BITCAST, DL, MVT::v8i1, LBU);
+      return DAG.getMergeValues({Mask, LBU.getValue(1)}, DL);
+    }
     if (VT == MVT::f64) {
       assert(Subtarget.hasStdExtZdinx() && !Subtarget.hasStdExtZilsd() &&
              !Subtarget.is64Bit() && "Unexpected custom legalisation");
@@ -9212,7 +9224,15 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
     auto *Store = cast<StoreSDNode>(Op);
     SDValue StoredVal = Store->getValue();
     EVT VT = StoredVal.getValueType();
-
+    if (Subtarget.hasVendorXAIFET() && VT == MVT::v8i1) {
+      SDLoc DL(Op);
+      SDValue GPRVal =
+          DAG.getNode(ISD::BITCAST, DL, Subtarget.getXLenVT(), StoredVal);
+      return DAG.getTruncStore(Store->getChain(), DL, GPRVal, Store->getBasePtr(),
+                               Store->getPointerInfo(), MVT::i8,
+                               Store->getBaseAlign(),
+                               Store->getMemOperand()->getFlags());
+    }
     if (VT == MVT::f64) {
       assert(Subtarget.hasStdExtZdinx() && !Subtarget.hasStdExtZilsd() &&
              !Subtarget.is64Bit() && "Unexpected custom legalisation");
