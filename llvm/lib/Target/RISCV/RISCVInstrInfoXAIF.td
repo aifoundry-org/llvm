@@ -527,6 +527,8 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
                                 (outs MR:$rd),
                                 (ins GPR:$rs1, uimm8:$imm),
                                 "aif.mov.m.x", "$rd, $rs1, $imm">;
+    def AIF_MOV_X_M : Pseudo<(outs GPR:$rd), (ins MR:$rs1), [],
+                           "aif.mov.x.m", "$rd, $rs1">;
     let Uses = [M0, M1, M2, M3, M4, M5, M6, M7] in
     def AIF_MOVA_X_M : RVInstR<0b1101011, 0b000, OPC_ET_OP_PS,
                                (outs GPR:$rd),
@@ -535,7 +537,6 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
       let rs1 = 0;
       let rs2 = 0;
     }
-
     let Defs = [M0, M1, M2, M3, M4, M5, M6, M7] in
     def AIF_MOVA_M_X : RVInstR<0b1101011, 0b001, OPC_ET_OP_PS,
                                (outs),
@@ -943,8 +944,8 @@ let Predicates = [HasXAIFET] in {
             (AIF_StackML GPR:$rs1, simm12_lo:$imm)>;*/
             
   // Bitcast GPR <-> Mask (Required for ISel to move values between classes)
- // Move all masks to a GPR (aif.mova.x.m)
-  //def : Pat<(XLenVT (bitconvert v8i1:$src)), (AIF_MOVA_X_M $src)>;
+  // Move all masks to a GPR (aif.mova.x.m)
+  def : Pat<(XLenVT (bitconvert v8i1:$src)), (AIF_MOV_X_M $src)>;
   
   // Move a GPR to a mask register (aif.mov.m.x)
   // Note: This sets m0 based on the GPR value
