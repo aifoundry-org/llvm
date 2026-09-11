@@ -9073,41 +9073,87 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
     // Use SDLoc instead of DebugLoc to satisfy the getLoad API
     SDLoc DL(Op);
     
-    // Custom lowering for XAIFET v8i1 mask vector builds
+    MVT XLenVT = Subtarget.getXLenVT();
+    // =========================================================================
+    // 1. XAIFET v8i1 Mask Vector Lowering
+    // =========================================================================
     if (Subtarget.hasVendorXAIFET() && VT == MVT::v8i1) {
-      SDLoc DL(Op);
-      MVT XLenVT = Subtarget.getXLenVT();
-      
-      // Initialize the packed integer to 0
+      // Fast path: All elements are constants (or undef)
+      if (ISD::isBuildVectorOfConstantSDNodes(Op.getNode())) {
+        uint8_t MaskVal = 0;
+        for (unsigned i = 0; i < 8; ++i) {
+          SDValue Elt = Op.getOperand(i);
+          if (!Elt.isUndef() && cast<ConstantSDNode>(Elt)->getZExtValue())
+            MaskVal |= (1 << i);
+        }
+        SDValue Packed = DAG.getConstant(MaskVal, DL, XLenVT);
+        return DAG.getNode(ISD::BITCAST, DL, VT, Packed);
+      }
+
+      // Dynamic path: Elements are runtime variables
       SDValue Packed = DAG.getConstant(0, DL, XLenVT);
-      
       for (unsigned i = 0; i < 8; ++i) {
         SDValue Elt = Op.getOperand(i);
         if (Elt.isUndef())
           continue;
-        
-        // Zero-extend or truncate the i1/i64 boolean element to XLenVT
+
+        // Zero-extend or truncate the boolean element to XLenVT
         SDValue Val = DAG.getZExtOrTrunc(Elt, DL, XLenVT);
-        
+
         // Mask the lowest bit
-        Val = DAG.getNode(ISD::AND, DL, XLenVT, Val, DAG.getConstant(1, DL, XLenVT));
-        
+        Val = DAG.getNode(ISD::AND, DL, XLenVT, Val,
+                          DAG.getConstant(1, DL, XLenVT));
+
         // Shift left by its vector index lane position
         if (i > 0)
-          Val = DAG.getNode(ISD::SHL, DL, XLenVT, Val, DAG.getConstant(i, DL, XLenVT));
-        
+          Val = DAG.getNode(ISD::SHL, DL, XLenVT, Val,
+                            DAG.getConstant(i, DL, XLenVT));
+
         // Accumulate into the packed scalar integer
         Packed = DAG.getNode(ISD::OR, DL, XLenVT, Packed, Val);
       }
-      
-      // Bitcast the packed scalar GPR to the v8i1 mask register
+
+      // Bitcast the packed GPR to the v8i1 mask register (selects aif.mov.m.x)
       return DAG.getNode(ISD::BITCAST, DL, VT, Packed);
     }
 
-    // --- XAIFET Constant Vector Handling ---
+    // =========================================================================
+    // 2. XAIFET 256-bit Vector Lowering (v8i32 / v8f32)
+    // =========================================================================
     if (Subtarget.hasVendorXAIFET() && (VT == MVT::v8i32 || VT == MVT::v8f32)) {
       if (BuildVectorSDNode *BVN = dyn_cast<BuildVectorSDNode>(Op)) {
-        // Check if all elements are constants
+        // --- Fast Path A: Single-element Splat / Broadcast ---
+        if (SDValue Splat = BVN->getSplatValue()) {
+          // If splatting an integer
+          if (VT == MVT::v8i32) {
+            if (auto *CI = dyn_cast<ConstantSDNode>(Splat)) {
+              int64_t Val = CI->getSExtValue();
+              // Fits in 20-bit signed immediate -> 1 instruction (fbci.pi)
+              if (isInt<20>(Val))
+                return DAG.getNode(RISCV::AIF_FBCI_PI, DL, VT,
+                                   DAG.getTargetConstant(Val, DL, XLenVT));
+            }
+            // Arbitrary int / variable -> GPR broadcast (fbcx.ps)
+            SDValue ExtVal = DAG.getNode(ISD::ANY_EXTEND, DL, XLenVT, Splat);
+            return DAG.getNode(RISCV::AIF_FBCX_PS, DL, VT, ExtVal);
+          }
+
+          // If splatting a float
+          if (VT == MVT::v8f32) {
+            if (auto *CFP = dyn_cast<ConstantFPSDNode>(Splat)) {
+              uint32_t Bits = CFP->getValueAPF().bitcastToAPInt().getZExtValue();
+              // If lower 12 bits are 0 -> 1 instruction (fbci.ps)
+              if ((Bits & 0xFFF) == 0)
+                return DAG.getNode(RISCV::AIF_FBCI_PS, DL, VT,
+                                   DAG.getTargetConstant(Bits >> 12, DL, XLenVT));
+            }
+            // Arbitrary float / variable -> move to GPR then broadcast (fbcx.ps)
+            SDValue AsInt = DAG.getNode(RISCVISD::FMV_X_ANYEXTW_RV64, DL, XLenVT, Splat);
+            return DAG.getNode(RISCV::AIF_FBCX_PS, DL, VT, AsInt);
+          }
+        }
+
+        // --- Fast Path B: Arbitrary Constants (Constant Pool via aif.flq2) ---
         if (BVN->isConstant()) {
           SmallVector<Constant *, 8> CV;
           for (unsigned i = 0, e = VT.getVectorNumElements(); i != e; ++i) {
@@ -9115,20 +9161,14 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
             if (auto *CFP = dyn_cast<ConstantFPSDNode>(V))
               CV.push_back(const_cast<ConstantFP *>(CFP->getConstantFPValue()));
             else if (auto *CINT = dyn_cast<ConstantSDNode>(V))
-              CV.push_back(
-                  const_cast<ConstantInt *>(CINT->getConstantIntValue()));
+              CV.push_back(const_cast<ConstantInt *>(CINT->getConstantIntValue()));
           }
 
           if (CV.size() == VT.getVectorNumElements()) {
             Constant *CPV = ConstantVector::get(CV);
-            // Constant pool addresses must use the target's pointer type (XLen)
-            SDValue CP =
-                DAG.getConstantPool(CPV, getPointerTy(DAG.getDataLayout()));
-
-            // Now passing SDLoc (DL) correctly matches candidate 1 of getLoad
-            return DAG.getLoad(
-                VT, DL, DAG.getEntryNode(), CP,
-                MachinePointerInfo::getConstantPool(DAG.getMachineFunction()));
+            SDValue CP = DAG.getConstantPool(CPV, getPointerTy(DAG.getDataLayout()));
+            return DAG.getLoad(VT, DL, DAG.getEntryNode(), CP,
+                               MachinePointerInfo::getConstantPool(DAG.getMachineFunction()));
           }
         }
       }

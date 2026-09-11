@@ -814,6 +814,8 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
 
 } // let Predicates = [HasXAIFET], DecoderNamespace = "XAIF"
 
+def uimm8_imm : ImmLeaf<XLenVT, [{return isUInt<8>(Imm);}]>;
+
 let Predicates = [HasXAIFET] in {
   foreach vt = [v8i32, v8f32] in {
     // 1. Standard Unmasked Load & Store Patterns
@@ -889,16 +891,25 @@ let Predicates = [HasXAIFET] in {
             (v8i32 (INSERT_SUBREG (v8i32 (IMPLICIT_DEF)), (FMV_W_X GPR:$rs2), sub_32))>;
   
   // --- Floating Point Comparisons (v8f32 -> v8i1) ---
-  def : Pat<(v8i1 (setcc (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2), SETEQ)),
-            (AIF_FEQM_PS FPR256:$rs1, FPR256:$rs2)>;
-  def : Pat<(v8i1 (setcc (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2), SETLT)),
-            (AIF_FLTM_PS FPR256:$rs1, FPR256:$rs2)>;
-  def : Pat<(v8i1 (setcc (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2), SETGT)),
-          (AIF_FLTM_PS FPR256:$rs2, FPR256:$rs1)>;
-  def : Pat<(v8i1 (setcc (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2), SETLE)),
-            (AIF_FLEM_PS FPR256:$rs1, FPR256:$rs2)>;
-  def : Pat<(v8i1 (setcc (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2), SETGE)),
-            (AIF_FLEM_PS FPR256:$rs2, FPR256:$rs1)>;
+  foreach cond = [SETEQ, SETOEQ] in
+    def : Pat<(v8i1 (setcc (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2), cond)),
+              (AIF_FEQM_PS FPR256:$rs1, FPR256:$rs2)>;
+
+  foreach cond = [SETLT, SETOLT] in
+    def : Pat<(v8i1 (setcc (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2), cond)),
+              (AIF_FLTM_PS FPR256:$rs1, FPR256:$rs2)>;
+
+  foreach cond = [SETGT, SETOGT] in
+    def : Pat<(v8i1 (setcc (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2), cond)),
+              (AIF_FLTM_PS FPR256:$rs2, FPR256:$rs1)>;
+
+  foreach cond = [SETLE, SETOLE] in
+    def : Pat<(v8i1 (setcc (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2), cond)),
+              (AIF_FLEM_PS FPR256:$rs1, FPR256:$rs2)>;
+
+  foreach cond = [SETGE, SETOGE] in
+    def : Pat<(v8i1 (setcc (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2), cond)),
+              (AIF_FLEM_PS FPR256:$rs2, FPR256:$rs1)>;
 
   // --- Integer Comparisons (v8i32 -> v8i1) ---
   def : Pat<(v8i1 (setcc (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2), SETLT)),
@@ -930,6 +941,50 @@ let Predicates = [HasXAIFET] in {
             (AIF_FOR_PI  FPR256:$rs1, FPR256:$rs2)>;
   def : Pat<(xor (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
             (AIF_FXOR_PI FPR256:$rs1, FPR256:$rs2)>;
+
+  // =========================================================================
+  // Unmasked Float <-> Int Vector Conversions
+  // =========================================================================
+  // v8f32 -> signed v8i32 (RTZ = 1)
+  def : Pat<(v8i32 (fp_to_sint (v8f32 FPR256:$rs1))),
+            (AIF_FCVT_PW_PS FPR256:$rs1, 1)>;
+
+  // v8f32 -> unsigned v8i32 (RTZ = 1)
+  def : Pat<(v8i32 (fp_to_uint (v8f32 FPR256:$rs1))),
+            (AIF_FCVT_PWU_PS FPR256:$rs1, 1)>;
+
+  // signed v8i32 -> v8f32 (DYN = 7)
+  def : Pat<(v8f32 (sint_to_fp (v8i32 FPR256:$rs1))),
+            (AIF_FCVT_PS_PW FPR256:$rs1, 7)>;
+
+  // unsigned v8i32 -> v8f32 (DYN = 7)
+  def : Pat<(v8f32 (uint_to_fp (v8i32 FPR256:$rs1))),
+            (AIF_FCVT_PS_PWU FPR256:$rs1, 7)>;
+
+  // =========================================================================
+  // Masked Float <-> Int Vector Conversions (with m0 passthru)
+  // =========================================================================
+  def : Pat<(v8i32 (vselect v8i1:$m0, (fp_to_sint (v8f32 FPR256:$rs1)), (v8i32 FPR256:$passthru))),
+            (AIF_FCVT_PW_PS_PASSTHRU_EX FPR256:$passthru, FPR256:$rs1, 1, MR0:$m0)>;
+  def : Pat<(v8i32 (vselect v8i1:$m0, (fp_to_sint (v8f32 FPR256:$rs1)), (undef))),
+            (AIF_FCVT_PW_PS_PASSTHRU_EX (v8i32 (IMPLICIT_DEF)), FPR256:$rs1, 1, MR0:$m0)>;
+
+  def : Pat<(v8f32 (vselect v8i1:$m0, (sint_to_fp (v8i32 FPR256:$rs1)), (v8f32 FPR256:$passthru))),
+            (AIF_FCVT_PS_PW_PASSTHRU_EX FPR256:$passthru, FPR256:$rs1, 7, MR0:$m0)>;
+  def : Pat<(v8f32 (vselect v8i1:$m0, (sint_to_fp (v8i32 FPR256:$rs1)), (undef))),
+            (AIF_FCVT_PS_PW_PASSTHRU_EX (v8f32 (IMPLICIT_DEF)), FPR256:$rs1, 7, MR0:$m0)>;
+  
+  // --- Mask Register Boolean Logic (v8i1) ---
+  def : Pat<(and (v8i1 MR:$rs1), (v8i1 MR:$rs2)), (AIF_MASKAND MR:$rs1, MR:$rs2)>;
+  def : Pat<(or  (v8i1 MR:$rs1), (v8i1 MR:$rs2)), (AIF_MASKOR  MR:$rs1, MR:$rs2)>;
+  def : Pat<(xor (v8i1 MR:$rs1), (v8i1 MR:$rs2)), (AIF_MASKXOR MR:$rs1, MR:$rs2)>;
+  def : Pat<(not (v8i1 MR:$rs1)),                 (AIF_MASKNOT MR:$rs1)>;
+  def : Pat<(xor (v8i1 MR:$rs1), (v8i1 (bitconvert (XLenVT 255)))), (AIF_MASKNOT MR:$rs1)>;
+  def : Pat<(xor (v8i1 MR:$rs1), (v8i1 immAllOnesV)), (AIF_MASKNOT MR:$rs1)>;
+            
+  // 1-instruction constant mask load: aif.mov.m.x md, zero, imm8
+  def : Pat<(v8i1 (bitconvert (XLenVT uimm8_imm:$imm))),
+            (AIF_MOV_M_X (XLenVT X0), uimm8_imm:$imm)>;
 
   // Bitcast GPR <-> Mask (Required for ISel to move values between classes)
   // Move all masks to a GPR (aif.mova.x.m)

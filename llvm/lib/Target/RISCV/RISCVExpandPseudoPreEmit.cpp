@@ -195,6 +195,10 @@ bool RISCVExpandPseudoPreEmitImpl::expandMI(
   case RISCV::AIF_FLEM_PS_PASSTHRU_EX: // SETCC Float
   case RISCV::AIF_FLTM_PI_PASSTHRU_EX: // SETCC Integer
   case RISCV::AIF_FSETM_PI_PASSTHRU_EX:
+  case RISCV::AIF_FCVT_PW_PS_PASSTHRU_EX:
+  case RISCV::AIF_FCVT_PWU_PS_PASSTHRU_EX:
+  case RISCV::AIF_FCVT_PS_PW_PASSTHRU_EX:
+  case RISCV::AIF_FCVT_PS_PWU_PASSTHRU_EX:
     return expandXAIFETGenericPseudo(MBB, MBBI);
 
   // XAIFET Store and Scatter Pseudos (Instructions without a Dest)
@@ -239,6 +243,10 @@ bool RISCVExpandPseudoPreEmitImpl::expandXAIFETGenericPseudo(MachineBasicBlock &
   case RISCV::AIF_FLEM_PS_PASSTHRU_EX:  RealOpc = RISCV::AIF_FLEM_PS; break;
   case RISCV::AIF_FLTM_PI_PASSTHRU_EX:  RealOpc = RISCV::AIF_FLTM_PI; break;
   case RISCV::AIF_FSETM_PI_PASSTHRU_EX: RealOpc = RISCV::AIF_FSETM_PI; break;
+  case RISCV::AIF_FCVT_PW_PS_PASSTHRU_EX:  RealOpc = RISCV::AIF_FCVT_PW_PS; break;
+  case RISCV::AIF_FCVT_PWU_PS_PASSTHRU_EX: RealOpc = RISCV::AIF_FCVT_PWU_PS; break;
+  case RISCV::AIF_FCVT_PS_PW_PASSTHRU_EX:  RealOpc = RISCV::AIF_FCVT_PS_PW; break;
+  case RISCV::AIF_FCVT_PS_PWU_PASSTHRU_EX: RealOpc = RISCV::AIF_FCVT_PS_PWU; break;
   default: llvm_unreachable("Unknown XAIFET generic pseudo");
   }
 
