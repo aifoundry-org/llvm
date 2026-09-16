@@ -994,7 +994,7 @@ let Predicates = [HasXAIFET] in {
             (AIF_FBCI_PS (fpimm_to_fbci_imm $imm))>;
 
   // Signed 20-bit integer immediate broadcast
-  def : Pat<(v8i32 (splat_vector (i32 simm20:$imm))),
+  def : Pat<(v8i32 (splat_vector (XLenVT simm20:$imm))),
             (AIF_FBCI_PI simm20:$imm)>;
 
   // =========================================================================

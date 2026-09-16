@@ -9145,6 +9145,9 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
 
           // Use DAG.getNode (NOT DAG.getSplatVector)
           if (CanUseFBCI)
+            // Extend integer splat scalars to XLenVT to match RISC-V GPR/immediate conventions:
+            if (VT == MVT::v8i32 && Splat.getValueType() != XLenVT)
+              Splat = DAG.getNode(ISD::ANY_EXTEND, DL, XLenVT, Splat);
             return DAG.getNode(ISD::SPLAT_VECTOR, DL, VT, Splat);
         }
 
