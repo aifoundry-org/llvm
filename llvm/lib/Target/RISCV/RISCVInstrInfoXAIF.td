@@ -54,6 +54,7 @@
 //===----------------------------------------------------------------------===//
 
 def simm10 : RISCVSImmOp<10>, ImmLeaf<XLenVT, "return isInt<10>(Imm);">;
+def simm20 : RISCVSImmOp<20>, ImmLeaf<XLenVT, "return isInt<20>(Imm);">;
 
 /*def SDTMLoad : SDTypeProfile<1, 3, [SDTCisVec<0>, SDTCisPtrTy<1>, 
                                    SDTCisVec<2>, SDTCisSameAs<0, 3>]>;
@@ -397,13 +398,13 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
 
     def AIF_FBCI_PI : RVInstU<OPC_ET_IMM_PI,
                               (outs FPR256:$rd),
-                              (ins uimm20_lui:$imm20),
+                              (ins simm20:$imm20),
                               "aif.fbci.pi", "$rd, ${imm20}">;
     def AIF_FBCI_PI_EX : Pseudo<(outs FPR256:$rd),
-                                (ins uimm20_lui:$imm20, MR0:$m0), [],
+                                (ins simm20:$imm20, MR0:$m0), [],
                                 "aif.fbci.pi", "$rd, ${imm20}, $m0">;
     def AIF_FBCI_PI_PASSTHRU_EX : Pseudo<(outs FPR256:$rd),
-                                         (ins FPR256:$in, uimm20_lui:$imm20, MR0:$m0), [],
+                                         (ins FPR256:$in, simm20:$imm20, MR0:$m0), [],
                                          "aif.fbci.pi", "$rd, ${imm20}, $m0"> {
       let Constraints = "$rd = $in";
     }
@@ -816,6 +817,24 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
 
 def uimm8_imm : ImmLeaf<XLenVT, [{return isUInt<8>(Imm);}]>;
 
+// 1. Predicate: Check if a float constant matches the fbci.ps 20-bit expansion formula
+def fbci_ps_imm : PatLeaf<(f32 fpimm), [{
+  uint32_t Bits = N->getValueAPF().bitcastToAPInt().getZExtValue();
+  uint32_t imm20 = (Bits >> 12) & 0xFFFFF;
+  uint32_t low4 = imm20 & 0xf;
+  uint32_t low12 = (low4 < 8) ? ((low4 << 8) | (low4 << 4) | low4)
+                              : ((low4 << 8) | (low4 << 4) | (low4 + 1));
+  uint32_t reconstructed = (imm20 << 12) | low12;
+  return reconstructed == Bits;
+}]>;
+
+// 2. Transform: Extract the 20-bit integer from the float to encode into the instruction
+def fpimm_to_fbci_imm : SDNodeXForm<fpimm, [{
+  uint32_t Bits = N->getValueAPF().bitcastToAPInt().getZExtValue();
+  uint32_t imm20 = (Bits >> 12) & 0xFFFFF;
+  return CurDAG->getTargetConstant(imm20, SDLoc(N), Subtarget->getXLenVT());
+}]>;
+
 let Predicates = [HasXAIFET] in {
   foreach vt = [v8i32, v8f32] in {
     // 1. Standard Unmasked Load & Store Patterns
@@ -941,6 +960,42 @@ let Predicates = [HasXAIFET] in {
             (AIF_FOR_PI  FPR256:$rs1, FPR256:$rs2)>;
   def : Pat<(xor (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),
             (AIF_FXOR_PI FPR256:$rs1, FPR256:$rs2)>;
+
+  // =========================================================================
+  // 1. Memory Broadcast: aif.fbc.ps (Folds scalar load + splat into 1 instruction)
+  // =========================================================================
+  // Float scalar load -> v8f32 broadcast
+  def : Pat<(v8f32 (splat_vector (f32 (load GPR:$rs1)))),
+            (AIF_FBC_PS GPR:$rs1, 0)>;
+  def : Pat<(v8f32 (splat_vector (f32 (load (add GPR:$rs1, simm12_lo:$imm))))),
+            (AIF_FBC_PS GPR:$rs1, simm12_lo:$imm)>;
+
+  // Integer scalar load -> v8i32 broadcast
+  def : Pat<(v8i32 (splat_vector (i32 (load GPR:$rs1)))),
+            (AIF_FBC_PS GPR:$rs1, 0)>;
+  def : Pat<(v8i32 (splat_vector (i32 (load (add GPR:$rs1, simm12_lo:$imm))))),
+            (AIF_FBC_PS GPR:$rs1, simm12_lo:$imm)>;
+
+  // =========================================================================
+  // 2. GPR Register Broadcast: aif.fbcx.ps (Dynamic variables / runtime splats)
+  // =========================================================================
+  // Integer GPR -> v8i32
+  def : Pat<(v8i32 (splat_vector (XLenVT GPR:$src))), (AIF_FBCX_PS GPR:$src)>;
+
+  // Float FPR32 -> v8f32 (via fmv.x.w)
+  def : Pat<(v8f32 (splat_vector (f32 FPR32:$src))),  (AIF_FBCX_PS (FMV_X_W FPR32:$src))>;
+  def : Pat<(v8f32 (splat_vector (XLenVT GPR:$src))), (AIF_FBCX_PS GPR:$src)>;
+
+  // =========================================================================
+  // 3. Immediate Broadcasts: aif.fbci.ps & aif.fbci.pi (Zero-GPR constants)
+  // =========================================================================
+  // Float immediate broadcast (lui-style 20-bit format)
+  def : Pat<(v8f32 (splat_vector (f32 fbci_ps_imm:$imm))),
+            (AIF_FBCI_PS (fpimm_to_fbci_imm $imm))>;
+
+  // Signed 20-bit integer immediate broadcast
+  def : Pat<(v8i32 (splat_vector (i32 simm20:$imm))),
+            (AIF_FBCI_PI simm20:$imm)>;
 
   // =========================================================================
   // Unmasked Float <-> Int Vector Conversions

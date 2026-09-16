@@ -122,6 +122,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
     for (MVT VT : {MVT::v8i32, MVT::v8f32}) {
       addRegisterClass(VT, &RISCV::FPR256RegClass);
       setOperationAction(ISD::BUILD_VECTOR, VT, Custom);
+      setOperationAction(ISD::SPLAT_VECTOR, VT, Legal);
       setOperationAction(ISD::MLOAD,  VT, Legal);
       setOperationAction(ISD::MSTORE, VT, Legal);
       setOperationAction(ISD::VSELECT, VT, Legal);
@@ -3412,6 +3413,9 @@ bool RISCVTargetLowering::useRVVForFixedLengthVectorVT(MVT VT) const {
 // Return the largest legal scalable vector type that matches VT's element type.
 static MVT getContainerForFixedLengthVector(MVT VT,
                                             const RISCVSubtarget &Subtarget) {
+  if (Subtarget.hasVendorXAIFET() && (VT == MVT::v8i32 || VT == MVT::v8f32))
+    return VT;
+
   // This may be called before legal types are setup.
   assert(((VT.isFixedLengthVector() &&
            Subtarget.getTargetLowering()->isTypeLegal(VT)) ||
@@ -9124,33 +9128,24 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
       if (BuildVectorSDNode *BVN = dyn_cast<BuildVectorSDNode>(Op)) {
         // --- Fast Path A: Single-element Splat / Broadcast ---
         if (SDValue Splat = BVN->getSplatValue()) {
-          // If splatting an integer
-          if (VT == MVT::v8i32) {
-            if (auto *CI = dyn_cast<ConstantSDNode>(Splat)) {
-              int64_t Val = CI->getSExtValue();
-              // Fits in 20-bit signed immediate -> 1 instruction (fbci.pi)
-              if (isInt<20>(Val))
-                return DAG.getNode(RISCV::AIF_FBCI_PI, DL, VT,
-                                   DAG.getTargetConstant(Val, DL, XLenVT));
-            }
-            // Arbitrary int / variable -> GPR broadcast (fbcx.ps)
-            SDValue ExtVal = DAG.getNode(ISD::ANY_EXTEND, DL, XLenVT, Splat);
-            return DAG.getNode(RISCV::AIF_FBCX_PS, DL, VT, ExtVal);
+          bool CanUseFBCI = false;
+          if (auto *CFP = dyn_cast<ConstantFPSDNode>(Splat)) {
+            uint32_t Bits = CFP->getValueAPF().bitcastToAPInt().getZExtValue();
+            uint32_t imm20 = (Bits >> 12) & 0xFFFFF;
+            uint32_t low4 = imm20 & 0xf;
+            uint32_t low12 = (low4 < 8) ? ((low4 << 8) | (low4 << 4) | low4)
+                                        : ((low4 << 8) | (low4 << 4) | (low4 + 1));
+            CanUseFBCI = (((imm20 << 12) | low12) == Bits);
+          } else if (auto *CInt = dyn_cast<ConstantSDNode>(Splat)) {
+            CanUseFBCI = isInt<20>(CInt->getSExtValue());
+          } else {
+            // Dynamic variable in a register (uses aif.fbcx.ps)
+            CanUseFBCI = true;
           }
 
-          // If splatting a float
-          if (VT == MVT::v8f32) {
-            if (auto *CFP = dyn_cast<ConstantFPSDNode>(Splat)) {
-              uint32_t Bits = CFP->getValueAPF().bitcastToAPInt().getZExtValue();
-              // If lower 12 bits are 0 -> 1 instruction (fbci.ps)
-              if ((Bits & 0xFFF) == 0)
-                return DAG.getNode(RISCV::AIF_FBCI_PS, DL, VT,
-                                   DAG.getTargetConstant(Bits >> 12, DL, XLenVT));
-            }
-            // Arbitrary float / variable -> move to GPR then broadcast (fbcx.ps)
-            SDValue AsInt = DAG.getNode(RISCVISD::FMV_X_ANYEXTW_RV64, DL, XLenVT, Splat);
-            return DAG.getNode(RISCV::AIF_FBCX_PS, DL, VT, AsInt);
-          }
+          // Use DAG.getNode (NOT DAG.getSplatVector)
+          if (CanUseFBCI)
+            return DAG.getNode(ISD::SPLAT_VECTOR, DL, VT, Splat);
         }
 
         // --- Fast Path B: Arbitrary Constants (Constant Pool via aif.flq2) ---
@@ -9172,6 +9167,8 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
           }
         }
       }
+      // Never fall through to standard RVV lowerBUILD_VECTOR for XAIFET vectors:
+      return SDValue();
     }
     // ----------------------------------------
 
