@@ -204,6 +204,19 @@ FunctionPass *createRISCVInsertVSETVLILegacyPass();
 void initializeRISCVInsertVSETVLILegacyPass(PassRegistry &);
 extern char &RISCVInsertVSETVLILegacyID;
 
+class RISCVInsertXAIFMaskPass
+    : public RequiredPassInfoMixin<RISCVInsertXAIFMaskPass> {
+public:
+  PreservedAnalyses run(MachineFunction &MF,
+                        MachineFunctionAnalysisManager &MFAM);
+  MachineFunctionProperties getRequiredProperties() const {
+    return MachineFunctionProperties().setNoVRegs();
+  }
+};
+
+FunctionPass *createRISCVInsertXAIFMaskLegacyPass();
+void initializeRISCVInsertXAIFMaskLegacyPass(PassRegistry &);
+
 class RISCVInsertReadWriteCSRPass
     : public RequiredPassInfoMixin<RISCVInsertReadWriteCSRPass> {
 public:

@@ -858,6 +858,9 @@ let Predicates = [HasXAIFET] in {
           (AIF_FSW_PS_EX FPR256:$rs2, GPR:$rs1, 0, MR0:$m0)>;
     def : Pat<(masked_st (vt FPR256:$rs2), (add GPR:$rs1, simm12_lo:$imm), (XLenVT undef), v8i1:$m0),
           (AIF_FSW_PS_EX FPR256:$rs2, GPR:$rs1, simm12_lo:$imm, MR0:$m0)>;
+
+    def : Pat<(vt (vselect v8i1:$m0, (vt FPR256:$rs1), (vt FPR256:$rs2))),
+          (AIF_FCMOVM_PS_EX FPR256:$rs1, FPR256:$rs2, MR0:$m0)>;
   }
   
   // Multiclass for Floating Point Masked Ops (PS suffix - has rounding mode)
