@@ -98,6 +98,7 @@ public:
     SiFive7,
     MIPSP8700,
     Andes45,
+    ETMinion,
   };
   enum RISCVVRGatherCostModelEnum : uint8_t {
     Quadratic,

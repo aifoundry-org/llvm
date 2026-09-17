@@ -1061,7 +1061,7 @@ def ANDES_AX45MPV : RISCVProcessorModel<"andes-ax45mpv",
                                         Andes45TuneFeatures>;
 
 def ESPERANTO_SOC1 : RISCVProcessorModel<"et-soc1",
-                                         NoSchedModel,
+                                         ETMinionModel,
                                          [Feature64Bit,
                                           FeatureStdExtI,
                                           FeatureStdExtZicsr,
@@ -1069,10 +1069,11 @@ def ESPERANTO_SOC1 : RISCVProcessorModel<"et-soc1",
                                           FeatureStdExtM,
                                           FeatureStdExtF,
                                           FeatureStdExtC,
-                                          FeatureVendorXAIFET]>;
+                                          FeatureVendorXAIFET],
+                                         [TuneETMinion]>;
 
 def AINEKKO_ERBIUM : RISCVProcessorModel<"an-erbium",
-                                         NoSchedModel,
+                                         ETMinionModel,
                                          [Feature64Bit,
                                           FeatureStdExtI,
                                           FeatureStdExtZicsr,
@@ -1080,7 +1081,8 @@ def AINEKKO_ERBIUM : RISCVProcessorModel<"an-erbium",
                                           FeatureStdExtM,
                                           FeatureStdExtF,
                                           FeatureStdExtC,
-                                          FeatureVendorXAIFET]>;
+                                          FeatureVendorXAIFET],
+                                         [TuneETMinion]>;
 
 def XUANTIE_C910V2 : RISCVProcessorModel<"xt-c910v2",
                                          GenericOOOModel,

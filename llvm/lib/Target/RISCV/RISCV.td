@@ -52,6 +52,7 @@ include "RISCVMacroFusion.td"
 // RISC-V Scheduling Models
 //===----------------------------------------------------------------------===//
 include "RISCVSchedAndes45.td"
+include "RISCVSchedETMinion.td"
 include "RISCVSchedGenericOOO.td"
 include "RISCVSchedMIPSP8700.td"
 include "RISCVSchedRocket.td"

@@ -2273,3 +2273,6 @@ def TuneMIPSP8700
 
 def TuneSiFive7 : SubtargetFeature<"sifive7", "RISCVProcFamily", "SiFive7",
                                    "SiFive 7-Series processors", [], InlineIgnore>;
+
+def TuneETMinion : SubtargetFeature<"et-minion", "RISCVProcFamily", "ETMinion",
+                                    "CORE-ET ET-Minion-Series processors">;
