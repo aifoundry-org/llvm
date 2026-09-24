@@ -312,6 +312,11 @@ def HasStdExtF : Predicate<"Subtarget->hasStdExtF()">,
                  AssemblerPredicate<(all_of FeatureStdExtF),
                                     "'F' (Single-Precision Floating-Point)">;
 
+def FeatureNoFDiv
+    : SubtargetFeature<"no-fdiv", "HasNoFDiv", "true",
+                       "Do not emit fdiv/fsqrt; call the soft-float routines">;
+def HasFDiv : Predicate<"!Subtarget->hasNoFDiv()">;
+
 def FeatureStdExtD
     : RISCVExtension<2, 2, "Double-Precision Floating-Point",
                      [FeatureStdExtF]>,

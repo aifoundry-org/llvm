@@ -801,6 +801,11 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
     } else {
       setOperationAction({ISD::FMAXIMUM, ISD::FMINIMUM}, MVT::f32, Custom);
     }
+
+    if (Subtarget.hasNoFDiv())
+      setOperationAction({ISD::FDIV, ISD::FSQRT, ISD::STRICT_FDIV,
+                          ISD::STRICT_FSQRT},
+                         MVT::f32, LibCall);
   }
 
   if (Subtarget.hasStdExtFOrZfinx() && Subtarget.is64Bit())
@@ -810,6 +815,10 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
     if (Subtarget.hasStdExtD())
       setOperationAction({ISD::UNDEF, ISD::POISON}, MVT::f64, Expand);
     setOperationAction(FPLegalNodeTypes, MVT::f64, Legal);
+    if (Subtarget.hasNoFDiv())
+      setOperationAction({ISD::FDIV, ISD::FSQRT, ISD::STRICT_FDIV,
+                          ISD::STRICT_FSQRT},
+                         MVT::f64, LibCall);
 
     if (!Subtarget.is64Bit())
       setOperationAction(ISD::BITCAST, MVT::i64, Custom);
