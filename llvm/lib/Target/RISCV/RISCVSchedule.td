@@ -532,6 +532,7 @@ def : ReadAdvance<ReadAtomicSTD, 0>;
 include "RISCVScheduleZb.td"
 include "RISCVScheduleV.td"
 include "RISCVScheduleXSf.td"
+include "RISCVScheduleXAIF.td"
 include "RISCVScheduleZvk.td"
 
 // Vendor Extensions

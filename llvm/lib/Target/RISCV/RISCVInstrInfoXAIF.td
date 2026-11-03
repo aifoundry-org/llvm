@@ -56,6 +56,29 @@
 def simm10 : RISCVSImmOp<10>, ImmLeaf<XLenVT, "return isInt<10>(Imm);">;
 def simm20 : RISCVSImmOp<20>, ImmLeaf<XLenVT, "return isInt<20>(Imm);">;
 
+// Scheduling class lists (see RISCVScheduleXAIF.td).  The mask register
+// read of the masked forms is not modeled as an operand latency.
+defvar SchedXAIFArith2   = [WriteXAIFTXFMA, ReadXAIFTXFMA, ReadXAIFTXFMA];
+defvar SchedXAIFArith1   = [WriteXAIFTXFMA, ReadXAIFTXFMA];
+defvar SchedXAIFFMA      = [WriteXAIFFMA, ReadXAIFFMA, ReadXAIFFMA, ReadXAIFFMAAddend];
+defvar SchedXAIFCvt      = [WriteXAIFTXFMA, ReadXAIFTXFMA];
+defvar SchedXAIFTrans    = [WriteXAIFTrans, ReadXAIFTXFMA];
+defvar SchedXAIFFDiv     = [WriteXAIFFDiv, ReadXAIFTXFMA, ReadXAIFTXFMA];
+defvar SchedXAIFFSqrt    = [WriteXAIFFSqrt, ReadXAIFTXFMA];
+defvar SchedXAIFSHSW2    = [WriteXAIFSHSW, ReadXAIFSHSW, ReadXAIFSHSW];
+defvar SchedXAIFSHSW1    = [WriteXAIFSHSW, ReadXAIFSHSW];
+defvar SchedXAIFSwizzle1 = [WriteXAIFSwizzle, ReadXAIFSHSW];
+defvar SchedXAIFSwizzle2 = [WriteXAIFSwizzle, ReadXAIFSHSW, ReadXAIFSHSW];
+defvar SchedXAIFSwizzle3 = [WriteXAIFSwizzle, ReadXAIFSHSW, ReadXAIFSHSW, ReadXAIFSHSW];
+defvar SchedXAIFToMask2  = [WriteXAIFToMask, ReadXAIFSHSW, ReadXAIFSHSW];
+defvar SchedXAIFToMask1  = [WriteXAIFToMask, ReadXAIFSHSW];
+defvar SchedXAIFLD       = [WriteXAIFLD, ReadXAIFMemBase];
+defvar SchedXAIFGatherF  = [WriteXAIFGather, ReadXAIFIndex, ReadXAIFMemBase];
+defvar SchedXAIFGatherX  = [WriteXAIFGather, ReadXAIFIndex, ReadXAIFMemBase];
+defvar SchedXAIFST       = [WriteXAIFST, ReadXAIFStoreData, ReadXAIFMemBase];
+defvar SchedXAIFScatter  = [WriteXAIFScatter, ReadXAIFStoreData, ReadXAIFIndex, ReadXAIFMemBase];
+defvar SchedXAIFFAtomic  = [WriteXAIFFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase];
+
 /*def SDTMLoad : SDTypeProfile<1, 3, [SDTCisVec<0>, SDTCisPtrTy<1>, 
                                    SDTCisVec<2>, SDTCisSameAs<0, 3>]>;
 def SDTMStore : SDTypeProfile<0, 3, [SDTCisVec<0>, SDTCisPtrTy<1>, 
@@ -79,25 +102,25 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
   def AIF_FLQ2 : RVInstI<0b101, OPC_LOAD_FP,
                          (outs FPR256:$rd),
                          (ins GPR:$rs1, simm12_lo:$imm12),
-                         "aif.flq2", "$rd, ${imm12}(${rs1})">;
+                         "aif.flq2", "$rd, ${imm12}(${rs1})">, Sched<SchedXAIFLD>;
 
   let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in
   def AIF_FSQ2 : RVInstS<0b101, OPC_STORE_FP,
                          (outs),
                          (ins FPR256:$rs2, GPR:$rs1, simm12_lo:$imm12),
-                         "aif.fsq2", "$rs2, ${imm12}(${rs1})">;
+                         "aif.fsq2", "$rs2, ${imm12}(${rs1})">, Sched<SchedXAIFST>;
 
   let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in {
     def AIF_FLW_PS : RVInstI<0b010, OPC_ET_MEM_PS,
                             (outs FPR256:$rd),
                             (ins GPR:$rs1, simm12_lo:$imm12),
-                            "aif.flw.ps", "$rd, ${imm12}(${rs1})">;
+                            "aif.flw.ps", "$rd, ${imm12}(${rs1})">, Sched<SchedXAIFLD>;
     def AIF_FLW_PS_EX : Pseudo<(outs FPR256:$rd),
                                (ins GPR:$rs1, simm12_lo:$imm12, MR0:$m0), [],
-                               "aif.flw.ps", "$rd, ${imm12}(${rs1}), $m0">;
+                               "aif.flw.ps", "$rd, ${imm12}(${rs1}), $m0">, Sched<SchedXAIFLD>;
     def AIF_FLW_PS_PASSTHRU_EX : Pseudo<(outs FPR256:$rd),
                                         (ins FPR256:$in, GPR:$rs1, simm12_lo:$imm12, MR0:$m0), [],
-                                        "aif.flw.ps", "$rd, ${imm12}(${rs1}), $m0"> {
+                                        "aif.flw.ps", "$rd, ${imm12}(${rs1}), $m0">, Sched<SchedXAIFLD> {
       let Constraints = "$rd = $in";
     }
   }
@@ -106,23 +129,23 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
     def AIF_FSW_PS : RVInstS<0b110, OPC_ET_MEM_PS,
                              (outs),
                              (ins FPR256:$rs2, GPR:$rs1, simm12_lo:$imm12),
-                             "aif.fsw.ps", "$rs2, ${imm12}(${rs1})">;
+                             "aif.fsw.ps", "$rs2, ${imm12}(${rs1})">, Sched<SchedXAIFST>;
     def AIF_FSW_PS_EX : Pseudo<(outs),
                                (ins FPR256:$rs2, GPR:$rs1, simm12_lo:$imm12, MR0:$m0),
-                               [], "aif.fsw.ps", "$rs2, ${imm12}(${rs1}), $m0">;
+                               [], "aif.fsw.ps", "$rs2, ${imm12}(${rs1}), $m0">, Sched<SchedXAIFST>;
   }
 
   let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in {
     def AIF_FBC_PS : RVInstI<0b000, OPC_ET_MEM_PS,
                              (outs FPR256:$rd),
                              (ins GPR:$rs1, simm12_lo:$imm12),
-                             "aif.fbc.ps", "$rd, ${imm12}(${rs1})">;
+                             "aif.fbc.ps", "$rd, ${imm12}(${rs1})">, Sched<SchedXAIFLD>;
     def AIF_FBC_PS_EX : Pseudo<(outs FPR256:$rd),
                                (ins GPR:$rs1, simm12_lo:$imm12, MR0:$m0), [],
-                               "aif.fbc.ps", "$rd, ${imm12}(${rs1}), $m0">;
+                               "aif.fbc.ps", "$rd, ${imm12}(${rs1}), $m0">, Sched<SchedXAIFLD>;
     def AIF_FBC_PS_PASSTHRU_EX : Pseudo<(outs FPR256:$rd),
                                         (ins FPR256:$in, GPR:$rs1, simm12_lo:$imm12, MR0:$m0), [],
-                                        "aif.fbc.ps", "$rd, ${imm12}(${rs1}), $m0"> {
+                                        "aif.fbc.ps", "$rd, ${imm12}(${rs1}), $m0">, Sched<SchedXAIFLD> {
       let Constraints = "$rd = $in";
     }
   }
@@ -131,185 +154,185 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
     def AIF_FBCX_PS : RVInstI<0b011, OPC_ET_MEM_PS,
                               (outs FPR256:$rd),
                               (ins GPR:$rs1),
-                              "aif.fbcx.ps", "$rd, ${rs1}"> {
+                              "aif.fbcx.ps", "$rd, ${rs1}">, Sched<[WriteXAIFBroadcast, ReadXAIFSHSW]> {
       let imm12 = 0;
     }
     def AIF_FBCX_PS_EX : Pseudo<(outs FPR256:$rd),
                                 (ins GPR:$rs1, MR0:$m0), [],
-                                "aif.fbcx.ps", "$rd, ${rs1}, $m0">;
+                                "aif.fbcx.ps", "$rd, ${rs1}, $m0">, Sched<[WriteXAIFBroadcast, ReadXAIFSHSW]>;
     def AIF_FBCX_PS_PASSTHRU_EX : Pseudo<(outs FPR256:$rd),
                                          (ins FPR256:$in, GPR:$rs1, MR0:$m0), [],
-                                         "aif.fbcx.ps", "$rd, ${rs1}, $m0"> {
+                                         "aif.fbcx.ps", "$rd, ${rs1}, $m0">, Sched<[WriteXAIFBroadcast, ReadXAIFSHSW]> {
       let Constraints = "$rd = $in";
     }
 
     def AIF_FBCI_PS : RVInstU<OPC_ET_IMM_PS,
                               (outs FPR256:$rd),
                               (ins uimm20_lui:$imm20),
-                              "aif.fbci.ps", "$rd, $imm20"> ;
+                              "aif.fbci.ps", "$rd, $imm20">, Sched<[WriteXAIFBroadcast]> ;
 
     def AIF_FBCI_PS_EX : Pseudo<(outs FPR256:$rd),
                                 (ins uimm20_lui:$imm20, MR0:$m0), [],
-                                "aif.fbci.ps", "$rd, $imm20, $m0">;
+                                "aif.fbci.ps", "$rd, $imm20, $m0">, Sched<[WriteXAIFBroadcast]>;
     def AIF_FBCI_PS_PASSTHRU_EX : Pseudo<(outs FPR256:$rd),
                                          (ins FPR256:$in, uimm20_lui:$imm20, MR0:$m0), [],
-                                         "aif.fbci.ps", "$rd, $imm20, $m0"> {
+                                         "aif.fbci.ps", "$rd, $imm20, $m0">, Sched<[WriteXAIFBroadcast]> {
       let Constraints = "$rd = $in";
     }
 
-    multiclass ETOpsRdF1R2G<bits<7> funct7, string opcodestr> {
+    multiclass ETOpsRdF1R2G<bits<7> funct7, string opcodestr, list<SchedReadWrite> sched> {
       def "" : RVInstR<funct7, 0b001, OPC_ET_MEM_PS,
                        (outs FPR256:$rd),
                        (ins FPR256:$rs1, GPRMemZeroOffset:$rs2),
-                       opcodestr, "$rd, ${rs1}, ${rs2}">;
+                       opcodestr, "$rd, ${rs1}, ${rs2}">, Sched<sched>;
       def _EX : Pseudo<(outs FPR256:$rd),
                        (ins FPR256:$rs1, GPRMemZeroOffset:$rs2, MR0:$m0), [],
-                       opcodestr, "$rd, ${rs1}, ${rs2}, $m0">;
+                       opcodestr, "$rd, ${rs1}, ${rs2}, $m0">, Sched<sched>;
       def _PASSTHRU_EX : Pseudo<(outs FPR256:$rd),
                                 (ins FPR256:$in, FPR256:$rs1, GPRMemZeroOffset:$rs2, MR0:$m0), [],
-                                  opcodestr, "$rd, ${rs1}, ${rs2}, $m0"> {
+                                  opcodestr, "$rd, ${rs1}, ${rs2}, $m0">, Sched<sched> {
         let Constraints = "$rd = $in";
       }
     }
 
     let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in {
-      defm AIF_FGW_PS : ETOpsRdF1R2G<0b0110000, "aif.fgw.ps">;
-      defm AIF_FGH_PS : ETOpsRdF1R2G<0b0101000, "aif.fgh.ps">;
-      defm AIF_FGB_PS : ETOpsRdF1R2G<0b0100100, "aif.fgb.ps">;
+      defm AIF_FGW_PS : ETOpsRdF1R2G<0b0110000, "aif.fgw.ps", SchedXAIFGatherF>;
+      defm AIF_FGH_PS : ETOpsRdF1R2G<0b0101000, "aif.fgh.ps", SchedXAIFGatherF>;
+      defm AIF_FGB_PS : ETOpsRdF1R2G<0b0100100, "aif.fgb.ps", SchedXAIFGatherF>;
     }
 
-    multiclass ETOpsR3R1R2<bits<7> funct7, bits<3> funct3, string opcodestr> {
+    multiclass ETOpsR3R1R2<bits<7> funct7, bits<3> funct3, string opcodestr, list<SchedReadWrite> sched> {
       def "" : RVInstET12<funct7, funct3, OPC_ET_MEM_PS,
                           (outs),
                           (ins FPR256:$rs3, FPR256:$rs1, GPRMemZeroOffset:$rs2),
-                          opcodestr, "$rs3, ${rs1}, ${rs2}">;
+                          opcodestr, "$rs3, ${rs1}, ${rs2}">, Sched<sched>;
       def _EX : Pseudo<(outs),
                        (ins FPR256:$rs3, FPR256:$rs1, GPRMemZeroOffset:$rs2, MR0:$m0), [],
-                       opcodestr, "$rs3, ${rs1}, ${rs2}, $m0">;
+                       opcodestr, "$rs3, ${rs1}, ${rs2}, $m0">, Sched<sched>;
     }
 
     let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in {
-      defm AIF_FSCW_PS : ETOpsR3R1R2<0b1110000, 0b001, "aif.fscw.ps">;
-      defm AIF_FSCH_PS : ETOpsR3R1R2<0b1101000, 0b001, "aif.fsch.ps">;
-      defm AIF_FSCB_PS : ETOpsR3R1R2<0b1100100, 0b001, "aif.fscb.ps">;
+      defm AIF_FSCW_PS : ETOpsR3R1R2<0b1110000, 0b001, "aif.fscw.ps", SchedXAIFScatter>;
+      defm AIF_FSCH_PS : ETOpsR3R1R2<0b1101000, 0b001, "aif.fsch.ps", SchedXAIFScatter>;
+      defm AIF_FSCB_PS : ETOpsR3R1R2<0b1100100, 0b001, "aif.fscb.ps", SchedXAIFScatter>;
     }
 
     multiclass ETOpsRdR1R2Rm<bits<7> funct7, RISCVOpcode opcode,
-                             string opcodestr> {
+                             string opcodestr, list<SchedReadWrite> sched> {
       def "" : RVInstET3<funct7, opcode,
                          (outs FPR256:$rd),
                          (ins FPR256:$rs1, FPR256:$rs2, frmarg:$rm),
-                         opcodestr, "$rd, $rs1, $rs2$rm">;
+                         opcodestr, "$rd, $rs1, $rs2$rm">, Sched<sched>;
       def _EX : Pseudo<(outs FPR256:$rd),
                        (ins FPR256:$rs1, FPR256:$rs2, frmarg:$rm, MR0:$m0),
-                       [], opcodestr, "$rd, $rs1, $rs2$rm, $m0">;
+                       [], opcodestr, "$rd, $rs1, $rs2$rm, $m0">, Sched<sched>;
       def _PASSTHRU_EX : Pseudo<(outs FPR256:$rd),
                                 (ins FPR256:$in, FPR256:$rs1, FPR256:$rs2, frmarg:$rm, MR0:$m0),
-                                [], opcodestr, "$rd, $rs1, $rs2$rm, $m0">  {
+                                [], opcodestr, "$rd, $rs1, $rs2$rm, $m0">, Sched<sched>  {
         let Constraints = "$rd = $in";
       }
     }
 
-    defm AIF_FADD_PS : ETOpsRdR1R2Rm<0b0000000, OPC_ET_OP_PS, "aif.fadd.ps">;
-    defm AIF_FSUB_PS : ETOpsRdR1R2Rm<0b0000100, OPC_ET_OP_PS, "aif.fsub.ps">;
-    defm AIF_FMUL_PS : ETOpsRdR1R2Rm<0b0001000, OPC_ET_OP_PS, "aif.fmul.ps">;
-    defm AIF_FDIV_PS : ETOpsRdR1R2Rm<0b0001100, OPC_ET_OP_PS, "aif.fdiv.ps">;
+    defm AIF_FADD_PS : ETOpsRdR1R2Rm<0b0000000, OPC_ET_OP_PS, "aif.fadd.ps", SchedXAIFArith2>;
+    defm AIF_FSUB_PS : ETOpsRdR1R2Rm<0b0000100, OPC_ET_OP_PS, "aif.fsub.ps", SchedXAIFArith2>;
+    defm AIF_FMUL_PS : ETOpsRdR1R2Rm<0b0001000, OPC_ET_OP_PS, "aif.fmul.ps", SchedXAIFArith2>;
+    defm AIF_FDIV_PS : ETOpsRdR1R2Rm<0b0001100, OPC_ET_OP_PS, "aif.fdiv.ps", SchedXAIFFDiv>;
 
     multiclass ETOpsRdR1R2<bits<7> funct7, bits<3> funct3, RISCVOpcode opcode,
-                           string opcodestr> {
+                           string opcodestr, list<SchedReadWrite> sched> {
       def "" : RVInstR<funct7, funct3, opcode,
                        (outs FPR256:$rd),
                        (ins FPR256:$rs1, FPR256:$rs2),
-                       opcodestr, "$rd, $rs1, $rs2">;
+                       opcodestr, "$rd, $rs1, $rs2">, Sched<sched>;
       def _EX : Pseudo<(outs FPR256:$rd),
                        (ins FPR256:$rs1, FPR256:$rs2, MR0:$m0),
-                       [], opcodestr, "$rd, $rs1, $rs2, $m0">;
+                       [], opcodestr, "$rd, $rs1, $rs2, $m0">, Sched<sched>;
       def _PASSTHRU_EX : Pseudo<(outs FPR256:$rd),
                                 (ins FPR256:$in, FPR256:$rs1, FPR256:$rs2, MR0:$m0),
-                                [], opcodestr, "$rd, $rs1, $rs2, $m0">  {
+                                [], opcodestr, "$rd, $rs1, $rs2, $m0">, Sched<sched>  {
         let Constraints = "$rd = $in";
       }
     }
 
-    defm AIF_FMIN_PS : ETOpsRdR1R2<0b0010100, 0b000, OPC_ET_OP_PS, "aif.fmin.ps">;
-    defm AIF_FMAX_PS : ETOpsRdR1R2<0b0010100, 0b001, OPC_ET_OP_PS, "aif.fmax.ps">;
+    defm AIF_FMIN_PS : ETOpsRdR1R2<0b0010100, 0b000, OPC_ET_OP_PS, "aif.fmin.ps", SchedXAIFSHSW2>;
+    defm AIF_FMAX_PS : ETOpsRdR1R2<0b0010100, 0b001, OPC_ET_OP_PS, "aif.fmax.ps", SchedXAIFSHSW2>;
 
     multiclass ETOpsRdR1R2R3Rm<bits<2> funct2, RISCVOpcode opcode,
-                               string opcodestr> {
+                               string opcodestr, list<SchedReadWrite> sched> {
       def "" : RVInstET4<funct2, opcode,
                          (outs FPR256:$rd),
                          (ins FPR256:$rs1, FPR256:$rs2, FPR256:$rs3, frmarg:$rm),
-                         opcodestr, "$rd, $rs1, $rs2, $rs3$rm">;
+                         opcodestr, "$rd, $rs1, $rs2, $rs3$rm">, Sched<sched>;
       def _EX : Pseudo<(outs FPR256:$rd),
                        (ins FPR256:$rs1,
                          FPR256:$rs2, FPR256:$rs3, frmarg:$rm, MR0:$m0),
-                       [], opcodestr, "$rd, $rs1, $rs2, $rs3$rm, $m0">;
+                       [], opcodestr, "$rd, $rs1, $rs2, $rs3$rm, $m0">, Sched<sched>;
       def _PASSTHRU_EX : Pseudo<(outs FPR256:$rd),
                                 (ins FPR256:$in, FPR256:$rs1,
                                 FPR256:$rs2, FPR256:$rs3, frmarg:$rm, MR0:$m0),
-                                [], opcodestr, "$rd, $rs1, $rs2, $rs3$rm, $m0"> {
+                                [], opcodestr, "$rd, $rs1, $rs2, $rs3$rm, $m0">, Sched<sched> {
         let Constraints = "$rd = $in";
       }
     }
 
-    defm AIF_FMADD_PS  : ETOpsRdR1R2R3Rm<0b00, OPC_ET_OP3_PS, "aif.fmadd.ps">;
-    defm AIF_FMSUB_PS  : ETOpsRdR1R2R3Rm<0b01, OPC_ET_OP3_PS, "aif.fmsub.ps">;
-    defm AIF_FNMSUB_PS : ETOpsRdR1R2R3Rm<0b10, OPC_ET_OP3_PS, "aif.fnmsub.ps">;
-    defm AIF_FNMADD_PS : ETOpsRdR1R2R3Rm<0b11, OPC_ET_OP3_PS, "aif.fnmadd.ps">;
+    defm AIF_FMADD_PS  : ETOpsRdR1R2R3Rm<0b00, OPC_ET_OP3_PS, "aif.fmadd.ps", SchedXAIFFMA>;
+    defm AIF_FMSUB_PS  : ETOpsRdR1R2R3Rm<0b01, OPC_ET_OP3_PS, "aif.fmsub.ps", SchedXAIFFMA>;
+    defm AIF_FNMSUB_PS : ETOpsRdR1R2R3Rm<0b10, OPC_ET_OP3_PS, "aif.fnmsub.ps", SchedXAIFFMA>;
+    defm AIF_FNMADD_PS : ETOpsRdR1R2R3Rm<0b11, OPC_ET_OP3_PS, "aif.fnmadd.ps", SchedXAIFFMA>;
 
     def AIF_FCMOV_PS : RVInstET4<0b10, OPC_ET_IMM10_PI,
                                  (outs FPR256:$rd),
                                  (ins FPR256:$rs1, FPR256:$rs2, FPR256:$rs3),
-                                 "aif.fcmov.ps", "$rd, $rs1, $rs2, $rs3"> {
+                                 "aif.fcmov.ps", "$rd, $rs1, $rs2, $rs3">, Sched<SchedXAIFSwizzle3> {
       let rm = 0b010;
     }
 
     def AIF_FCMOV_PS_EX : Pseudo<(outs FPR256:$rd),
                                  (ins FPR256:$rs1, FPR256:$rs2,
                                    FPR256:$rs3, MR0:$m0), [],
-                                 "aif.fcmov.ps", "$rd, $rs1, $rs2, $rs3, $m0">;
+                                 "aif.fcmov.ps", "$rd, $rs1, $rs2, $rs3, $m0">, Sched<SchedXAIFSwizzle3>;
     def AIF_FCMOV_PS_PASSTHRU_EX : Pseudo<(outs FPR256:$rd),
                                           (ins FPR256:$in, FPR256:$rs1, FPR256:$rs2,
                                           FPR256:$rs3, MR0:$m0), [],
-                                          "aif.fcmov.ps", "$rd, $rs1, $rs2, $rs3, $m0"> {
+                                          "aif.fcmov.ps", "$rd, $rs1, $rs2, $rs3, $m0">, Sched<SchedXAIFSwizzle3> {
       let Constraints = "$rd = $in";
     }
 
     def AIF_FSWIZZ_PS : RVInstET1<0b1110011, OPC_ET_OP_PS,
                                   (outs FPR256:$rd),
                                   (ins FPR256:$rs1, uimm8:$imm),
-                                  "aif.fswizz.ps", "$rd, $rs1, $imm">;
+                                  "aif.fswizz.ps", "$rd, $rs1, $imm">, Sched<SchedXAIFSwizzle1>;
     def AIF_FSWIZZ_PS_EX : Pseudo<(outs FPR256:$rd),
                                   (ins FPR256:$rs1, uimm8:$imm, MR0:$m0),
-                                  [], "aif.fswizz.ps", "$rd, $rs1, $imm, $m0">;
+                                  [], "aif.fswizz.ps", "$rd, $rs1, $imm, $m0">, Sched<SchedXAIFSwizzle1>;
     def AIF_FSWIZZ_PS_PASSTHRU_EX : Pseudo<(outs FPR256:$rd),
                                            (ins FPR256:$in, FPR256:$rs1, uimm8:$imm, MR0:$m0),
-                                           [], "aif.fswizz.ps", "$rd, $rs1, $imm, $m0"> {
+                                           [], "aif.fswizz.ps", "$rd, $rs1, $imm, $m0">, Sched<SchedXAIFSwizzle1> {
       let Constraints = "$rd = $in";
     }
 
     multiclass ETOpsRdR1Rm<bits<7> funct7, bits<5> funct1, RISCVOpcode opcode,
-                           string opcodestr> {
+                           string opcodestr, list<SchedReadWrite> sched> {
       def "" : RVInstET3<funct7, opcode,
                          (outs FPR256:$rd),
                          (ins FPR256:$rs1, frmarg:$rm),
-                         opcodestr, "$rd, $rs1$rm"> {
+                         opcodestr, "$rd, $rs1$rm">, Sched<sched> {
         let rs2 = funct1;
       }
       def _EX : Pseudo<(outs FPR256:$rd),
                        (ins FPR256:$rs1, frmarg:$rm, MR0:$m0),
-                       [], opcodestr, "$rd, $rs1$rm, $m0">;
+                       [], opcodestr, "$rd, $rs1$rm, $m0">, Sched<sched>;
       def _PASSTHRU_EX : Pseudo<(outs FPR256:$rd),
                                 (ins FPR256:$in, FPR256:$rs1, frmarg:$rm, MR0:$m0),
-                                [], opcodestr, "$rd, $rs1$rm, $m0">  {
+                                [], opcodestr, "$rd, $rs1$rm, $m0">, Sched<sched>  {
         let Constraints = "$rd = $in";
       }
     }
 
-    defm AIF_FCVT_PW_PS  : ETOpsRdR1Rm<0b1100000, 0, OPC_ET_OP_PS, "aif.fcvt.pw.ps">;
-    defm AIF_FCVT_PWU_PS : ETOpsRdR1Rm<0b1100000, 1, OPC_ET_OP_PS, "aif.fcvt.pwu.ps">;
-    defm AIF_FCVT_PS_PW  : ETOpsRdR1Rm<0b1101000, 0, OPC_ET_OP_PS, "aif.fcvt.ps.pw">;
-    defm AIF_FCVT_PS_PWU : ETOpsRdR1Rm<0b1101000, 1, OPC_ET_OP_PS, "aif.fcvt.ps.pwu">;
+    defm AIF_FCVT_PW_PS  : ETOpsRdR1Rm<0b1100000, 0, OPC_ET_OP_PS, "aif.fcvt.pw.ps", SchedXAIFCvt>;
+    defm AIF_FCVT_PWU_PS : ETOpsRdR1Rm<0b1100000, 1, OPC_ET_OP_PS, "aif.fcvt.pwu.ps", SchedXAIFCvt>;
+    defm AIF_FCVT_PS_PW  : ETOpsRdR1Rm<0b1101000, 0, OPC_ET_OP_PS, "aif.fcvt.ps.pw", SchedXAIFCvt>;
+    defm AIF_FCVT_PS_PWU : ETOpsRdR1Rm<0b1101000, 1, OPC_ET_OP_PS, "aif.fcvt.ps.pwu", SchedXAIFCvt>;
 
     class ETOpsRdR1Idx<bits<7> funct7, bits<3> funct3, RISCVOpcode opcode,
                        string opcodestr> :
@@ -318,61 +341,61 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
                 (ins FPR256:$rs1, uimm3:$idx),
                 opcodestr, "$rd, $rs1, $idx">;
 
-    def AIF_FMVZ_X_PS : ETOpsRdR1Idx<0b1110000, 0b000, OPC_ET_OP_PS, "aif.fmvz.x.ps">;
+    def AIF_FMVZ_X_PS : ETOpsRdR1Idx<0b1110000, 0b000, OPC_ET_OP_PS, "aif.fmvz.x.ps">, Sched<[WriteXAIFToInt, ReadXAIFSHSW]>;
     // no _EX variant
-    def AIF_FMVS_X_PS : ETOpsRdR1Idx<0b1110000, 0b010, OPC_ET_OP_PS, "aif.fmvs.x.ps">;
+    def AIF_FMVS_X_PS : ETOpsRdR1Idx<0b1110000, 0b010, OPC_ET_OP_PS, "aif.fmvs.x.ps">, Sched<[WriteXAIFToInt, ReadXAIFSHSW]>;
     // no _EX variant
 
-    defm AIF_FSGNJN_PS : ETOpsRdR1R2<0b0010000, 0b001, OPC_ET_OP_PS, "aif.fsgnjn.ps">;
-    defm AIF_FSGNJ_PS  : ETOpsRdR1R2<0b0010000, 0b000, OPC_ET_OP_PS, "aif.fsgnj.ps">;
-    defm AIF_FSGNJX_PS : ETOpsRdR1R2<0b0010000, 0b010, OPC_ET_OP_PS, "aif.fsgnjx.ps">;
-    defm AIF_FLE_PS    : ETOpsRdR1R2<0b1010000, 0b000, OPC_ET_OP_PS, "aif.fle.ps">;
-    defm AIF_FLT_PS    : ETOpsRdR1R2<0b1010000, 0b001, OPC_ET_OP_PS, "aif.flt.ps">;
-    defm AIF_FEQ_PS    : ETOpsRdR1R2<0b1010000, 0b010, OPC_ET_OP_PS, "aif.feq.ps">;
+    defm AIF_FSGNJN_PS : ETOpsRdR1R2<0b0010000, 0b001, OPC_ET_OP_PS, "aif.fsgnjn.ps", SchedXAIFSHSW2>;
+    defm AIF_FSGNJ_PS  : ETOpsRdR1R2<0b0010000, 0b000, OPC_ET_OP_PS, "aif.fsgnj.ps", SchedXAIFSHSW2>;
+    defm AIF_FSGNJX_PS : ETOpsRdR1R2<0b0010000, 0b010, OPC_ET_OP_PS, "aif.fsgnjx.ps", SchedXAIFSHSW2>;
+    defm AIF_FLE_PS    : ETOpsRdR1R2<0b1010000, 0b000, OPC_ET_OP_PS, "aif.fle.ps", SchedXAIFSHSW2>;
+    defm AIF_FLT_PS    : ETOpsRdR1R2<0b1010000, 0b001, OPC_ET_OP_PS, "aif.flt.ps", SchedXAIFSHSW2>;
+    defm AIF_FEQ_PS    : ETOpsRdR1R2<0b1010000, 0b010, OPC_ET_OP_PS, "aif.feq.ps", SchedXAIFSHSW2>;
 
     multiclass ETOpsMdR1R2<bits<7> funct7, bits<3> funct3, RISCVOpcode opcode,
-                           string opcodestr> {
+                           string opcodestr, list<SchedReadWrite> sched> {
       def "" : RVInstR<funct7, funct3, opcode,
                        (outs MR:$rd),
                        (ins FPR256:$rs1, FPR256:$rs2),
-                       opcodestr, "$rd, $rs1, $rs2">;
+                       opcodestr, "$rd, $rs1, $rs2">, Sched<sched>;
       def _EX : Pseudo<(outs MR:$rd),
                        (ins FPR256:$rs1, FPR256:$rs2, MR0:$m0), [],
-                       opcodestr, "$rd, $rs1, $rs2, $m0">;
+                       opcodestr, "$rd, $rs1, $rs2, $m0">, Sched<sched>;
       def _PASSTHRU_EX : Pseudo<(outs MR:$rd),
                                 (ins MR:$in, FPR256:$rs1, FPR256:$rs2, MR0:$m0), [],
-                                opcodestr, "$rd, $rs1, $rs2, $m0"> {
+                                opcodestr, "$rd, $rs1, $rs2, $m0">, Sched<sched> {
         let Constraints = "$rd = $in";
       }
     }
 
-    defm AIF_FLEM_PS : ETOpsMdR1R2<0b1010000, 0b100, OPC_ET_OP_PS, "aif.flem.ps">;
-    defm AIF_FLTM_PS : ETOpsMdR1R2<0b1010000, 0b101, OPC_ET_OP_PS, "aif.fltm.ps">;
-    defm AIF_FEQM_PS : ETOpsMdR1R2<0b1010000, 0b110, OPC_ET_OP_PS, "aif.feqm.ps">;
+    defm AIF_FLEM_PS : ETOpsMdR1R2<0b1010000, 0b100, OPC_ET_OP_PS, "aif.flem.ps", SchedXAIFToMask2>;
+    defm AIF_FLTM_PS : ETOpsMdR1R2<0b1010000, 0b101, OPC_ET_OP_PS, "aif.fltm.ps", SchedXAIFToMask2>;
+    defm AIF_FEQM_PS : ETOpsMdR1R2<0b1010000, 0b110, OPC_ET_OP_PS, "aif.feqm.ps", SchedXAIFToMask2>;
 
     multiclass ETOpsRdR1<bits<7> funct7, bits<5> funct5, bits<3> funct3,
-                         RISCVOpcode opcode, string opcodestr> {
+                         RISCVOpcode opcode, string opcodestr, list<SchedReadWrite> sched> {
       def "" : RVInstR<funct7, funct3, opcode,
                        (outs FPR256:$rd),
                        (ins FPR256:$rs1),
-                       opcodestr, "$rd, $rs1"> {
+                       opcodestr, "$rd, $rs1">, Sched<sched> {
         let rs2 = funct5;
       }
       def _EX : Pseudo<(outs FPR256:$rd),
                        (ins FPR256:$rs1, MR0:$m0), [],
-                       opcodestr, "$rd, $rs1, $m0">;
+                       opcodestr, "$rd, $rs1, $m0">, Sched<sched>;
       def _PASSTHRU_EX : Pseudo<(outs FPR256:$rd),
                                 (ins FPR256:$in, FPR256:$rs1, MR0:$m0), [],
-                                opcodestr, "$rd, $rs1, $m0"> {
+                                opcodestr, "$rd, $rs1, $m0">, Sched<sched> {
         let Constraints = "$rd = $in";
       }
     }
 
-    defm AIF_FCLASS_PS : ETOpsRdR1<0b1110000, 0b00000, 0b001, OPC_ET_OP_PS, "aif.fclass.ps">;
+    defm AIF_FCLASS_PS : ETOpsRdR1<0b1110000, 0b00000, 0b001, OPC_ET_OP_PS, "aif.fclass.ps", SchedXAIFArith1>;
 
     multiclass ETOpsCvt<bits<7> funct7, bits<5> funct5, string opcodestr> {
       defm "" : ETOpsRdR1<funct7, funct5, 0b000,
-                          OPC_ET_OP_PS, opcodestr>;
+                          OPC_ET_OP_PS, opcodestr, SchedXAIFCvt>;
     }
 
     defm AIF_FCVT_PS_F10  : ETOpsCvt<0b1101000, 0b01000, "aif.fcvt.ps.f10">;
@@ -399,142 +422,142 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
     def AIF_FBCI_PI : RVInstU<OPC_ET_IMM_PI,
                               (outs FPR256:$rd),
                               (ins simm20:$imm20),
-                              "aif.fbci.pi", "$rd, ${imm20}">;
+                              "aif.fbci.pi", "$rd, ${imm20}">, Sched<[WriteXAIFBroadcast]>;
     def AIF_FBCI_PI_EX : Pseudo<(outs FPR256:$rd),
                                 (ins simm20:$imm20, MR0:$m0), [],
-                                "aif.fbci.pi", "$rd, ${imm20}, $m0">;
+                                "aif.fbci.pi", "$rd, ${imm20}, $m0">, Sched<[WriteXAIFBroadcast]>;
     def AIF_FBCI_PI_PASSTHRU_EX : Pseudo<(outs FPR256:$rd),
                                          (ins FPR256:$in, simm20:$imm20, MR0:$m0), [],
-                                         "aif.fbci.pi", "$rd, ${imm20}, $m0"> {
+                                         "aif.fbci.pi", "$rd, ${imm20}, $m0">, Sched<[WriteXAIFBroadcast]> {
       let Constraints = "$rd = $in";
     }
 
-    defm AIF_FADD_PI   : ETOpsRdR1R2<0b0000011, 0b000, OPC_ET_OP_PS, "aif.fadd.pi">;
-    defm AIF_FSUB_PI   : ETOpsRdR1R2<0b0000111, 0b000, OPC_ET_OP_PS, "aif.fsub.pi">;
-    defm AIF_FMUL_PI   : ETOpsRdR1R2<0b0001011, 0b000, OPC_ET_OP_PS, "aif.fmul.pi">;
-    defm AIF_FMULH_PI  : ETOpsRdR1R2<0b0001011, 0b001, OPC_ET_OP_PS, "aif.fmulh.pi">;
-    defm AIF_FMULHU_PI : ETOpsRdR1R2<0b0001011, 0b010, OPC_ET_OP_PS, "aif.fmulhu.pi">;
-    defm AIF_FDIV_PI   : ETOpsRdR1R2<0b0001111, 0b000, OPC_ET_OP_PS, "aif.fdiv.pi">;
-    defm AIF_FDIVU_PI  : ETOpsRdR1R2<0b0001111, 0b001, OPC_ET_OP_PS, "aif.fdivu.pi">;
-    defm AIF_FREM_PI   : ETOpsRdR1R2<0b0001111, 0b010, OPC_ET_OP_PS, "aif.frem.pi">;
-    defm AIF_FREMU_PI  : ETOpsRdR1R2<0b0001111, 0b011, OPC_ET_OP_PS, "aif.fremu.pi">;
-    defm AIF_FMIN_PI   : ETOpsRdR1R2<0b0010111, 0b000, OPC_ET_OP_PS, "aif.fmin.pi">;
-    defm AIF_FMAX_PI   : ETOpsRdR1R2<0b0010111, 0b001, OPC_ET_OP_PS, "aif.fmax.pi">;
-    defm AIF_FMINU_PI  : ETOpsRdR1R2<0b0010111, 0b010, OPC_ET_OP_PS, "aif.fminu.pi">;
-    defm AIF_FMAXU_PI  : ETOpsRdR1R2<0b0010111, 0b011, OPC_ET_OP_PS, "aif.fmaxu.pi">;
+    defm AIF_FADD_PI   : ETOpsRdR1R2<0b0000011, 0b000, OPC_ET_OP_PS, "aif.fadd.pi", SchedXAIFSHSW2>;
+    defm AIF_FSUB_PI   : ETOpsRdR1R2<0b0000111, 0b000, OPC_ET_OP_PS, "aif.fsub.pi", SchedXAIFSHSW2>;
+    defm AIF_FMUL_PI   : ETOpsRdR1R2<0b0001011, 0b000, OPC_ET_OP_PS, "aif.fmul.pi", SchedXAIFArith2>;
+    defm AIF_FMULH_PI  : ETOpsRdR1R2<0b0001011, 0b001, OPC_ET_OP_PS, "aif.fmulh.pi", SchedXAIFArith2>;
+    defm AIF_FMULHU_PI : ETOpsRdR1R2<0b0001011, 0b010, OPC_ET_OP_PS, "aif.fmulhu.pi", SchedXAIFArith2>;
+    defm AIF_FDIV_PI   : ETOpsRdR1R2<0b0001111, 0b000, OPC_ET_OP_PS, "aif.fdiv.pi", SchedXAIFFDiv>;
+    defm AIF_FDIVU_PI  : ETOpsRdR1R2<0b0001111, 0b001, OPC_ET_OP_PS, "aif.fdivu.pi", SchedXAIFFDiv>;
+    defm AIF_FREM_PI   : ETOpsRdR1R2<0b0001111, 0b010, OPC_ET_OP_PS, "aif.frem.pi", SchedXAIFFDiv>;
+    defm AIF_FREMU_PI  : ETOpsRdR1R2<0b0001111, 0b011, OPC_ET_OP_PS, "aif.fremu.pi", SchedXAIFFDiv>;
+    defm AIF_FMIN_PI   : ETOpsRdR1R2<0b0010111, 0b000, OPC_ET_OP_PS, "aif.fmin.pi", SchedXAIFSHSW2>;
+    defm AIF_FMAX_PI   : ETOpsRdR1R2<0b0010111, 0b001, OPC_ET_OP_PS, "aif.fmax.pi", SchedXAIFSHSW2>;
+    defm AIF_FMINU_PI  : ETOpsRdR1R2<0b0010111, 0b010, OPC_ET_OP_PS, "aif.fminu.pi", SchedXAIFSHSW2>;
+    defm AIF_FMAXU_PI  : ETOpsRdR1R2<0b0010111, 0b011, OPC_ET_OP_PS, "aif.fmaxu.pi", SchedXAIFSHSW2>;
 
-    defm AIF_FLTM_PI : ETOpsMdR1R2<0b0011111, 0b000, OPC_ET_OP_PS, "aif.fltm.pi">;
+    defm AIF_FLTM_PI : ETOpsMdR1R2<0b0011111, 0b000, OPC_ET_OP_PS, "aif.fltm.pi", SchedXAIFToMask2>;
 
-    defm AIF_FAND_PI : ETOpsRdR1R2<0b0000011, 0b111, OPC_ET_OP_PS, "aif.fand.pi">;
-    defm AIF_FOR_PI  : ETOpsRdR1R2<0b0000011, 0b110, OPC_ET_OP_PS, "aif.for.pi">;
-    defm AIF_FNOT_PI : ETOpsRdR1<0b0000011, 0b00000, 0b010, OPC_ET_OP_PS, "aif.fnot.pi">;
-    defm AIF_FXOR_PI : ETOpsRdR1R2<0b0000011, 0b100, OPC_ET_OP_PS, "aif.fxor.pi">;
-    defm AIF_FSLL_PI : ETOpsRdR1R2<0b0000011, 0b001, OPC_ET_OP_PS, "aif.fsll.pi">;
-    defm AIF_FSRL_PI : ETOpsRdR1R2<0b0000011, 0b101, OPC_ET_OP_PS, "aif.fsrl.pi">;
-    defm AIF_FSRA_PI : ETOpsRdR1R2<0b0000111, 0b101, OPC_ET_OP_PS, "aif.fsra.pi">;
-    defm AIF_FLE_PI  : ETOpsRdR1R2<0b1010011, 0b000, OPC_ET_OP_PS, "aif.fle.pi">;
-    defm AIF_FLT_PI  : ETOpsRdR1R2<0b1010011, 0b001, OPC_ET_OP_PS, "aif.flt.pi">;
-    defm AIF_FEQ_PI  : ETOpsRdR1R2<0b1010011, 0b010, OPC_ET_OP_PS, "aif.feq.pi">;
-    defm AIF_FLTU_PI : ETOpsRdR1R2<0b1010011, 0b011, OPC_ET_OP_PS, "aif.fltu.pi">;
+    defm AIF_FAND_PI : ETOpsRdR1R2<0b0000011, 0b111, OPC_ET_OP_PS, "aif.fand.pi", SchedXAIFSHSW2>;
+    defm AIF_FOR_PI  : ETOpsRdR1R2<0b0000011, 0b110, OPC_ET_OP_PS, "aif.for.pi", SchedXAIFSHSW2>;
+    defm AIF_FNOT_PI : ETOpsRdR1<0b0000011, 0b00000, 0b010, OPC_ET_OP_PS, "aif.fnot.pi", SchedXAIFSHSW1>;
+    defm AIF_FXOR_PI : ETOpsRdR1R2<0b0000011, 0b100, OPC_ET_OP_PS, "aif.fxor.pi", SchedXAIFSHSW2>;
+    defm AIF_FSLL_PI : ETOpsRdR1R2<0b0000011, 0b001, OPC_ET_OP_PS, "aif.fsll.pi", SchedXAIFSHSW2>;
+    defm AIF_FSRL_PI : ETOpsRdR1R2<0b0000011, 0b101, OPC_ET_OP_PS, "aif.fsrl.pi", SchedXAIFSHSW2>;
+    defm AIF_FSRA_PI : ETOpsRdR1R2<0b0000111, 0b101, OPC_ET_OP_PS, "aif.fsra.pi", SchedXAIFSHSW2>;
+    defm AIF_FLE_PI  : ETOpsRdR1R2<0b1010011, 0b000, OPC_ET_OP_PS, "aif.fle.pi", SchedXAIFSHSW2>;
+    defm AIF_FLT_PI  : ETOpsRdR1R2<0b1010011, 0b001, OPC_ET_OP_PS, "aif.flt.pi", SchedXAIFSHSW2>;
+    defm AIF_FEQ_PI  : ETOpsRdR1R2<0b1010011, 0b010, OPC_ET_OP_PS, "aif.feq.pi", SchedXAIFSHSW2>;
+    defm AIF_FLTU_PI : ETOpsRdR1R2<0b1010011, 0b011, OPC_ET_OP_PS, "aif.fltu.pi", SchedXAIFSHSW2>;
 
     multiclass ETOpsMdR1<bits<7> funct7, bits<3> funct3,
-                         RISCVOpcode opcode, string opcodestr> {
+                         RISCVOpcode opcode, string opcodestr, list<SchedReadWrite> sched> {
       def "" : RVInstR<funct7, funct3, opcode,
                        (outs MR:$rd),
                        (ins FPR256:$rs1),
-                       opcodestr, "$rd, $rs1"> {
+                       opcodestr, "$rd, $rs1">, Sched<sched> {
         let rs2 = 0;
       }
       def _EX : Pseudo<(outs MR:$rd),
                        (ins FPR256:$rs1, MR0:$m0),
-                       [], opcodestr, "$rd, $rs1, $m0">;
+                       [], opcodestr, "$rd, $rs1, $m0">, Sched<sched>;
       def _PASSTHRU_EX : Pseudo<(outs MR:$rd),
                                 (ins MR:$in, FPR256:$rs1, MR0:$m0),
-                                [], opcodestr, "$rd, $rs1, $m0"> {
+                                [], opcodestr, "$rd, $rs1, $m0">, Sched<sched> {
         let Constraints = "$rd = $in";
       }
     }
 
-    defm AIF_FSETM_PI : ETOpsMdR1<0b1010011, 0b100, OPC_ET_OP_PS, "aif.fsetm.pi">;
+    defm AIF_FSETM_PI : ETOpsMdR1<0b1010011, 0b100, OPC_ET_OP_PS, "aif.fsetm.pi", SchedXAIFToMask1>;
 
-    multiclass ETOpsRdR1I10<bits<3> funct3, RISCVOpcode opcode, string opcodestr> {
+    multiclass ETOpsRdR1I10<bits<3> funct3, RISCVOpcode opcode, string opcodestr, list<SchedReadWrite> sched> {
       def "" : RVInstET2<funct3, opcode,
                          (outs FPR256:$rd),
                          (ins FPR256:$rs1, simm10:$imm),
-                         opcodestr, "$rd, $rs1, ${imm}">;
+                         opcodestr, "$rd, $rs1, ${imm}">, Sched<sched>;
       def _EX : Pseudo<(outs FPR256:$rd),
                        (ins FPR256:$rs1, simm10:$imm, MR0:$m0), [],
-                       opcodestr, "$rd, $rs1, ${imm}, $m0">;
+                       opcodestr, "$rd, $rs1, ${imm}, $m0">, Sched<sched>;
       def _PASSTHRU_EX : Pseudo<(outs FPR256:$rd),
                                 (ins FPR256:$in, FPR256:$rs1, simm10:$imm, MR0:$m0), [],
-                                opcodestr, "$rd, $rs1, ${imm}, $m0"> {
+                                opcodestr, "$rd, $rs1, ${imm}, $m0">, Sched<sched> {
         let Constraints = "$rd = $in";
       }
     }
 
-    defm AIF_FADDI_PI : ETOpsRdR1I10<0b000, OPC_ET_IMM10_PI, "aif.faddi.pi">;
-    defm AIF_FANDI_PI : ETOpsRdR1I10<0b001, OPC_ET_IMM10_PI, "aif.fandi.pi">;
+    defm AIF_FADDI_PI : ETOpsRdR1I10<0b000, OPC_ET_IMM10_PI, "aif.faddi.pi", SchedXAIFSHSW1>;
+    defm AIF_FANDI_PI : ETOpsRdR1I10<0b001, OPC_ET_IMM10_PI, "aif.fandi.pi", SchedXAIFSHSW1>;
 
-    multiclass ETOpsRdR1I5<bits<3> funct3, RISCVOpcode opcode, string opcodestr> {
+    multiclass ETOpsRdR1I5<bits<3> funct3, RISCVOpcode opcode, string opcodestr, list<SchedReadWrite> sched> {
       def "" : RVInstET6<funct3, opcode,
                          (outs FPR256:$rd),
                          (ins FPR256:$rs1, uimm5:$imm),
-                         opcodestr, "$rd, $rs1, ${imm}">;
+                         opcodestr, "$rd, $rs1, ${imm}">, Sched<sched>;
       def _EX : Pseudo<(outs FPR256:$rd),
                        (ins FPR256:$rs1, uimm5:$imm, MR0:$m0), [],
-                       opcodestr, "$rd, $rs1, ${imm}, $m0">;
+                       opcodestr, "$rd, $rs1, ${imm}, $m0">, Sched<sched>;
       def _PASSTHRU_EX : Pseudo<(outs FPR256:$rd),
                                 (ins FPR256:$in, FPR256:$rs1, uimm5:$imm, MR0:$m0), [],
-                                opcodestr, "$rd, $rs1, ${imm}, $m0"> {
+                                opcodestr, "$rd, $rs1, ${imm}, $m0">, Sched<sched> {
         let Constraints = "$rd = $in";
       }
     }
 
-    defm AIF_FSLLI_PI : ETOpsRdR1I5<0b001, OPC_ET_OP_PS, "aif.fslli.pi">;
-    defm AIF_FSRLI_PI : ETOpsRdR1I5<0b101, OPC_ET_OP_PS, "aif.fsrli.pi">;
-    defm AIF_FSRAI_PI : ETOpsRdR1I5<0b111, OPC_ET_OP_PS, "aif.fsrai.pi">;
+    defm AIF_FSLLI_PI : ETOpsRdR1I5<0b001, OPC_ET_OP_PS, "aif.fslli.pi", SchedXAIFSHSW1>;
+    defm AIF_FSRLI_PI : ETOpsRdR1I5<0b101, OPC_ET_OP_PS, "aif.fsrli.pi", SchedXAIFSHSW1>;
+    defm AIF_FSRAI_PI : ETOpsRdR1I5<0b111, OPC_ET_OP_PS, "aif.fsrai.pi", SchedXAIFSHSW1>;
 
-    defm AIF_FSIN_PS : ETOpsRdR1<0b0101100, 0b00110, 0b000, OPC_ET_OP_PS, "aif.fsin.ps">;
-    defm AIF_FEXP_PS : ETOpsRdR1<0b0101100, 0b00100, 0b000, OPC_ET_OP_PS, "aif.fexp.ps">;
-    defm AIF_FLOG_PS : ETOpsRdR1<0b0101100, 0b00011, 0b000, OPC_ET_OP_PS, "aif.flog.ps">;
-    defm AIF_FFRC_PS : ETOpsRdR1<0b0101100, 0b00010, 0b000, OPC_ET_OP_PS, "aif.ffrc.ps">;
+    defm AIF_FSIN_PS : ETOpsRdR1<0b0101100, 0b00110, 0b000, OPC_ET_OP_PS, "aif.fsin.ps", SchedXAIFTrans>;
+    defm AIF_FEXP_PS : ETOpsRdR1<0b0101100, 0b00100, 0b000, OPC_ET_OP_PS, "aif.fexp.ps", SchedXAIFTrans>;
+    defm AIF_FLOG_PS : ETOpsRdR1<0b0101100, 0b00011, 0b000, OPC_ET_OP_PS, "aif.flog.ps", SchedXAIFTrans>;
+    defm AIF_FFRC_PS : ETOpsRdR1<0b0101100, 0b00010, 0b000, OPC_ET_OP_PS, "aif.ffrc.ps", SchedXAIFCvt>;
 
     def AIF_FROUND_PS : RVInstET7<OPC_ET_OP_PS,
                                   (outs FPR256:$rd),
                                   (ins FPR256:$rs1, frmarg:$rm),
-                                  "aif.fround.ps", "$rd, $rs1$rm">;
+                                  "aif.fround.ps", "$rd, $rs1$rm">, Sched<SchedXAIFCvt>;
     def AIF_FROUND_PS_EX : Pseudo<(outs FPR256:$rd),
                                   (ins FPR256:$rs1, frmarg:$rm, MR0:$m0),
-                                  [], "aif.fround.ps", "$rd, $rs1$rm, $m0">;
+                                  [], "aif.fround.ps", "$rd, $rs1$rm, $m0">, Sched<SchedXAIFCvt>;
     def AIF_FROUND_PS_PASSTHRU_EX : Pseudo<(outs FPR256:$rd),
                                            (ins FPR256:$in, FPR256:$rs1, frmarg:$rm, MR0:$m0),
-                                           [], "aif.fround.ps", "$rd, $rs1$rm, $m0"> {
+                                           [], "aif.fround.ps", "$rd, $rs1$rm, $m0">, Sched<SchedXAIFCvt> {
       let Constraints = "$rd = $in";
     }
 
-    defm AIF_FSQRT_PS : ETOpsRdR1<0b0101100, 0b00000, 0b000, OPC_ET_OP_PS, "aif.fsqrt.ps">;
-    defm AIF_FRCP_PS  : ETOpsRdR1<0b0101100, 0b00111, 0b000, OPC_ET_OP_PS, "aif.frcp.ps">;
-    defm AIF_FRSQ_PS  : ETOpsRdR1<0b0101100, 0b01000, 0b000, OPC_ET_OP_PS, "aif.frsq.ps">;
+    defm AIF_FSQRT_PS : ETOpsRdR1<0b0101100, 0b00000, 0b000, OPC_ET_OP_PS, "aif.fsqrt.ps", SchedXAIFFSqrt>;
+    defm AIF_FRCP_PS  : ETOpsRdR1<0b0101100, 0b00111, 0b000, OPC_ET_OP_PS, "aif.frcp.ps", SchedXAIFTrans>;
+    defm AIF_FRSQ_PS  : ETOpsRdR1<0b0101100, 0b01000, 0b000, OPC_ET_OP_PS, "aif.frsq.ps", SchedXAIFTrans>;
 
-    defm AIF_CUBEFACE_PS    : ETOpsRdR1R2<0b1000100, 0b000, OPC_ET_OP_PS, "aif.cubeface.ps">;
-    defm AIF_CUBEFACEIDX_PS : ETOpsRdR1R2<0b1000100, 0b001, OPC_ET_OP_PS, "aif.cubefaceidx.ps">;
-    defm AIF_CUBESGNSC_PS   : ETOpsRdR1R2<0b1000100, 0b010, OPC_ET_OP_PS, "aif.cubesgnsc.ps">;
-    defm AIF_CUBESGNTC_PS   : ETOpsRdR1R2<0b1000100, 0b011, OPC_ET_OP_PS, "aif.cubesgntc.ps">;
+    defm AIF_CUBEFACE_PS    : ETOpsRdR1R2<0b1000100, 0b000, OPC_ET_OP_PS, "aif.cubeface.ps", SchedXAIFSHSW2>;
+    defm AIF_CUBEFACEIDX_PS : ETOpsRdR1R2<0b1000100, 0b001, OPC_ET_OP_PS, "aif.cubefaceidx.ps", SchedXAIFSHSW2>;
+    defm AIF_CUBESGNSC_PS   : ETOpsRdR1R2<0b1000100, 0b010, OPC_ET_OP_PS, "aif.cubesgnsc.ps", SchedXAIFSHSW2>;
+    defm AIF_CUBESGNTC_PS   : ETOpsRdR1R2<0b1000100, 0b011, OPC_ET_OP_PS, "aif.cubesgntc.ps", SchedXAIFSHSW2>;
 
-    def AIF_PACKB   : ALUW_rr<0b1000000, 0b110, "aif.packb">;
-    def AIF_BITMIXB : ALUW_rr<0b1000000, 0b111, "aif.bitmixb">;
+    def AIF_PACKB   : ALUW_rr<0b1000000, 0b110, "aif.packb">, Sched<[WriteXAIFIALU, ReadIALU, ReadIALU]>;
+    def AIF_BITMIXB : ALUW_rr<0b1000000, 0b111, "aif.bitmixb">, Sched<[WriteXAIFIALU, ReadIALU, ReadIALU]>;
 
     def AIF_MOV_M_X : RVInstET8<OPC_ET_OP_PS,
                                 (outs MR:$rd),
                                 (ins GPR:$rs1, uimm8:$imm),
-                                "aif.mov.m.x", "$rd, $rs1, $imm">;
+                                "aif.mov.m.x", "$rd, $rs1, $imm">, Sched<[WriteXAIFMask, ReadIALU]>;
     def AIF_MOV_X_M : Pseudo<(outs GPR:$rd), (ins MR:$rs1), [],
-                           "aif.mov.x.m", "$rd, $rs1">;
+                           "aif.mov.x.m", "$rd, $rs1">, Sched<[WriteXAIFToInt, ReadXAIFMask]>;
     let Uses = [M0, M1, M2, M3, M4, M5, M6, M7] in
     def AIF_MOVA_X_M : RVInstR<0b1101011, 0b000, OPC_ET_OP_PS,
                                (outs GPR:$rd),
                                (ins),
-                               "aif.mova.x.m", "$rd"> {
+                               "aif.mova.x.m", "$rd">, Sched<[WriteXAIFToInt]> {
       let rs1 = 0;
       let rs2 = 0;
     }
@@ -542,7 +565,7 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
     def AIF_MOVA_M_X : RVInstR<0b1101011, 0b001, OPC_ET_OP_PS,
                                (outs),
                                (ins GPR:$rs1),
-                               "aif.mova.m.x", "$rs1"> {
+                               "aif.mova.m.x", "$rs1">, Sched<[WriteXAIFMask, ReadIALU]> {
       let rd = 0;
       let rs2 = 0;
     }
@@ -551,66 +574,69 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
       RVInstET9<funct3, OPC_ET_OP_PS, (outs MR:$rd),
                 (ins MR:$rs1, MR:$rs2), codestr, "$rd, $rs1, $rs2">;
 
-    def AIF_MASKAND : ETOpsMdM1M2<0b111, "aif.maskand">;
-    def AIF_MASKOR  : ETOpsMdM1M2<0b110, "aif.maskor">;
+    def AIF_MASKAND : ETOpsMdM1M2<0b111, "aif.maskand">, Sched<[WriteXAIFMask, ReadXAIFMask, ReadXAIFMask]>;
+    def AIF_MASKOR  : ETOpsMdM1M2<0b110, "aif.maskor">, Sched<[WriteXAIFMask, ReadXAIFMask, ReadXAIFMask]>;
     def AIF_MASKNOT : RVInstET9<0b010, OPC_ET_OP_PS, (outs MR:$rd),
-                                (ins MR:$rs1), "aif.masknot", "$rd, $rs1"> {
+                                (ins MR:$rs1), "aif.masknot", "$rd, $rs1">, Sched<[WriteXAIFMask, ReadXAIFMask]> {
       let rs2 = 0;
     }
-    def AIF_MASKXOR  : ETOpsMdM1M2<0b100, "aif.maskxor">;
+    def AIF_MASKXOR  : ETOpsMdM1M2<0b100, "aif.maskxor">, Sched<[WriteXAIFMask, ReadXAIFMask, ReadXAIFMask]>;
 
     class ETOpsRdM1<bits<2> funct2, string opcodestr> :
       RVInstET10<funct2, OPC_ET_OP_PS, (outs GPR:$rd), (ins MR:$rs1),
                  opcodestr, "$rd, $rs1">;
 
-    def AIF_MASKPOPC  : ETOpsRdM1<0b01, "aif.maskpopc">;
-    def AIF_MASKPOPCZ : ETOpsRdM1<0b10, "aif.maskpopcz">;
+    def AIF_MASKPOPC  : ETOpsRdM1<0b01, "aif.maskpopc">, Sched<[WriteXAIFToInt, ReadXAIFMask]>;
+    def AIF_MASKPOPCZ : ETOpsRdM1<0b10, "aif.maskpopcz">, Sched<[WriteXAIFToInt, ReadXAIFMask]>;
 
+    // The Minion VPU specification and GNU binutils define the destination
+    // as an integer register ("maskpopc.rast xd, ms1, ms2, imm4"); the
+    // 5-bit rd field cannot address a mask register.
     def AIF_MASKPOPC_ET_RAST :
-      RVInstET11<OPC_ET_OP_PS, (outs MR:$rd),
+      RVInstET11<OPC_ET_OP_PS, (outs GPR:$rd),
                  (ins MR:$rs1, MR:$rs2, uimm4:$imm),
-                 "aif.maskpopc.rast", "$rd, $rs1, $rs2, $imm">;
+                 "aif.maskpopc.rast", "$rd, $rs1, $rs2, $imm">, Sched<[WriteXAIFToInt, ReadXAIFMask, ReadXAIFMask]>;
 
     defm AIF_FPACKREPB_PI :
-      ETOpsRdR1<0b0010011, 0b00000, 0b000, OPC_ET_OP_PS, "aif.fpackrepb.pi">;
+      ETOpsRdR1<0b0010011, 0b00000, 0b000, OPC_ET_OP_PS, "aif.fpackrepb.pi", SchedXAIFSwizzle1>;
     defm AIF_FPACKREPH_PI :
-      ETOpsRdR1<0b0010011, 0b00000, 0b001, OPC_ET_OP_PS, "aif.fpackreph.pi">;
+      ETOpsRdR1<0b0010011, 0b00000, 0b001, OPC_ET_OP_PS, "aif.fpackreph.pi", SchedXAIFSwizzle1>;
 
-    multiclass ETOpsRdR1R2G32<bits<7> funct7, string opcodestr> {
+    multiclass ETOpsRdR1R2G32<bits<7> funct7, string opcodestr, list<SchedReadWrite> sched> {
       def "" : RVInstR<funct7, 0b001, OPC_ET_MEM_PS,
                        (outs FPR256:$rd),
                        (ins GPR:$rs1, GPRMemZeroOffset:$rs2),
-                       opcodestr, "$rd, ${rs1}, ${rs2}">;
+                       opcodestr, "$rd, ${rs1}, ${rs2}">, Sched<sched>;
       def _EX : Pseudo<(outs FPR256:$rd),
                        (ins GPR:$rs1, GPRMemZeroOffset:$rs2, MR0:$m0), [],
-                       opcodestr, "$rd, ${rs1}, ${rs2}, $m0">;
+                       opcodestr, "$rd, ${rs1}, ${rs2}, $m0">, Sched<sched>;
       def _PASSTHRU_EX : Pseudo<(outs FPR256:$rd),
                                 (ins FPR256:$in, GPR:$rs1, GPRMemZeroOffset:$rs2, MR0:$m0), [],
-                                opcodestr, "$rd, ${rs1}, ${rs2}, $m0"> {
+                                opcodestr, "$rd, ${rs1}, ${rs2}, $m0">, Sched<sched> {
         let Constraints = "$rd = $in";
       }
     }
 
     let mayLoad = 1 in {
-      defm AIF_FG32W_PS : ETOpsRdR1R2G32<0b0010000, "aif.fg32w.ps">;
-      defm AIF_FG32H_PS : ETOpsRdR1R2G32<0b0001000, "aif.fg32h.ps">;
-      defm AIF_FG32B_PS : ETOpsRdR1R2G32<0b0000100, "aif.fg32b.ps">;
+      defm AIF_FG32W_PS : ETOpsRdR1R2G32<0b0010000, "aif.fg32w.ps", SchedXAIFGatherX>;
+      defm AIF_FG32H_PS : ETOpsRdR1R2G32<0b0001000, "aif.fg32h.ps", SchedXAIFGatherX>;
+      defm AIF_FG32B_PS : ETOpsRdR1R2G32<0b0000100, "aif.fg32b.ps", SchedXAIFGatherX>;
     }
 
-    multiclass ETOpsR3R1R2SC32<bits<7> funct7, string opcodestr> {
+    multiclass ETOpsR3R1R2SC32<bits<7> funct7, string opcodestr, list<SchedReadWrite> sched> {
       def "" : RVInstET12<funct7, 0b001, OPC_ET_MEM_PS,
                           (outs),
                           (ins FPR256:$rs3, GPR:$rs1, GPRMemZeroOffset:$rs2),
-                          opcodestr, "$rs3, ${rs1}, ${rs2}">;
+                          opcodestr, "$rs3, ${rs1}, ${rs2}">, Sched<sched>;
      def _EX : Pseudo<(outs),
                       (ins FPR256:$rs3, GPR:$rs1, GPRMemZeroOffset:$rs2, MR0:$m0), [],
-                      opcodestr, "$rs3, ${rs1}, ${rs2}, $m0">;
+                      opcodestr, "$rs3, ${rs1}, ${rs2}, $m0">, Sched<sched>;
     }
 
     let mayStore = 1 in {
-      defm AIF_FSC32W_PS : ETOpsR3R1R2SC32<0b1010000, "aif.fsc32w.ps">;
-      defm AIF_FSC32H_PS : ETOpsR3R1R2SC32<0b1001000, "aif.fsc32h.ps">;
-      defm AIF_FSC32B_PS : ETOpsR3R1R2SC32<0b1000100, "aif.fsc32b.ps">;
+      defm AIF_FSC32W_PS : ETOpsR3R1R2SC32<0b1010000, "aif.fsc32w.ps", SchedXAIFScatter>;
+      defm AIF_FSC32H_PS : ETOpsR3R1R2SC32<0b1001000, "aif.fsc32h.ps", SchedXAIFScatter>;
+      defm AIF_FSC32B_PS : ETOpsR3R1R2SC32<0b1000100, "aif.fsc32b.ps", SchedXAIFScatter>;
     }
 
     // Specialise FCMOVM has no implicit input since all of output
@@ -618,123 +644,123 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
     def AIF_FCMOVM_PS : RVInstR<0b0000000, 0b000, OPC_ET_CVT_PS,
                                 (outs FPR256:$rd),
                                 (ins FPR256:$rs1, FPR256:$rs2),
-                                "aif.fcmovm.ps", "$rd, $rs1, $rs2">;
+                                "aif.fcmovm.ps", "$rd, $rs1, $rs2">, Sched<SchedXAIFSwizzle2>;
     def AIF_FCMOVM_PS_EX : Pseudo<(outs FPR256:$rd),
                                   (ins FPR256:$rs1, FPR256:$rs2, MR0:$m0), [],
-                                  "aif.fcmovm.ps", "$rd, $rs1, $rs2, $m0">;
+                                  "aif.fcmovm.ps", "$rd, $rs1, $rs2, $m0">, Sched<SchedXAIFSwizzle2>;
 
-    defm AIF_FRCP_FIX_RAST : ETOpsRdR1R2<0b0011000, 0b000, OPC_ET_OP_PS, "aif.frcp_fix.rast">;
-    defm AIF_FCVT_RAST_PS : ETOpsRdR1<0b1100000, 0b00010, 0b000, OPC_ET_OP_PS, "aif.fcvt.rast.ps">;
-    defm AIF_FCVT_PS_RAST : ETOpsRdR1<0b1101000, 0b00010, 0b000, OPC_ET_OP_PS, "aif.fcvt.ps.rast">;
-    defm AIF_FSAT8_PI : ETOpsRdR1<0b0000011, 0b00000, 0b011, OPC_ET_OP_PS, "aif.fsat8.pi">;
-    defm AIF_FSATU8_PI : ETOpsRdR1<0b0000011, 0b00001, 0b011, OPC_ET_OP_PS, "aif.fsatu8.pi">;
+    defm AIF_FRCP_FIX_RAST : ETOpsRdR1R2<0b0011000, 0b000, OPC_ET_OP_PS, "aif.frcp_fix.rast", SchedXAIFSHSW2>;
+    defm AIF_FCVT_RAST_PS : ETOpsRdR1<0b1100000, 0b00010, 0b000, OPC_ET_OP_PS, "aif.fcvt.rast.ps", SchedXAIFCvt>;
+    defm AIF_FCVT_PS_RAST : ETOpsRdR1<0b1101000, 0b00010, 0b000, OPC_ET_OP_PS, "aif.fcvt.ps.rast", SchedXAIFCvt>;
+    defm AIF_FSAT8_PI : ETOpsRdR1<0b0000011, 0b00000, 0b011, OPC_ET_OP_PS, "aif.fsat8.pi", SchedXAIFSwizzle1>;
+    defm AIF_FSATU8_PI : ETOpsRdR1<0b0000011, 0b00001, 0b011, OPC_ET_OP_PS, "aif.fsatu8.pi", SchedXAIFSwizzle1>;
 
-    multiclass ETOpsFdR1<bits<7> funct7, string opcodestr> {
+    multiclass ETOpsFdR1<bits<7> funct7, string opcodestr, list<SchedReadWrite> sched> {
       def "" : RVInstR<funct7, 0b111, OPC_ET_MEM_PS,
                        (outs FPR256:$rd), (ins GPR:$rs1),
-                       opcodestr, "$rd, (${rs1})"> {
+                       opcodestr, "$rd, (${rs1})">, Sched<sched> {
         let rs2 = 0;
       }
       def _EX : Pseudo<(outs FPR256:$rd),
                        (ins GPR:$rs1, MR0:$m0), [],
-                       opcodestr, "$rd, (${rs1}), $m0">;
+                       opcodestr, "$rd, (${rs1}), $m0">, Sched<sched>;
       def _PASSTHRU_EX : Pseudo<(outs FPR256:$rd),
                                   (ins FPR256:$in, GPR:$rs1, MR0:$m0), [],
-                                  opcodestr, "$rd, (${rs1}), $m0"> {
+                                  opcodestr, "$rd, (${rs1}), $m0">, Sched<sched> {
         let Constraints = "$rd = $in";
       }
     }
 
     let mayLoad = 1 in {
-      defm AIF_FLWL_PS : ETOpsFdR1<0b0001000, "aif.flwl.ps">;
-      defm AIF_FLWG_PS : ETOpsFdR1<0b0001001, "aif.flwg.ps">;
+      defm AIF_FLWL_PS : ETOpsFdR1<0b0001000, "aif.flwl.ps", SchedXAIFLD>;
+      defm AIF_FLWG_PS : ETOpsFdR1<0b0001001, "aif.flwg.ps", SchedXAIFLD>;
     }
 
-    multiclass ETOpsFs3Rs1<bits<7> funct7, string opcodestr> {
+    multiclass ETOpsFs3Rs1<bits<7> funct7, string opcodestr, list<SchedReadWrite> sched> {
       def "" : RVInstET14<funct7, 0b111, OPC_ET_MEM_PS,
                           (outs), (ins FPR256:$fs3, GPR:$rs1),
-                          opcodestr, "$fs3, (${rs1})">;
+                          opcodestr, "$fs3, (${rs1})">, Sched<sched>;
       def _EX : Pseudo<(outs), (ins FPR256:$fs3, GPR:$rs1, MR0:$m0), [],
-                       opcodestr, "$fs3, (${rs1}), $m0">;
+                       opcodestr, "$fs3, (${rs1}), $m0">, Sched<sched>;
     }
 
     let mayStore = 1 in {
-      defm AIF_FSWL_PS : ETOpsFs3Rs1<0b0101000, "aif.fswl.ps">;
-      defm AIF_FSWG_PS : ETOpsFs3Rs1<0b0101001, "aif.fswg.ps">;
+      defm AIF_FSWL_PS : ETOpsFs3Rs1<0b0101000, "aif.fswl.ps", SchedXAIFST>;
+      defm AIF_FSWG_PS : ETOpsFs3Rs1<0b0101001, "aif.fswg.ps", SchedXAIFST>;
     }
 
-    multiclass ETOpsRdR1R2FG<bits<7> funct7, bits<3> funct3, string opcodestr> {
+    multiclass ETOpsRdR1R2FG<bits<7> funct7, bits<3> funct3, string opcodestr, list<SchedReadWrite> sched> {
       def "" : RVInstR<funct7, funct3, OPC_ET_MEM_PS, (outs FPR256:$rd),
                        (ins FPR256:$rs1, GPRMemZeroOffset:$rs2), opcodestr,
-                       "$rd, ${rs1}, ${rs2}">;
+                       "$rd, ${rs1}, ${rs2}">, Sched<sched>;
       def _EX : Pseudo<(outs FPR256:$rd),
                        (ins FPR256:$rs1, GPRMemZeroOffset:$rs2, MR0:$m0), [], opcodestr,
-                       "$rd, ${rs1}, ${rs2}, $m0">;
+                       "$rd, ${rs1}, ${rs2}, $m0">, Sched<sched>;
       def _PASSTHRU_EX : Pseudo<(outs FPR256:$rd),
                                 (ins FPR256:$in, FPR256:$rs1, GPRMemZeroOffset:$rs2, MR0:$m0), [], opcodestr,
-                                "$rd, ${rs1}, ${rs2}, $m0"> {
+                                "$rd, ${rs1}, ${rs2}, $m0">, Sched<sched> {
         let Constraints = "$rd = $in";
       }
     }
 
     let mayLoad = 1 in {
-      defm AIF_FGBL_PS : ETOpsRdR1R2FG<0b1000000, 0b111, "aif.fgbl.ps">;
-      defm AIF_FGHL_PS : ETOpsRdR1R2FG<0b1000100, 0b111, "aif.fghl.ps">;
-      defm AIF_FGWL_PS : ETOpsRdR1R2FG<0b1001000, 0b111, "aif.fgwl.ps">;
+      defm AIF_FGBL_PS : ETOpsRdR1R2FG<0b1000000, 0b111, "aif.fgbl.ps", SchedXAIFGatherF>;
+      defm AIF_FGHL_PS : ETOpsRdR1R2FG<0b1000100, 0b111, "aif.fghl.ps", SchedXAIFGatherF>;
+      defm AIF_FGWL_PS : ETOpsRdR1R2FG<0b1001000, 0b111, "aif.fgwl.ps", SchedXAIFGatherF>;
     }
 
-    multiclass ETOpsR3R1R2FS<bits<7> funct7, bits<3> funct3, string opcodestr> {
+    multiclass ETOpsR3R1R2FS<bits<7> funct7, bits<3> funct3, string opcodestr, list<SchedReadWrite> sched> {
       def "" : RVInstET12<funct7, funct3, OPC_ET_MEM_PS, (outs),
                           (ins FPR256:$rs3, FPR256:$rs1, GPRMemZeroOffset:$rs2), opcodestr,
-                          "${rs3}, ${rs1}, ${rs2}">;
+                          "${rs3}, ${rs1}, ${rs2}">, Sched<sched>;
       def _EX : Pseudo<(outs),
                        (ins FPR256:$rs3, FPR256:$rs1, GPRMemZeroOffset:$rs2, MR0:$m0),
                        [], opcodestr,
-                       "${rs3}, ${rs1}, ${rs2}, $m0">;
+                       "${rs3}, ${rs1}, ${rs2}, $m0">, Sched<sched>;
     }
 
     let mayStore = 1 in {
-      defm AIF_FSCBL_PS : ETOpsR3R1R2FS<0b1100000, 0b111, "aif.fscbl.ps">;
-      defm AIF_FSCHL_PS : ETOpsR3R1R2FS<0b1100100, 0b111, "aif.fschl.ps">;
-      defm AIF_FSCWL_PS : ETOpsR3R1R2FS<0b1101000, 0b111, "aif.fscwl.ps">;
+      defm AIF_FSCBL_PS : ETOpsR3R1R2FS<0b1100000, 0b111, "aif.fscbl.ps", SchedXAIFScatter>;
+      defm AIF_FSCHL_PS : ETOpsR3R1R2FS<0b1100100, 0b111, "aif.fschl.ps", SchedXAIFScatter>;
+      defm AIF_FSCWL_PS : ETOpsR3R1R2FS<0b1101000, 0b111, "aif.fscwl.ps", SchedXAIFScatter>;
     }
 
     let mayLoad = 1 in {
-      defm AIF_FGBG_PS : ETOpsRdR1R2FG<0b1000001, 0b111, "aif.fgbg.ps">;
-      defm AIF_FGHG_PS : ETOpsRdR1R2FG<0b1000101, 0b111, "aif.fghg.ps">;
-      defm AIF_FGWG_PS : ETOpsRdR1R2FG<0b1001001, 0b111, "aif.fgwg.ps">;
+      defm AIF_FGBG_PS : ETOpsRdR1R2FG<0b1000001, 0b111, "aif.fgbg.ps", SchedXAIFGatherF>;
+      defm AIF_FGHG_PS : ETOpsRdR1R2FG<0b1000101, 0b111, "aif.fghg.ps", SchedXAIFGatherF>;
+      defm AIF_FGWG_PS : ETOpsRdR1R2FG<0b1001001, 0b111, "aif.fgwg.ps", SchedXAIFGatherF>;
     }
 
     let mayStore = 1 in {
-      defm AIF_FSCBG_PS : ETOpsR3R1R2FS<0b1100001, 0b111, "aif.fscbg.ps">;
-      defm AIF_FSCHG_PS : ETOpsR3R1R2FS<0b1100101, 0b111, "aif.fschg.ps">;
-      defm AIF_FSCWG_PS : ETOpsR3R1R2FS<0b1101001, 0b111, "aif.fscwg.ps">;
+      defm AIF_FSCBG_PS : ETOpsR3R1R2FS<0b1100001, 0b111, "aif.fscbg.ps", SchedXAIFScatter>;
+      defm AIF_FSCHG_PS : ETOpsR3R1R2FS<0b1100101, 0b111, "aif.fschg.ps", SchedXAIFScatter>;
+      defm AIF_FSCWG_PS : ETOpsR3R1R2FS<0b1101001, 0b111, "aif.fscwg.ps", SchedXAIFScatter>;
     }
 
     let mayLoad = 1, mayStore = 1 in {
-      defm AIF_FAMOADDL_PI  : ETOpsRdR1R2FG<0b0000011, 0b100, "aif.famoaddl.pi">;
-      defm AIF_FAMOSWAPL_PI : ETOpsRdR1R2FG<0b0000111, 0b100, "aif.famoswapl.pi">;
-      defm AIF_FAMOANDL_PI  : ETOpsRdR1R2FG<0b0001011, 0b100, "aif.famoandl.pi">;
-      defm AIF_FAMOORL_PI   : ETOpsRdR1R2FG<0b0001111, 0b100, "aif.famoorl.pi">;
-      defm AIF_FAMOXORL_PI  : ETOpsRdR1R2FG<0b0010011, 0b100, "aif.famoxorl.pi">;
-      defm AIF_FAMOMINL_PI  : ETOpsRdR1R2FG<0b0010111, 0b100, "aif.famominl.pi">;
-      defm AIF_FAMOMAXL_PI  : ETOpsRdR1R2FG<0b0011011, 0b100, "aif.famomaxl.pi">;
-      defm AIF_FAMOMINUL_PI : ETOpsRdR1R2FG<0b0011111, 0b100, "aif.famominul.pi">;
-      defm AIF_FAMOMAXUL_PI : ETOpsRdR1R2FG<0b0100011, 0b100, "aif.famomaxul.pi">;
-      defm AIF_FAMOMINL_PS  : ETOpsRdR1R2FG<0b0011000, 0b100, "aif.famominl.ps">;
-      defm AIF_FAMOMAXL_PS  : ETOpsRdR1R2FG<0b0010100, 0b100, "aif.famomaxl.ps">;
+      defm AIF_FAMOADDL_PI  : ETOpsRdR1R2FG<0b0000011, 0b100, "aif.famoaddl.pi", SchedXAIFFAtomic>;
+      defm AIF_FAMOSWAPL_PI : ETOpsRdR1R2FG<0b0000111, 0b100, "aif.famoswapl.pi", SchedXAIFFAtomic>;
+      defm AIF_FAMOANDL_PI  : ETOpsRdR1R2FG<0b0001011, 0b100, "aif.famoandl.pi", SchedXAIFFAtomic>;
+      defm AIF_FAMOORL_PI   : ETOpsRdR1R2FG<0b0001111, 0b100, "aif.famoorl.pi", SchedXAIFFAtomic>;
+      defm AIF_FAMOXORL_PI  : ETOpsRdR1R2FG<0b0010011, 0b100, "aif.famoxorl.pi", SchedXAIFFAtomic>;
+      defm AIF_FAMOMINL_PI  : ETOpsRdR1R2FG<0b0010111, 0b100, "aif.famominl.pi", SchedXAIFFAtomic>;
+      defm AIF_FAMOMAXL_PI  : ETOpsRdR1R2FG<0b0011011, 0b100, "aif.famomaxl.pi", SchedXAIFFAtomic>;
+      defm AIF_FAMOMINUL_PI : ETOpsRdR1R2FG<0b0011111, 0b100, "aif.famominul.pi", SchedXAIFFAtomic>;
+      defm AIF_FAMOMAXUL_PI : ETOpsRdR1R2FG<0b0100011, 0b100, "aif.famomaxul.pi", SchedXAIFFAtomic>;
+      defm AIF_FAMOMINL_PS  : ETOpsRdR1R2FG<0b0011000, 0b100, "aif.famominl.ps", SchedXAIFFAtomic>;
+      defm AIF_FAMOMAXL_PS  : ETOpsRdR1R2FG<0b0010100, 0b100, "aif.famomaxl.ps", SchedXAIFFAtomic>;
 
-      defm AIF_FAMOADDG_PI  : ETOpsRdR1R2FG<0b1000011, 0b100, "aif.famoaddg.pi">;
-      defm AIF_FAMOSWAPG_PI : ETOpsRdR1R2FG<0b1000111, 0b100, "aif.famoswapg.pi">;
-      defm AIF_FAMOANDG_PI  : ETOpsRdR1R2FG<0b1001011, 0b100, "aif.famoandg.pi">;
-      defm AIF_FAMOORG_PI   : ETOpsRdR1R2FG<0b1001111, 0b100, "aif.famoorg.pi">;
-      defm AIF_FAMOXORG_PI  : ETOpsRdR1R2FG<0b1010011, 0b100, "aif.famoxorg.pi">;
-      defm AIF_FAMOMING_PI  : ETOpsRdR1R2FG<0b1010111, 0b100, "aif.famoming.pi">;
-      defm AIF_FAMOMAXG_PI  : ETOpsRdR1R2FG<0b1011011, 0b100, "aif.famomaxg.pi">;
-      defm AIF_FAMOMINUG_PI : ETOpsRdR1R2FG<0b1011111, 0b100, "aif.famominug.pi">;
-      defm AIF_FAMOMAXUG_PI : ETOpsRdR1R2FG<0b1100011, 0b100, "aif.famomaxug.pi">;
-      defm AIF_FAMOMING_PS  : ETOpsRdR1R2FG<0b1011000, 0b100, "aif.famoming.ps">;
-      defm AIF_FAMOMAXG_PS  : ETOpsRdR1R2FG<0b1010100, 0b100, "aif.famomaxg.ps">;
+      defm AIF_FAMOADDG_PI  : ETOpsRdR1R2FG<0b1000011, 0b100, "aif.famoaddg.pi", SchedXAIFFAtomic>;
+      defm AIF_FAMOSWAPG_PI : ETOpsRdR1R2FG<0b1000111, 0b100, "aif.famoswapg.pi", SchedXAIFFAtomic>;
+      defm AIF_FAMOANDG_PI  : ETOpsRdR1R2FG<0b1001011, 0b100, "aif.famoandg.pi", SchedXAIFFAtomic>;
+      defm AIF_FAMOORG_PI   : ETOpsRdR1R2FG<0b1001111, 0b100, "aif.famoorg.pi", SchedXAIFFAtomic>;
+      defm AIF_FAMOXORG_PI  : ETOpsRdR1R2FG<0b1010011, 0b100, "aif.famoxorg.pi", SchedXAIFFAtomic>;
+      defm AIF_FAMOMING_PI  : ETOpsRdR1R2FG<0b1010111, 0b100, "aif.famoming.pi", SchedXAIFFAtomic>;
+      defm AIF_FAMOMAXG_PI  : ETOpsRdR1R2FG<0b1011011, 0b100, "aif.famomaxg.pi", SchedXAIFFAtomic>;
+      defm AIF_FAMOMINUG_PI : ETOpsRdR1R2FG<0b1011111, 0b100, "aif.famominug.pi", SchedXAIFFAtomic>;
+      defm AIF_FAMOMAXUG_PI : ETOpsRdR1R2FG<0b1100011, 0b100, "aif.famomaxug.pi", SchedXAIFFAtomic>;
+      defm AIF_FAMOMING_PS  : ETOpsRdR1R2FG<0b1011000, 0b100, "aif.famoming.ps", SchedXAIFFAtomic>;
+      defm AIF_FAMOMAXG_PS  : ETOpsRdR1R2FG<0b1010100, 0b100, "aif.famomaxg.ps", SchedXAIFFAtomic>;
     }
 
     class ETOpsR2R1<bits<7> funct7, bits<3> funct3, string opcodestr> :
@@ -743,49 +769,49 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
               "${rd}, ${rs2}, ${rs1}">;
 
     let mayLoad = 1, mayStore = 1 in {
-      def AIF_AMOSWAPL_W    : ETOpsR2R1<0b0000100, 0b010, "aif.amoswapl.w">;
-      def AIF_AMOADDL_W     : ETOpsR2R1<0b0000000, 0b010, "aif.amoaddl.w">;
-      def AIF_AMOXORL_W     : ETOpsR2R1<0b0010000, 0b010, "aif.amoxorl.w">;
-      def AIF_AMOANDL_W     : ETOpsR2R1<0b0110000, 0b010, "aif.amoandl.w">;
-      def AIF_AMOORL_W      : ETOpsR2R1<0b0100000, 0b010, "aif.amoorl.w">;
-      def AIF_AMOMINL_W     : ETOpsR2R1<0b1000000, 0b010, "aif.amominl.w">;
-      def AIF_AMOMAXL_W     : ETOpsR2R1<0b1010000, 0b010, "aif.amomaxl.w">;
-      def AIF_AMOMINUL_W    : ETOpsR2R1<0b1100000, 0b010, "aif.amominul.w">;
-      def AIF_AMOMAXUL_W    : ETOpsR2R1<0b1110000, 0b010, "aif.amomaxul.w">;
-      def AIF_AMOCMPSWAPL_W : ETOpsR2R1<0b1111000, 0b010, "aif.amocmpswapl.w">;
+      def AIF_AMOSWAPL_W    : ETOpsR2R1<0b0000100, 0b010, "aif.amoswapl.w">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOADDL_W     : ETOpsR2R1<0b0000000, 0b010, "aif.amoaddl.w">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOXORL_W     : ETOpsR2R1<0b0010000, 0b010, "aif.amoxorl.w">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOANDL_W     : ETOpsR2R1<0b0110000, 0b010, "aif.amoandl.w">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOORL_W      : ETOpsR2R1<0b0100000, 0b010, "aif.amoorl.w">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOMINL_W     : ETOpsR2R1<0b1000000, 0b010, "aif.amominl.w">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOMAXL_W     : ETOpsR2R1<0b1010000, 0b010, "aif.amomaxl.w">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOMINUL_W    : ETOpsR2R1<0b1100000, 0b010, "aif.amominul.w">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOMAXUL_W    : ETOpsR2R1<0b1110000, 0b010, "aif.amomaxul.w">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOCMPSWAPL_W : ETOpsR2R1<0b1111000, 0b010, "aif.amocmpswapl.w">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
 
-      def AIF_AMOSWAPG_W    : ETOpsR2R1<0b0000101, 0b010, "aif.amoswapg.w">;
-      def AIF_AMOADDG_W     : ETOpsR2R1<0b0000001, 0b010, "aif.amoaddg.w">;
-      def AIF_AMOXORG_W     : ETOpsR2R1<0b0010001, 0b010, "aif.amoxorg.w">;
-      def AIF_AMOANDG_W     : ETOpsR2R1<0b0110001, 0b010, "aif.amoandg.w">;
-      def AIF_AMOORG_W      : ETOpsR2R1<0b0100001, 0b010, "aif.amoorg.w">;
-      def AIF_AMOMING_W     : ETOpsR2R1<0b1000001, 0b010, "aif.amoming.w">;
-      def AIF_AMOMAXG_W     : ETOpsR2R1<0b1010001, 0b010, "aif.amomaxg.w">;
-      def AIF_AMOMINUG_W    : ETOpsR2R1<0b1100001, 0b010, "aif.amominug.w">;
-      def AIF_AMOMAXUG_W    : ETOpsR2R1<0b1110001, 0b010, "aif.amomaxug.w">;
-      def AIF_AMOCMPSWAPG_W : ETOpsR2R1<0b1111001, 0b010, "aif.amocmpswapg.w">;
+      def AIF_AMOSWAPG_W    : ETOpsR2R1<0b0000101, 0b010, "aif.amoswapg.w">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOADDG_W     : ETOpsR2R1<0b0000001, 0b010, "aif.amoaddg.w">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOXORG_W     : ETOpsR2R1<0b0010001, 0b010, "aif.amoxorg.w">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOANDG_W     : ETOpsR2R1<0b0110001, 0b010, "aif.amoandg.w">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOORG_W      : ETOpsR2R1<0b0100001, 0b010, "aif.amoorg.w">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOMING_W     : ETOpsR2R1<0b1000001, 0b010, "aif.amoming.w">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOMAXG_W     : ETOpsR2R1<0b1010001, 0b010, "aif.amomaxg.w">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOMINUG_W    : ETOpsR2R1<0b1100001, 0b010, "aif.amominug.w">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOMAXUG_W    : ETOpsR2R1<0b1110001, 0b010, "aif.amomaxug.w">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOCMPSWAPG_W : ETOpsR2R1<0b1111001, 0b010, "aif.amocmpswapg.w">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
 
-      def AIF_AMOSWAPL_D    : ETOpsR2R1<0b0000100, 0b011, "aif.amoswapl.d">;
-      def AIF_AMOADDL_D     : ETOpsR2R1<0b0000000, 0b011, "aif.amoaddl.d">;
-      def AIF_AMOXORL_D     : ETOpsR2R1<0b0010000, 0b011, "aif.amoxorl.d">;
-      def AIF_AMOANDL_D     : ETOpsR2R1<0b0110000, 0b011, "aif.amoandl.d">;
-      def AIF_AMOORL_D      : ETOpsR2R1<0b0100000, 0b011, "aif.amoorl.d">;
-      def AIF_AMOMINL_D     : ETOpsR2R1<0b1000000, 0b011, "aif.amominl.d">;
-      def AIF_AMOMAXL_D     : ETOpsR2R1<0b1010000, 0b011, "aif.amomaxl.d">;
-      def AIF_AMOMINUL_D    : ETOpsR2R1<0b1100000, 0b011, "aif.amominul.d">;
-      def AIF_AMOMAXUL_D    : ETOpsR2R1<0b1110000, 0b011, "aif.amomaxul.d">;
-      def AIF_AMOCMPSWAPL_D : ETOpsR2R1<0b1111000, 0b011, "aif.amocmpswapl.d">;
+      def AIF_AMOSWAPL_D    : ETOpsR2R1<0b0000100, 0b011, "aif.amoswapl.d">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOADDL_D     : ETOpsR2R1<0b0000000, 0b011, "aif.amoaddl.d">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOXORL_D     : ETOpsR2R1<0b0010000, 0b011, "aif.amoxorl.d">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOANDL_D     : ETOpsR2R1<0b0110000, 0b011, "aif.amoandl.d">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOORL_D      : ETOpsR2R1<0b0100000, 0b011, "aif.amoorl.d">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOMINL_D     : ETOpsR2R1<0b1000000, 0b011, "aif.amominl.d">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOMAXL_D     : ETOpsR2R1<0b1010000, 0b011, "aif.amomaxl.d">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOMINUL_D    : ETOpsR2R1<0b1100000, 0b011, "aif.amominul.d">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOMAXUL_D    : ETOpsR2R1<0b1110000, 0b011, "aif.amomaxul.d">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOCMPSWAPL_D : ETOpsR2R1<0b1111000, 0b011, "aif.amocmpswapl.d">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
 
-      def AIF_AMOSWAPG_D    : ETOpsR2R1<0b0000101, 0b011, "aif.amoswapg.d">;
-      def AIF_AMOADDG_D     : ETOpsR2R1<0b0000001, 0b011, "aif.amoaddg.d">;
-      def AIF_AMOXORG_D     : ETOpsR2R1<0b0010001, 0b011, "aif.amoxorg.d">;
-      def AIF_AMOANDG_D     : ETOpsR2R1<0b0110001, 0b011, "aif.amoandg.d">;
-      def AIF_AMOORG_D      : ETOpsR2R1<0b0100001, 0b011, "aif.amoorg.d">;
-      def AIF_AMOMING_D     : ETOpsR2R1<0b1000001, 0b011, "aif.amoming.d">;
-      def AIF_AMOMAXG_D     : ETOpsR2R1<0b1010001, 0b011, "aif.amomaxg.d">;
-      def AIF_AMOMINUG_D    : ETOpsR2R1<0b1100001, 0b011, "aif.amominug.d">;
-      def AIF_AMOMAXUG_D    : ETOpsR2R1<0b1110001, 0b011, "aif.amomaxug.d">;
-      def AIF_AMOCMPSWAPG_D : ETOpsR2R1<0b1111001, 0b011, "aif.amocmpswapg.d">;
+      def AIF_AMOSWAPG_D    : ETOpsR2R1<0b0000101, 0b011, "aif.amoswapg.d">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOADDG_D     : ETOpsR2R1<0b0000001, 0b011, "aif.amoaddg.d">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOXORG_D     : ETOpsR2R1<0b0010001, 0b011, "aif.amoxorg.d">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOANDG_D     : ETOpsR2R1<0b0110001, 0b011, "aif.amoandg.d">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOORG_D      : ETOpsR2R1<0b0100001, 0b011, "aif.amoorg.d">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOMING_D     : ETOpsR2R1<0b1000001, 0b011, "aif.amoming.d">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOMAXG_D     : ETOpsR2R1<0b1010001, 0b011, "aif.amomaxg.d">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOMINUG_D    : ETOpsR2R1<0b1100001, 0b011, "aif.amominug.d">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOMAXUG_D    : ETOpsR2R1<0b1110001, 0b011, "aif.amomaxug.d">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_AMOCMPSWAPG_D : ETOpsR2R1<0b1111001, 0b011, "aif.amocmpswapg.d">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
     } // let mayLoad = 1, mayStore =1 in
 
     class ETOpsR1R2S<bits<7> funct7, bits<3> funct3, string opcodestr> :
@@ -794,10 +820,10 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
                  "${rs2}, ${rs1}">;
 
     let mayStore = 1 in {
-      def AIF_SBL : ETOpsR1R2S<0b0001000, 0b011, "aif.sbl">;
-      def AIF_SHL : ETOpsR1R2S<0b0001100, 0b011, "aif.shl">;
-      def AIF_SBG : ETOpsR1R2S<0b0001001, 0b011, "aif.sbg">;
-      def AIF_SHG : ETOpsR1R2S<0b0001101, 0b011, "aif.shg">;
+      def AIF_SBL : ETOpsR1R2S<0b0001000, 0b011, "aif.sbl">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_SHL : ETOpsR1R2S<0b0001100, 0b011, "aif.shl">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_SBG : ETOpsR1R2S<0b0001001, 0b011, "aif.sbg">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
+      def AIF_SHG : ETOpsR1R2S<0b0001101, 0b011, "aif.shg">, Sched<[WriteXAIFAtomic, ReadXAIFAtomicData, ReadXAIFMemBase]>;
     }
 
     // These pseudo-instructions are used for spill and reload
@@ -805,11 +831,11 @@ let DecoderNamespace = "XAIF", Predicates = [HasXAIFET] in {
     let mayStore = 1 in
     def AIF_StackMS : Pseudo<(outs),
                              (ins MR:$rs2, GPR:$rs1, simm12_lo:$imm), [],
-                             "aif.ms", "$rs2, ${imm}(${rs1})">;
+                             "aif.ms", "$rs2, ${imm}(${rs1})">, Sched<[WriteXAIFST, ReadXAIFMask, ReadXAIFMemBase]>;
     let mayLoad = 1 in
     def AIF_StackML : Pseudo<(outs MR:$rd),
                              (ins GPR:$rs1, simm12_lo:$imm), [],
-                             "aif.ml", "$rd, ${imm}(${rs1})">;
+                             "aif.ml", "$rd, ${imm}(${rs1})">, Sched<[WriteXAIFMask, ReadXAIFMemBase]>;
 
   } // let hasSideEffects = 0, mayLoad = 0, mayStore = 0
 

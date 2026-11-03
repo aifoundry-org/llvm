@@ -428,6 +428,7 @@ defm : UnsupportedSchedZfa;
 defm : UnsupportedSchedSFB;
 defm : UnsupportedSchedZabha;
 defm : UnsupportedSchedXsf;
+defm : UnsupportedSchedXAIF;
 defm : UnsupportedSchedZvk;
 
 } // SchedModel

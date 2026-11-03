@@ -191,7 +191,8 @@ multiclass SCR_Unsupported :
   UnsupportedSchedZbkx,
   UnsupportedSchedZfa,
   UnsupportedSchedZvk,
-  UnsupportedSchedXsf;
+  UnsupportedSchedXsf,
+  UnsupportedSchedXAIF;
 
 multiclass SCR3_Unsupported :
   SCR_Unsupported,
