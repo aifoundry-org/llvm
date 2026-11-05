@@ -3582,6 +3582,9 @@ InstructionCost RISCVTargetLowering::getLMULCost(MVT VT) const {
   // implementation-defined.
   if (!VT.isVector())
     return InstructionCost::getInvalid();
+  // If RVV is not supported or VLEN is 0, LMUL cost is not applicable.
+  if (!Subtarget.hasVInstructions() || Subtarget.getRealMinVLen() == 0)
+    return InstructionCost::getInvalid();
   unsigned DLenFactor = Subtarget.getDLenFactor();
   unsigned Cost;
   if (VT.isScalableVector()) {

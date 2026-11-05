@@ -2879,7 +2879,8 @@ InstructionCost RISCVTTIImpl::getVectorInstrCost(
   // TODO: Add proper cost model for P extension fixed vectors (e.g., v4i16)
   // For now, skip all fixed vector cost analysis when P extension is available
   // to avoid crashes in getMinRVVVectorSizeInBits()
-  if (ST->hasStdExtP() && isa<FixedVectorType>(Val)) {
+  // Also extended to ET-SIMD
+  if ((ST->hasStdExtP() || !ST->hasVInstructions()) && isa<FixedVectorType>(Val)) {
     return 1; // Treat as single instruction cost for now
   }
 
