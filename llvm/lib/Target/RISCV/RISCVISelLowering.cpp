@@ -129,6 +129,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
       setOperationAction(ISD::INSERT_VECTOR_ELT, VT, Expand);
       setOperationAction(ISD::EXTRACT_VECTOR_ELT, VT, Expand);
     }
+    setOperationAction(ISD::FMA, MVT::v8f32, Legal);
   }
 
   static const MVT::SimpleValueType BoolVecVTs[] = {
@@ -30443,6 +30444,8 @@ bool RISCVTargetLowering::isFMAFasterThanFMulAndFAdd(const MachineFunction &MF,
     return VT.isVector() ? Subtarget.hasVInstructionsF16()
                          : Subtarget.hasStdExtZfhOrZhinx();
   case MVT::f32:
+    if (Subtarget.hasVendorXAIFET() && VT.isVector())
+      return VT == MVT::v8f32;
     return Subtarget.hasStdExtFOrZfinx();
   case MVT::f64:
     return Subtarget.hasStdExtDOrZdinx();

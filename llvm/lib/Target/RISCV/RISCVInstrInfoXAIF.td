@@ -909,12 +909,46 @@ let Predicates = [HasXAIFET] in {
               (Inst (vt (IMPLICIT_DEF)), vt:$rs1, vt:$rs2, MR0:$m0)>;
   }
 
+  // Multiclass for Floating Point Masked FMA Family
+  multiclass PatMaskedFMA<Instruction FMAdd, Instruction FMSub,
+                          Instruction FNMSub, Instruction FNMAdd, ValueType vt> {
+    // 1. FMADD: a * b + c
+    def : Pat<(vt (vselect v8i1:$m0, (fma vt:$rs1, vt:$rs2, vt:$rs3), vt:$passthru)),
+              (FMAdd vt:$passthru, vt:$rs1, vt:$rs2, vt:$rs3, 7, MR0:$m0)>;
+    def : Pat<(vt (vselect v8i1:$m0, (fma vt:$rs1, vt:$rs2, vt:$rs3), (undef))),
+              (FMAdd (vt (IMPLICIT_DEF)), vt:$rs1, vt:$rs2, vt:$rs3, 7, MR0:$m0)>;
+
+    // 2. FMSUB: a * b - c
+    def : Pat<(vt (vselect v8i1:$m0, (fma vt:$rs1, vt:$rs2, (fneg vt:$rs3)), vt:$passthru)),
+              (FMSub vt:$passthru, vt:$rs1, vt:$rs2, vt:$rs3, 7, MR0:$m0)>;
+    def : Pat<(vt (vselect v8i1:$m0, (fma vt:$rs1, vt:$rs2, (fneg vt:$rs3)), (undef))),
+              (FMSub (vt (IMPLICIT_DEF)), vt:$rs1, vt:$rs2, vt:$rs3, 7, MR0:$m0)>;
+
+    // 3. FNMSUB: -(a * b) + c  (i.e. -a * b + c)
+    def : Pat<(vt (vselect v8i1:$m0, (fma (fneg vt:$rs1), vt:$rs2, vt:$rs3), vt:$passthru)),
+              (FNMSub vt:$passthru, vt:$rs1, vt:$rs2, vt:$rs3, 7, MR0:$m0)>;
+    def : Pat<(vt (vselect v8i1:$m0, (fma (fneg vt:$rs1), vt:$rs2, vt:$rs3), (undef))),
+              (FNMSub (vt (IMPLICIT_DEF)), vt:$rs1, vt:$rs2, vt:$rs3, 7, MR0:$m0)>;
+
+    // 4. FNMADD: -(a * b) - c  (i.e. -a * b - c)
+    def : Pat<(vt (vselect v8i1:$m0, (fma (fneg vt:$rs1), vt:$rs2, (fneg vt:$rs3)), vt:$passthru)),
+              (FNMAdd vt:$passthru, vt:$rs1, vt:$rs2, vt:$rs3, 7, MR0:$m0)>;
+    def : Pat<(vt (vselect v8i1:$m0, (fma (fneg vt:$rs1), vt:$rs2, (fneg vt:$rs3)), (undef))),
+              (FNMAdd (vt (IMPLICIT_DEF)), vt:$rs1, vt:$rs2, vt:$rs3, 7, MR0:$m0)>;
+  }
+
   // Instantiate Float Masked Ops
   defm : PatMaskedBinaryPS<fadd, AIF_FADD_PS_PASSTHRU_EX, v8f32>;
   defm : PatMaskedBinaryPS<fsub, AIF_FSUB_PS_PASSTHRU_EX, v8f32>;
   defm : PatMaskedBinaryPS<fmul, AIF_FMUL_PS_PASSTHRU_EX, v8f32>;
   defm : PatMaskedBinaryPS<fdiv, AIF_FDIV_PS_PASSTHRU_EX, v8f32>;
-  //defm : PatMaskedBinaryPS<fma, AIF_FMADD_PS_PASSTHRU_EX, v8f32>;
+
+  // Instantiate Masked FMA Family for v8f32
+  defm : PatMaskedFMA<AIF_FMADD_PS_PASSTHRU_EX,
+                      AIF_FMSUB_PS_PASSTHRU_EX,
+                      AIF_FNMSUB_PS_PASSTHRU_EX,
+                      AIF_FNMADD_PS_PASSTHRU_EX,
+                      v8f32>;
 
   // Instantiate Integer Masked Ops
   defm : PatMaskedBinaryPI<add, AIF_FADD_PI_PASSTHRU_EX, v8i32>;
@@ -977,6 +1011,12 @@ let Predicates = [HasXAIFET] in {
             (AIF_FDIV_PS FPR256:$rs1, FPR256:$rs2, 7)>;
   def : Pat<(fma (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2), (v8f32 FPR256:$rs3)),
             (AIF_FMADD_PS FPR256:$rs1, FPR256:$rs2, FPR256:$rs3, 7)>;
+  def : Pat<(fma (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2), (fneg (v8f32 FPR256:$rs3))),
+            (AIF_FMSUB_PS FPR256:$rs1, FPR256:$rs2, FPR256:$rs3, 7)>;
+  def : Pat<(fma (fneg (v8f32 FPR256:$rs1)), (v8f32 FPR256:$rs2), (v8f32 FPR256:$rs3)),
+            (AIF_FNMSUB_PS FPR256:$rs1, FPR256:$rs2, FPR256:$rs3, 7)>;
+  def : Pat<(fma (fneg (v8f32 FPR256:$rs1)), (v8f32 FPR256:$rs2), (fneg (v8f32 FPR256:$rs3))),
+            (AIF_FNMADD_PS FPR256:$rs1, FPR256:$rs2, FPR256:$rs3, 7)>;
   
   // --- Integer Arithmetic & Logic (v8i32) ---
   def : Pat<(add (v8i32 FPR256:$rs1), (v8i32 FPR256:$rs2)),

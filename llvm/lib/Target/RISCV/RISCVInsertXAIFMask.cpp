@@ -47,6 +47,10 @@ static bool isUnmaskedXAIFVectorOp(const MachineInstr &MI) {
   case RISCV::AIF_FSUB_PS:
   case RISCV::AIF_FMUL_PS:
   case RISCV::AIF_FDIV_PS:
+  case RISCV::AIF_FMADD_PS:
+  case RISCV::AIF_FMSUB_PS:
+  case RISCV::AIF_FNMSUB_PS:
+  case RISCV::AIF_FNMADD_PS:
   case RISCV::AIF_FADD_PI:
   case RISCV::AIF_FSUB_PI:
   case RISCV::AIF_FMUL_PI:
