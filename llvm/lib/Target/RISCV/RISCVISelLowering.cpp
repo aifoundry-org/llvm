@@ -130,6 +130,7 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
       setOperationAction(ISD::EXTRACT_VECTOR_ELT, VT, Expand);
     }
     setOperationAction(ISD::FMA, MVT::v8f32, Legal);
+    setOperationAction(ISD::FCOPYSIGN, MVT::v8f32, Legal);
   }
 
   static const MVT::SimpleValueType BoolVecVTs[] = {

@@ -43,6 +43,9 @@ INITIALIZE_PASS(RISCVInsertXAIFMaskLegacy, DEBUG_TYPE, PASS_NAME, false, false)
 // Helper: Does this instruction require m0 to be all-ones?
 static bool isUnmaskedXAIFVectorOp(const MachineInstr &MI) {
   switch (MI.getOpcode()) {
+  case RISCV::AIF_FSGNJ_PS:
+  case RISCV::AIF_FSGNJN_PS:
+  case RISCV::AIF_FSGNJX_PS:
   case RISCV::AIF_FADD_PS:
   case RISCV::AIF_FSUB_PS:
   case RISCV::AIF_FMUL_PS:

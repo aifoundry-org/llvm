@@ -1001,6 +1001,14 @@ let Predicates = [HasXAIFET] in {
   
   // --- Floating Point Arithmetic (v8f32) ---
   // Note: 7 is the RISC-V constant for 'dyn' (dynamic rounding mode)
+  def : Pat<(fneg (v8f32 FPR256:$rs1)),
+            (AIF_FSGNJN_PS FPR256:$rs1, FPR256:$rs1)>;
+  def : Pat<(fabs (v8f32 FPR256:$rs1)),
+            (AIF_FSGNJX_PS FPR256:$rs1, FPR256:$rs1)>;
+  def : Pat<(fcopysign (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
+            (AIF_FSGNJ_PS FPR256:$rs1, FPR256:$rs2)>;
+  def : Pat<(fcopysign (v8f32 FPR256:$rs1), (fneg (v8f32 FPR256:$rs2))),
+            (AIF_FSGNJN_PS FPR256:$rs1, FPR256:$rs2)>;
   def : Pat<(fadd (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
             (AIF_FADD_PS FPR256:$rs1, FPR256:$rs2, 7)>;
   def : Pat<(fsub (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2)),
