@@ -1015,7 +1015,11 @@ let Predicates = [HasXAIFET] in {
             (AIF_FMSUB_PS FPR256:$rs1, FPR256:$rs2, FPR256:$rs3, 7)>;
   def : Pat<(fma (fneg (v8f32 FPR256:$rs1)), (v8f32 FPR256:$rs2), (v8f32 FPR256:$rs3)),
             (AIF_FNMSUB_PS FPR256:$rs1, FPR256:$rs2, FPR256:$rs3, 7)>;
+  def : Pat<(fneg (fma (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2), (fneg (v8f32 FPR256:$rs3)))),
+            (AIF_FNMSUB_PS FPR256:$rs1, FPR256:$rs2, FPR256:$rs3, 7)>;
   def : Pat<(fma (fneg (v8f32 FPR256:$rs1)), (v8f32 FPR256:$rs2), (fneg (v8f32 FPR256:$rs3))),
+            (AIF_FNMADD_PS FPR256:$rs1, FPR256:$rs2, FPR256:$rs3, 7)>;
+  def : Pat<(fneg (fma (v8f32 FPR256:$rs1), (v8f32 FPR256:$rs2), (v8f32 FPR256:$rs3))),
             (AIF_FNMADD_PS FPR256:$rs1, FPR256:$rs2, FPR256:$rs3, 7)>;
   
   // --- Integer Arithmetic & Logic (v8i32) ---
